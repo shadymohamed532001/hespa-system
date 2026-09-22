@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/network/api_endpoints.dart';
 import '../../core/utils/money_formatter.dart';
 import '../auth/session_controller.dart';
 import '../resources/simple_resource_page.dart';
@@ -12,7 +13,7 @@ class MachinesPage extends StatelessWidget {
     session: session,
     title: 'ماكينات شحن الرصيد',
     subtitle: 'متابعة كل ماكينة بصورة مستقلة',
-    endpoint: '/machines',
+    endpoint: ApiEndpoints.machines,
     columns: const [
       'الماكينة',
       'المبلغ المشحون',
@@ -29,7 +30,7 @@ class MachinesPage extends StatelessWidget {
       money(e['commissionBalance']),
       e['active'] == true ? 'نشط' : 'موقوف',
     ],
-    adminTopUpPath: (id) => '/machines/$id/load',
+    adminTopUpPath: ApiEndpoints.machineLoad,
     topUpLabel: 'شحن ماكينة',
     topUpNote: 'يزيد الرصيد المتاح للماكينة',
   );

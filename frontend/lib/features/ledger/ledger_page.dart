@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/data_card.dart';
 import '../../core/widgets/error_box.dart';
@@ -16,7 +17,7 @@ class LedgerPage extends StatelessWidget {
     session: session,
     title: 'سجل العمليات',
     subtitle: 'سجل مركزي غير مختلط بين أصل المبالغ والعمولات',
-    endpoint: '/ledger?limit=200',
+    endpoint: ApiEndpoints.ledgerList(limit: 200),
     columns: const [
       'التاريخ',
       'النوع',

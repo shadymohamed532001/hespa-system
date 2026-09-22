@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../auth/session_controller.dart';
@@ -61,7 +62,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   Future<void> _loadAccounts() async {
     try {
-      final accounts = await widget.session.api.list('/accounts');
+      final accounts = await widget.session.api.list(ApiEndpoints.accounts);
       if (!mounted) return;
       setState(() {
         _accounts = accounts.where((item) => item['active'] != false).toList();
@@ -122,7 +123,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     };
 
     try {
-      await widget.session.api.post('/collections/receive', request);
+      await widget.session.api.post(ApiEndpoints.receiveCollection, request);
       if (mounted) Navigator.of(context).pop(true);
     } catch (exception) {
       if (!mounted) return;

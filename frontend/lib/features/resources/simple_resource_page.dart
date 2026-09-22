@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/data_card.dart';
@@ -71,7 +72,7 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
         ? ErrorBox(message: error!, retry: load)
         : Column(
             children: [
-              if (widget.endpoint == '/wallets') ...[
+              if (widget.endpoint == ApiEndpoints.wallets) ...[
                 GridView.count(
                   crossAxisCount: 3,
                   shrinkWrap: true,

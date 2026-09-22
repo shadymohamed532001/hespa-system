@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 
+import 'api_endpoints.dart';
+
 class ApiClient {
   ApiClient({String? baseUrl})
     : dio = Dio(
@@ -39,7 +41,7 @@ class ApiClient {
 
   Future<Map<String, dynamic>> login(String username, String password) async {
     final response = await dio.post<Map<String, dynamic>>(
-      '/auth/login',
+      ApiEndpoints.login,
       data: {'username': username, 'password': password},
     );
 

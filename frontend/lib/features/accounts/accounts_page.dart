@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
@@ -30,7 +31,7 @@ class _AccountsPageState extends State<AccountsPage> {
   Future<void> load() async {
     try {
       data = await widget.session.api.list(
-        widget.session.isAdmin ? '/accounts?includeInactive=true' : '/accounts',
+        ApiEndpoints.accountsList(includeInactive: widget.session.isAdmin),
       );
       error = null;
     } catch (e) {
@@ -140,7 +141,7 @@ class _AccountsPageState extends State<AccountsPage> {
                           enabled: widget.session.isAdmin,
                           onChanged: (value) async {
                             await widget.session.api.patch(
-                              '/accounts/${e['id']}/status',
+                              ApiEndpoints.accountStatus('${e['id']}'),
                               {'active': value},
                             );
                             await load();
@@ -223,7 +224,7 @@ class _AccountsPageState extends State<AccountsPage> {
     );
     if (ok == true) {
       await _action(
-        () => widget.session.api.post('/accounts', {
+        () => widget.session.api.post(ApiEndpoints.accounts, {
           'name': name.text,
           'type': type,
           'openingBalance': num.tryParse(opening.text) ?? 0,
@@ -292,7 +293,7 @@ class _AccountsPageState extends State<AccountsPage> {
     );
     if (ok == true) {
       await _action(
-        () => widget.session.api.post('/accounts/$id/top-up', {
+        () => widget.session.api.post(ApiEndpoints.accountTopUp(id), {
           'amount': num.tryParse(amount.text) ?? 0,
           if (reference.text.isNotEmpty) 'reference': reference.text,
         }),
@@ -334,7 +335,8 @@ class _AccountsPageState extends State<AccountsPage> {
     );
     if (confirmed == true) {
       await _action(
-        () => widget.session.api.delete('/accounts/${account['id']}'),
+        () =>
+            widget.session.api.delete(ApiEndpoints.account('${account['id']}')),
       );
     }
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/network/api_endpoints.dart';
 import '../../core/utils/money_formatter.dart';
 import '../auth/session_controller.dart';
 import '../resources/simple_resource_page.dart';
@@ -12,7 +13,7 @@ class WalletsPage extends StatelessWidget {
     session: session,
     title: 'المحافظ وInstaPay',
     subtitle: 'الرصيد المتبقي يُرحّل، وحدود الشحن محسوبة تلقائيًا',
-    endpoint: '/wallets',
+    endpoint: ApiEndpoints.wallets,
     columns: const [
       'المحفظة',
       'النوع',
@@ -33,7 +34,7 @@ class WalletsPage extends StatelessWidget {
       '${money(e['monthlyTopUp'])} / 200,000',
       money(e['commissionBalance']),
     ],
-    adminTopUpPath: (id) => '/wallets/$id/top-up',
+    adminTopUpPath: ApiEndpoints.walletTopUp,
     topUpLabel: 'شحن محفظة',
     topUpNote: 'الحد اليومي 60,000 والشهري 200,000 ج.م',
   );

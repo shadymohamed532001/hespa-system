@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/error_box.dart';
@@ -51,12 +52,12 @@ class _DashboardPageState extends State<DashboardPage> {
 
     try {
       final values = await Future.wait([
-        widget.session.api.getMap('/treasury/summary'),
-        widget.session.api.list('/accounts'),
-        widget.session.api.list('/wallets'),
-        widget.session.api.list('/machines'),
-        widget.session.api.list('/collections'),
-        widget.session.api.list('/ledger?limit=6'),
+        widget.session.api.getMap(ApiEndpoints.treasurySummary),
+        widget.session.api.list(ApiEndpoints.accounts),
+        widget.session.api.list(ApiEndpoints.wallets),
+        widget.session.api.list(ApiEndpoints.machines),
+        widget.session.api.list(ApiEndpoints.collections),
+        widget.session.api.list(ApiEndpoints.ledgerList(limit: 6)),
       ]);
 
       treasury = values[0] as Map<String, dynamic>;

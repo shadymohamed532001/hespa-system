@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
@@ -30,8 +31,8 @@ class _CollectionsPageState extends State<CollectionsPage> {
   Future<void> load() async {
     try {
       final values = await Future.wait([
-        widget.session.api.list('/collections'),
-        widget.session.api.list('/accounts'),
+        widget.session.api.list(ApiEndpoints.collections),
+        widget.session.api.list(ApiEndpoints.accounts),
       ]);
       data = values[0];
       accounts = values[1];
@@ -162,7 +163,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
     if (ok == true) {
       try {
         await widget.session.api.post(
-          '/collections/${collection['id']}/execute',
+          ApiEndpoints.executeCollection('${collection['id']}'),
           {
             'accountId': accountId,
             'commission': num.tryParse(commission.text) ?? 0,
