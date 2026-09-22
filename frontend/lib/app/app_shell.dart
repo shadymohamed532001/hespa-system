@@ -9,6 +9,7 @@ import '../features/collections/collections_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/ledger/ledger_page.dart';
 import '../features/machines/machines_page.dart';
+import '../features/treasury/internal_transfer_page.dart';
 import '../features/treasury/treasury_page.dart';
 import '../features/wallets/wallets_page.dart';
 
@@ -33,7 +34,13 @@ class _AppShellState extends State<AppShell> {
         onOpenLedger: () => _selectLabel('سجل العمليات'),
       ),
     ),
-    _NavItem('الخزنة المركزية', () => TreasuryPage(session: widget.session)),
+    _NavItem(
+      'الخزنة المركزية',
+      () => TreasuryPage(
+        session: widget.session,
+        onOpenTransfer: () => _selectLabel('تحويل داخلي'),
+      ),
+    ),
     _NavItem('فوري والشركات', () => AccountsPage(session: widget.session)),
     if (widget.session.isAdmin)
       _NavItem('شحن حساب / محفظة', () => AccountsPage(session: widget.session)),
@@ -44,7 +51,10 @@ class _AppShellState extends State<AppShell> {
       () => CollectionsPage(session: widget.session),
     ),
     if (widget.session.isAdmin)
-      _NavItem('تحويل داخلي', () => TreasuryPage(session: widget.session)),
+      _NavItem(
+        'تحويل داخلي',
+        () => InternalTransferPage(session: widget.session),
+      ),
     _NavItem(
       'توريد وتسوية شركة',
       () => CollectionsPage(session: widget.session),

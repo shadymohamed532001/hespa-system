@@ -5,16 +5,20 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
-import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
 
 class TreasuryPage extends StatefulWidget {
-  const TreasuryPage({super.key, required this.session});
+  const TreasuryPage({
+    super.key,
+    required this.session,
+    required this.onOpenTransfer,
+  });
 
   final SessionController session;
+  final VoidCallback onOpenTransfer;
 
   @override
   State<TreasuryPage> createState() => _TreasuryPageState();
@@ -23,9 +27,6 @@ class TreasuryPage extends StatefulWidget {
 class _TreasuryPageState extends State<TreasuryPage> {
   Map<String, dynamic> summary = {};
   List<dynamic> ledger = [];
-  List<dynamic> accounts = [];
-  List<dynamic> wallets = [];
-  List<dynamic> machines = [];
   bool loading = true;
   String? error;
 
@@ -47,15 +48,9 @@ class _TreasuryPageState extends State<TreasuryPage> {
       final values = await Future.wait([
         widget.session.api.getMap(ApiEndpoints.treasurySummary),
         widget.session.api.list(ApiEndpoints.ledgerList(limit: 200)),
-        widget.session.api.list(ApiEndpoints.accounts),
-        widget.session.api.list(ApiEndpoints.wallets),
-        widget.session.api.list(ApiEndpoints.machines),
       ]);
       summary = values[0] as Map<String, dynamic>;
       ledger = values[1] as List<dynamic>;
-      accounts = values[2] as List<dynamic>;
-      wallets = values[3] as List<dynamic>;
-      machines = values[4] as List<dynamic>;
     } catch (exception) {
       error = ApiClient.errorMessage(exception);
     }
@@ -71,7 +66,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
       actions: widget.session.isAdmin
           ? [
               FilledButton(
-                onPressed: _showTransferDialog,
+                onPressed: widget.onOpenTransfer,
                 child: const Text('تحويل داخلي'),
               ),
             ]
@@ -110,236 +105,6 @@ class _TreasuryPageState extends State<TreasuryPage> {
           value.month == now.month &&
           value.day == now.day;
     }).toList();
-  }
-
-  List<_TransferOption> get _transferOptions => [
-    const _TransferOption(
-      value: 'treasury:',
-      type: 'treasury',
-      name: 'الخزنة المركزية',
-    ),
-    ...accounts
-        .where((item) => item['active'] != false)
-        .map(
-          (item) => _TransferOption(
-            value: 'account:${item['id']}',
-            type: 'account',
-            id: '${item['id']}',
-            name: '${item['name']}',
-          ),
-        ),
-    ...wallets
-        .where((item) => item['active'] != false)
-        .map(
-          (item) => _TransferOption(
-            value: 'wallet:${item['id']}',
-            type: 'wallet',
-            id: '${item['id']}',
-            name: '${item['name']}',
-          ),
-        ),
-    ...machines
-        .where((item) => item['active'] != false)
-        .map(
-          (item) => _TransferOption(
-            value: 'machine:${item['id']}',
-            type: 'machine',
-            id: '${item['id']}',
-            name: '${item['name']}',
-          ),
-        ),
-  ];
-
-  Future<void> _showTransferDialog() async {
-    final options = _transferOptions;
-    if (options.length < 2) {
-      showAppSnack(
-        context,
-        'أضف أصلًا تشغيليًا أولًا لإجراء التحويل',
-        error: true,
-      );
-      return;
-    }
-
-    String fromValue = options.first.value;
-    String toValue = options[1].value;
-    final amount = TextEditingController();
-    final reference = TextEditingController();
-    String? dialogError;
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      barrierColor: const Color(0x990B2430),
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          return AlertDialog(
-            title: const Text('تحويل داخلي'),
-            content: SizedBox(
-              width: 540,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'انقل مبلغًا بين الخزنة وأصول التشغيل دون تسجيله كمصروف أو خسارة.',
-                    style: TextStyle(color: HesbaColors.muted, height: 1.55),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: fromValue,
-                          isExpanded: true,
-                          decoration: const InputDecoration(labelText: 'من *'),
-                          items: options
-                              .map(
-                                (option) => DropdownMenuItem(
-                                  value: option.value,
-                                  child: Text(option.name),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) => setDialogState(() {
-                            fromValue = value ?? fromValue;
-                            dialogError = null;
-                          }),
-                        ),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        child: DropdownButtonFormField<String>(
-                          initialValue: toValue,
-                          isExpanded: true,
-                          decoration: const InputDecoration(labelText: 'إلى *'),
-                          items: options
-                              .map(
-                                (option) => DropdownMenuItem(
-                                  value: option.value,
-                                  child: Text(option.name),
-                                ),
-                              )
-                              .toList(),
-                          onChanged: (value) => setDialogState(() {
-                            toValue = value ?? toValue;
-                            dialogError = null;
-                          }),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: amount,
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                    ),
-                    textDirection: TextDirection.ltr,
-                    textAlign: TextAlign.left,
-                    decoration: const InputDecoration(labelText: 'المبلغ *'),
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: reference,
-                    decoration: const InputDecoration(
-                      labelText: 'مرجع / ملاحظة',
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEEF4F7),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Text.rich(
-                      TextSpan(
-                        children: [
-                          TextSpan(
-                            text: 'قاعدة محاسبية: ',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          TextSpan(
-                            text:
-                                'التحويل الداخلي حركة بين الأصول، وليس مصروفًا أو خسارة.',
-                          ),
-                        ],
-                      ),
-                      style: TextStyle(color: Color(0xFF425C6B)),
-                    ),
-                  ),
-                  if (dialogError != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      dialogError!,
-                      style: const TextStyle(color: HesbaColors.red),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            actions: [
-              OutlinedButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('إلغاء'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final value = num.tryParse(amount.text.trim());
-                  if (fromValue == toValue) {
-                    setDialogState(
-                      () => dialogError = 'المصدر والوجهة يجب أن يكونا مختلفين',
-                    );
-                    return;
-                  }
-                  if (value == null || value <= 0) {
-                    setDialogState(
-                      () => dialogError = 'أدخل مبلغًا صحيحًا للتحويل',
-                    );
-                    return;
-                  }
-                  Navigator.pop(dialogContext, true);
-                },
-                child: const Text('تنفيذ التحويل'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-
-    if (confirmed != true || !mounted) {
-      amount.dispose();
-      reference.dispose();
-      return;
-    }
-
-    final from = options.firstWhere((option) => option.value == fromValue);
-    final to = options.firstWhere((option) => option.value == toValue);
-    try {
-      await widget.session.api.post(ApiEndpoints.treasuryTransfer, {
-        'fromType': from.type,
-        if (from.id != null) 'fromId': from.id,
-        'toType': to.type,
-        if (to.id != null) 'toId': to.id,
-        'amount': num.parse(amount.text.trim()),
-        if (reference.text.trim().isNotEmpty)
-          'reference': reference.text.trim(),
-      });
-      await load();
-      if (mounted) showAppSnack(context, 'تم تنفيذ التحويل الداخلي');
-    } catch (exception) {
-      if (mounted) {
-        showAppSnack(context, ApiClient.errorMessage(exception), error: true);
-      }
-    } finally {
-      amount.dispose();
-      reference.dispose();
-    }
   }
 }
 
@@ -646,18 +411,4 @@ class _MovementBadge extends StatelessWidget {
       ),
     );
   }
-}
-
-class _TransferOption {
-  const _TransferOption({
-    required this.value,
-    required this.type,
-    required this.name,
-    this.id,
-  });
-
-  final String value;
-  final String type;
-  final String name;
-  final String? id;
 }
