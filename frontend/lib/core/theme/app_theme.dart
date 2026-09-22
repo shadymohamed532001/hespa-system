@@ -1,14 +1,19 @@
 import 'package:flutter/material.dart';
 
 class HesbaColors {
-  static const navy = Color(0xFF123445);
-  static const navyDark = Color(0xFF0C2938);
-  static const teal = Color(0xFF0D9284);
-  static const tealLight = Color(0xFFE2F3F0);
-  static const background = Color(0xFFF4F7F9);
-  static const border = Color(0xFFD9E3E9);
-  static const muted = Color(0xFF7E919F);
-  static const warning = Color(0xFFF2B84B);
+  static const navy = Color(0xFF102F3E);
+  static const navyDark = Color(0xFF173D4D);
+  static const ink = Color(0xFF1B3342);
+  static const teal = Color(0xFF0B8C7E);
+  static const tealDark = Color(0xFF08776B);
+  static const tealLight = Color(0xFFE5F4F1);
+  static const background = Color(0xFFEDF2F5);
+  static const soft = Color(0xFFF6F8FA);
+  static const border = Color(0xFFDCE5EA);
+  static const muted = Color(0xFF7A8C99);
+  static const warning = Color(0xFF9C6A1F);
+  static const warningLight = Color(0xFFFFF3D9);
+  static const red = Color(0xFFB95050);
 }
 
 ThemeData hesbaTheme() {
@@ -20,46 +25,47 @@ ThemeData hesbaTheme() {
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
-    scaffoldBackgroundColor: HesbaColors.background,
-    fontFamily: 'Cairo',
+    scaffoldBackgroundColor: HesbaColors.soft,
+    fontFamily: 'IBM Plex Sans Arabic',
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
-        fontSize: 36,
-        fontWeight: FontWeight.w800,
-        color: HesbaColors.navy,
+        fontSize: 38,
+        height: 1.25,
+        fontWeight: FontWeight.w700,
+        color: HesbaColors.ink,
       ),
       headlineMedium: TextStyle(
         fontSize: 28,
-        fontWeight: FontWeight.w800,
-        color: HesbaColors.navy,
+        fontWeight: FontWeight.w700,
+        color: HesbaColors.ink,
       ),
       titleLarge: TextStyle(
-        fontSize: 21,
-        fontWeight: FontWeight.w700,
-        color: HesbaColors.navy,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
+        color: HesbaColors.ink,
       ),
-      bodyLarge: TextStyle(fontSize: 16, height: 1.45, color: HesbaColors.navy),
+      bodyLarge: TextStyle(fontSize: 14, height: 1.55, color: HesbaColors.ink),
       bodyMedium: TextStyle(
-        fontSize: 14,
-        height: 1.45,
+        fontSize: 13,
+        height: 1.55,
         color: HesbaColors.muted,
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
       fillColor: Colors.white,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(9),
         borderSide: const BorderSide(color: HesbaColors.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(9),
         borderSide: const BorderSide(color: HesbaColors.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: HesbaColors.teal, width: 1.5),
+        borderRadius: BorderRadius.circular(9),
+        borderSide: const BorderSide(color: HesbaColors.teal),
       ),
     ),
     cardTheme: CardThemeData(
@@ -67,7 +73,7 @@ ThemeData hesbaTheme() {
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         side: const BorderSide(color: HesbaColors.border),
       ),
     ),
@@ -75,9 +81,18 @@ ThemeData hesbaTheme() {
       style: FilledButton.styleFrom(
         backgroundColor: HesbaColors.teal,
         foregroundColor: Colors.white,
-        minimumSize: const Size(130, 50),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(11)),
-        textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        minimumSize: const Size(130, 46),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: HesbaColors.ink,
+        minimumSize: const Size(110, 46),
+        side: const BorderSide(color: HesbaColors.border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
       ),
     ),
   );

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
+import '../core/theme/app_theme.dart';
 import '../features/accounts/accounts_page.dart';
 import '../features/admin/admin_page.dart';
 import '../features/auth/session_controller.dart';
@@ -10,10 +11,10 @@ import '../features/ledger/ledger_page.dart';
 import '../features/machines/machines_page.dart';
 import '../features/treasury/treasury_page.dart';
 import '../features/wallets/wallets_page.dart';
-import '../core/theme/app_theme.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.session});
+
   final SessionController session;
 
   @override
@@ -26,234 +27,319 @@ class _AppShellState extends State<AppShell> {
   late final items = <_NavItem>[
     _NavItem(
       'لوحة المتابعة',
-      Icons.dashboard_outlined,
-      () => DashboardPage(session: widget.session),
+      () => DashboardPage(
+        session: widget.session,
+        onOpenCollections: () => _selectLabel('تحصيلات المندوبين / Hold'),
+        onOpenLedger: () => _selectLabel('سجل العمليات'),
+      ),
     ),
+    _NavItem('الخزنة المركزية', () => TreasuryPage(session: widget.session)),
+    _NavItem('فوري والشركات', () => AccountsPage(session: widget.session)),
+    if (widget.session.isAdmin)
+      _NavItem('شحن حساب / محفظة', () => AccountsPage(session: widget.session)),
+    _NavItem('المحافظ وInstaPay', () => WalletsPage(session: widget.session)),
+    _NavItem('ماكينات شحن الرصيد', () => MachinesPage(session: widget.session)),
     _NavItem(
-      'الخزنة المركزية',
-      Icons.account_balance_outlined,
-      () => TreasuryPage(session: widget.session),
-    ),
-    _NavItem(
-      'فوري والشركات',
-      Icons.credit_card_outlined,
-      () => AccountsPage(session: widget.session),
-    ),
-    _NavItem(
-      'المحافظ وInstaPay',
-      Icons.wallet_outlined,
-      () => WalletsPage(session: widget.session),
-    ),
-    _NavItem(
-      'ماكينات شحن الرصيد',
-      Icons.point_of_sale_outlined,
-      () => MachinesPage(session: widget.session),
-    ),
-    _NavItem(
-      'التحصيل والمعلّقات',
-      Icons.pending_actions_outlined,
+      'تحصيلات المندوبين / Hold',
       () => CollectionsPage(session: widget.session),
     ),
+    if (widget.session.isAdmin)
+      _NavItem('تحويل داخلي', () => TreasuryPage(session: widget.session)),
     _NavItem(
-      'سجل العمليات',
-      Icons.receipt_long_outlined,
-      () => LedgerPage(session: widget.session),
+      'توريد وتسوية شركة',
+      () => CollectionsPage(session: widget.session),
     ),
+    _NavItem('سجل العمليات', () => LedgerPage(session: widget.session)),
     if (widget.session.isAdmin)
       _NavItem(
-        'الإدارة والصلاحيات',
-        Icons.admin_panel_settings_outlined,
+        'المستخدمون والصلاحيات',
         () => AdminPage(session: widget.session),
       ),
   ];
+
+  void _selectPage(int index) {
+    if (index < 0 || index >= items.length) return;
+    setState(() => selected = index);
+  }
+
+  void _selectLabel(String label) {
+    final index = items.indexWhere((item) => item.label == label);
+    _selectPage(index);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
-        body: Row(
-          children: [
-            SizedBox(
-              width: 260,
-              child: ColoredBox(
-                color: HesbaColors.navy,
-                child: SafeArea(
-                  child: Column(
-                    children: [
-                      const Padding(
-                        padding: EdgeInsets.fromLTRB(24, 28, 24, 22),
-                        child: Column(
-                          children: [
-                            Text(
-                              'حِسبة',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 38,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            SizedBox(height: 2),
-                            Text(
-                              'إدارة التحصيل والمدفوعات',
-                              style: TextStyle(
-                                color: Color(0xFFA8BBC5),
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Divider(
-                        color: Color(0xFF2A4A59),
-                        indent: 22,
-                        endIndent: 22,
-                      ),
-                      Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          itemCount: items.length,
-                          itemBuilder: (context, index) {
-                            final item = items[index];
-                            final active = index == selected;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 5),
-                              child: ListTile(
-                                selected: active,
-                                selectedTileColor: HesbaColors.teal,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                leading: Icon(
-                                  item.icon,
-                                  color: active
-                                      ? Colors.white
-                                      : const Color(0xFFAFC0C9),
-                                  size: 22,
-                                ),
-                                title: Text(
-                                  item.label,
-                                  style: TextStyle(
-                                    color: active
-                                        ? Colors.white
-                                        : const Color(0xFFC4D0D6),
-                                    fontWeight: active
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                onTap: () => setState(() => selected = index),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      Container(
-                        margin: const EdgeInsets.all(16),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1B4254),
-                          borderRadius: BorderRadius.circular(13),
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              backgroundColor: HesbaColors.teal,
-                              foregroundColor: Colors.white,
-                              child: Text(
-                                widget.session.username![0].toUpperCase(),
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    widget.session.username!,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  Text(
-                                    widget.session.isAdmin
-                                        ? 'مدير النظام'
-                                        : 'مستخدم المحل',
-                                    style: const TextStyle(
-                                      color: Color(0xFFAFC0C9),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            IconButton(
-                              onPressed: widget.session.logout,
-                              tooltip: 'تسجيل الخروج',
-                              icon: const Icon(
-                                Icons.logout_rounded,
-                                color: Colors.white70,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final sidebarWidth = constraints.maxWidth <= 1180 ? 245.0 : 300.0;
+
+            return Row(
+              children: [
+                SizedBox(
+                  width: sidebarWidth,
+                  child: _Sidebar(
+                    session: widget.session,
+                    items: items,
+                    selected: selected,
+                    onSelected: _selectPage,
                   ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    height: 84,
-                    color: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 36),
-                    child: Row(
+                Expanded(
+                  child: ColoredBox(
+                    color: HesbaColors.soft,
+                    child: Column(
                       children: [
-                        const Text(
-                          'الفرع الرئيسي  /  الإدارة المالية',
-                          style: TextStyle(
-                            color: HesbaColors.navy,
-                            fontWeight: FontWeight.w700,
+                        _ContextBar(session: widget.session),
+                        Expanded(
+                          child: KeyedSubtree(
+                            key: ValueKey(selected),
+                            child: items[selected].builder(),
                           ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          DateFormat(
-                            'EEEE، d MMMM yyyy',
-                            'ar',
-                          ).format(DateTime.now()),
-                          style: const TextStyle(color: HesbaColors.muted),
                         ),
                       ],
                     ),
                   ),
-                  Expanded(
-                    child: KeyedSubtree(
-                      key: ValueKey(selected),
-                      child: items[selected].builder(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
+                ),
+              ],
+            );
+          },
         ),
       ),
     );
   }
 }
 
-class _NavItem {
-  const _NavItem(this.label, this.icon, this.builder);
+class _Sidebar extends StatelessWidget {
+  const _Sidebar({
+    required this.session,
+    required this.items,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final SessionController session;
+  final List<_NavItem> items;
+  final int selected;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: HesbaColors.navy,
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 34, 22, 25),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(8, 0, 8, 23),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'حِسبة',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 35,
+                        height: 1.15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      'إدارة التحصيل والمدفوعات',
+                      style: TextStyle(
+                        color: Color(0x91FFFFFF),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Color(0x1AFFFFFF)),
+              const SizedBox(height: 21),
+              Expanded(
+                child: ListView.separated(
+                  padding: EdgeInsets.zero,
+                  itemCount: items.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 5),
+                  itemBuilder: (context, index) => _NavigationItem(
+                    label: items[index].label,
+                    active: index == selected,
+                    onTap: () => onSelected(index),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              _UserCard(session: session),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavigationItem extends StatelessWidget {
+  const _NavigationItem({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
   final String label;
-  final IconData icon;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: active ? HesbaColors.teal : Colors.transparent,
+      borderRadius: BorderRadius.circular(9),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(9),
+        child: SizedBox(
+          height: 45,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 15),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: active ? Colors.white : const Color(0x96FFFFFF),
+                  fontSize: 14,
+                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _UserCard extends StatelessWidget {
+  const _UserCard({required this.session});
+
+  final SessionController session;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = session.isAdmin ? 'أدمن' : 'موظف محل';
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0x12FFFFFF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            'المستخدم الحالي',
+            style: TextStyle(color: Color(0x9EFFFFFF), fontSize: 11),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            '${session.username ?? '—'} — $role',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            session.isAdmin
+                ? 'صلاحيات كاملة لإدارة النظام'
+                : 'صلاحيات التشغيل اليومية',
+            style: const TextStyle(color: Color(0x7AFFFFFF), fontSize: 10),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 40,
+            child: OutlinedButton(
+              onPressed: session.logout,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xB8FFFFFF),
+                side: const BorderSide(color: Color(0x29FFFFFF)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text(
+                'تسجيل الخروج',
+                style: TextStyle(fontWeight: FontWeight.w500),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ContextBar extends StatelessWidget {
+  const _ContextBar({required this.session});
+
+  final SessionController session;
+
+  @override
+  Widget build(BuildContext context) {
+    final role = session.isAdmin ? 'مدير النظام' : 'موظف المحل';
+
+    return Container(
+      height: 92,
+      padding: const EdgeInsets.symmetric(horizontal: 42),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE9EEF2))),
+      ),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'الفرع الرئيسي  /  الإدارة المالية',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                color: HesbaColors.ink,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              DateFormat('EEEE، d MMMM y', 'ar').format(DateTime.now()),
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: HesbaColors.muted, fontSize: 13),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '${session.username ?? '—'}  ·  $role',
+              textAlign: TextAlign.left,
+              style: const TextStyle(color: HesbaColors.muted, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavItem {
+  const _NavItem(this.label, this.builder);
+
+  final String label;
   final Widget Function() builder;
 }

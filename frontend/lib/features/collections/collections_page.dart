@@ -8,6 +8,7 @@ import '../../core/widgets/data_card.dart';
 import '../../core/widgets/error_box.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
+import 'receive_collection_dialog.dart';
 
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({super.key, required this.session});
@@ -46,11 +47,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
     title: 'التحصيل والمعلّقات',
     subtitle: 'استلام المندوب يمكن تنفيذه فورًا أو حفظه كمعلّق',
     actions: [
-      FilledButton.icon(
-        onPressed: _receive,
-        icon: const Icon(Icons.add),
-        label: const Text('استلام كاش'),
-      ),
+      FilledButton(onPressed: _receive, child: const Text('استلام من مندوب')),
     ],
     child: loading
         ? const Center(child: CircularProgressIndicator())
@@ -96,134 +93,13 @@ class _CollectionsPageState extends State<CollectionsPage> {
   );
 
   Future<void> _receive() async {
-    final agent = TextEditingController();
-    final company = TextEditingController();
-    final amount = TextEditingController();
-    final commission = TextEditingController(text: '0');
-    String mode = 'hold';
-    String? accountId;
-    final ok = await showDialog<bool>(
+    final saved = await showReceiveCollectionDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('استلام كاش من مندوب'),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: agent,
-                          decoration: const InputDecoration(
-                            labelText: 'المندوب',
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: company,
-                          decoration: const InputDecoration(
-                            labelText: 'الشركة',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  TextField(
-                    controller: amount,
-                    keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(labelText: 'المبلغ'),
-                  ),
-                  const SizedBox(height: 14),
-                  DropdownButtonFormField(
-                    initialValue: mode,
-                    decoration: const InputDecoration(
-                      labelText: 'طريقة التنفيذ',
-                    ),
-                    items: const [
-                      DropdownMenuItem(
-                        value: 'hold',
-                        child: Text('حفظ كمعلّق وتنفيذه لاحقًا'),
-                      ),
-                      DropdownMenuItem(
-                        value: 'immediate',
-                        child: Text('تنفيذ فوري الآن'),
-                      ),
-                    ],
-                    onChanged: (v) => setLocal(() {
-                      mode = v!;
-                      accountId = null;
-                    }),
-                  ),
-                  if (mode == 'immediate') ...[
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      initialValue: accountId,
-                      decoration: const InputDecoration(
-                        labelText: 'الحساب المستخدم',
-                      ),
-                      items: accounts
-                          .map<DropdownMenuItem<String>>(
-                            (e) => DropdownMenuItem(
-                              value: e['id'],
-                              child: Text(
-                                '${e['name']} — ${money(e['balance'])}',
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (v) => setLocal(() => accountId = v),
-                    ),
-                    const SizedBox(height: 14),
-                    TextField(
-                      controller: commission,
-                      keyboardType: TextInputType.number,
-                      decoration: const InputDecoration(labelText: 'العمولة'),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: mode == 'immediate' && accountId == null
-                  ? null
-                  : () => Navigator.pop(ctx, true),
-              child: Text(mode == 'hold' ? 'تسجيل كمعلّق' : 'تنفيذ فورًا'),
-            ),
-          ],
-        ),
-      ),
+      session: widget.session,
     );
-    if (ok == true) {
-      try {
-        final request = <String, dynamic>{
-          'agentName': agent.text,
-          'companyName': company.text,
-          'amount': num.tryParse(amount.text) ?? 0,
-          'executionMode': mode,
-          'commission': num.tryParse(commission.text) ?? 0,
-        };
-        if (accountId != null) request['accountId'] = accountId;
-        await widget.session.api.post('/collections/receive', request);
-        await load();
-        if (mounted) showAppSnack(context, 'تم تسجيل التحصيل');
-      } catch (e) {
-        if (mounted) {
-          showAppSnack(context, ApiClient.errorMessage(e), error: true);
-        }
-      }
+    if (saved) {
+      await load();
+      if (mounted) showAppSnack(context, 'تم تسجيل التحصيل');
     }
   }
 

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import 'session_controller.dart';
 import '../../core/theme/app_theme.dart';
+import 'session_controller.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.session});
+
   final SessionController session;
 
   @override
@@ -12,9 +13,8 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final username = TextEditingController(text: 'demo');
-  final password = TextEditingController(text: 'demo');
-  bool hidden = true;
+  final username = TextEditingController();
+  final password = TextEditingController();
 
   @override
   void dispose() {
@@ -27,194 +27,381 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) => Row(
-          children: [
-            if (constraints.maxWidth >= 1000)
-              Expanded(
-                flex: 5,
-                child: Container(
-                  color: HesbaColors.navy,
-                  padding: const EdgeInsets.all(54),
-                  child: SingleChildScrollView(
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        body: DecoratedBox(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFFE9F0F3), Color(0xFFF7F9FA), Color(0xFFE6EFEF)],
+              stops: [0, 0.55, 1],
+            ),
+          ),
+          child: SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 32,
+                  vertical: 28,
+                ),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 470),
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: HesbaColors.border),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x29102F3E),
+                          blurRadius: 80,
+                          offset: Offset(0, 28),
+                        ),
+                      ],
+                    ),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 72,
-                          height: 72,
-                          decoration: BoxDecoration(
-                            color: HesbaColors.teal,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: const Icon(
-                            Icons.account_balance_wallet_rounded,
-                            color: Colors.white,
-                            size: 36,
-                          ),
-                        ),
-                        const SizedBox(height: 30),
-                        const Text(
-                          'حِسبة',
-                          style: TextStyle(
-                            fontSize: 54,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        const Text(
-                          'إدارة التحصيل والمدفوعات',
-                          style: TextStyle(
-                            fontSize: 22,
-                            color: Color(0xFFB7C8D0),
-                          ),
-                        ),
-                        const SizedBox(height: 48),
-                        _feature(
-                          Icons.verified_user_outlined,
-                          'صلاحيات منفصلة للمدير والمستخدم',
-                        ),
-                        _feature(
-                          Icons.sync_alt_rounded,
-                          'متابعة الخزنة والحسابات لحظيًا',
-                        ),
-                        _feature(
-                          Icons.receipt_long_outlined,
-                          'سجل واضح لكل حركة وعمولة',
+                        const _LoginHeader(),
+                        _LoginForm(
+                          session: widget.session,
+                          username: username,
+                          password: password,
+                          onSubmit: submit,
                         ),
                       ],
                     ),
                   ),
                 ),
               ),
-            Expanded(
-              flex: 6,
-              child: Center(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(48),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 460),
-                    child: AnimatedBuilder(
-                      animation: widget.session,
-                      builder: (context, _) => Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'تسجيل الدخول',
-                            style: Theme.of(context).textTheme.headlineLarge,
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'أدخل بيانات الحساب للوصول إلى النظام',
-                            style: Theme.of(context).textTheme.bodyLarge
-                                ?.copyWith(color: HesbaColors.muted),
-                          ),
-                          const SizedBox(height: 34),
-                          const Text(
-                            'اسم المستخدم',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: username,
-                            textInputAction: TextInputAction.next,
-                            decoration: const InputDecoration(
-                              prefixIcon: Icon(Icons.person_outline),
-                              hintText: 'اسم المستخدم',
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-                          const Text(
-                            'كلمة المرور',
-                            style: TextStyle(fontWeight: FontWeight.w700),
-                          ),
-                          const SizedBox(height: 8),
-                          TextField(
-                            controller: password,
-                            obscureText: hidden,
-                            onSubmitted: (_) => submit(),
-                            decoration: InputDecoration(
-                              prefixIcon: const Icon(Icons.lock_outline),
-                              hintText: 'كلمة المرور',
-                              suffixIcon: IconButton(
-                                onPressed: () =>
-                                    setState(() => hidden = !hidden),
-                                icon: Icon(
-                                  hidden
-                                      ? Icons.visibility_outlined
-                                      : Icons.visibility_off_outlined,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (widget.session.error != null) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFFFEEEE),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                widget.session.error!,
-                                style: const TextStyle(
-                                  color: Color(0xFFB42318),
-                                ),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 26),
-                          FilledButton(
-                            onPressed: widget.session.busy ? null : submit,
-                            child: widget.session.busy
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('دخول إلى حِسبة'),
-                          ),
-                          const SizedBox(height: 22),
-                          const Text(
-                            'للتجربة: المدير demo / demo — المستخدم shix / shix',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: HesbaColors.muted,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ],
-                      ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoginHeader extends StatelessWidget {
+  const _LoginHeader();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      height: 134,
+      color: HesbaColors.navy,
+      padding: const EdgeInsets.symmetric(horizontal: 32),
+      alignment: Alignment.centerRight,
+      child: const Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'حِسبة',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 34,
+              height: 1.2,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            'إدارة التحصيل والمدفوعات',
+            style: TextStyle(
+              color: Color(0xFF9FB1BB),
+              fontSize: 14,
+              fontWeight: FontWeight.w400,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoginForm extends StatelessWidget {
+  const _LoginForm({
+    required this.session,
+    required this.username,
+    required this.password,
+    required this.onSubmit,
+  });
+
+  final SessionController session;
+  final TextEditingController username;
+  final TextEditingController password;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
+      child: AnimatedBuilder(
+        animation: session,
+        builder: (context, _) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'تسجيل الدخول',
+                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                  fontSize: 27,
+                  height: 1.35,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 5),
+              const Text(
+                'أدخل اسم المستخدم وكلمة المرور للمتابعة.',
+                style: TextStyle(
+                  color: HesbaColors.muted,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+              const SizedBox(height: 23),
+              const _FieldLabel('اسم المستخدم'),
+              const SizedBox(height: 8),
+              _LoginTextField(
+                controller: username,
+                autofocus: true,
+                textInputAction: TextInputAction.next,
+                autofillHints: const [AutofillHints.username],
+              ),
+              const SizedBox(height: 17),
+              const _FieldLabel('كلمة المرور'),
+              const SizedBox(height: 8),
+              _LoginTextField(
+                controller: password,
+                obscureText: true,
+                textInputAction: TextInputAction.done,
+                autofillHints: const [AutofillHints.password],
+                onSubmitted: (_) => onSubmit(),
+              ),
+              if (session.error != null) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFEEEE),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    session.error!,
+                    style: const TextStyle(
+                      color: Color(0xFFB42318),
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
+              ],
+              const SizedBox(height: 22),
+              SizedBox(
+                height: 52,
+                child: FilledButton(
+                  onPressed: session.busy ? null : onSubmit,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: HesbaColors.teal,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                  ),
+                  child: session.busy
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'دخول إلى النظام',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 19),
+              const _DemoAccounts(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        color: HesbaColors.ink,
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+  }
+}
+
+class _LoginTextField extends StatefulWidget {
+  const _LoginTextField({
+    required this.controller,
+    this.autofocus = false,
+    this.obscureText = false,
+    this.textInputAction,
+    this.autofillHints,
+    this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final bool autofocus;
+  final bool obscureText;
+  final TextInputAction? textInputAction;
+  final Iterable<String>? autofillHints;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  State<_LoginTextField> createState() => _LoginTextFieldState();
+}
+
+class _LoginTextFieldState extends State<_LoginTextField> {
+  final focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    focusNode.addListener(_handleFocus);
+  }
+
+  void _handleFocus() => setState(() {});
+
+  @override
+  void dispose() {
+    focusNode
+      ..removeListener(_handleFocus)
+      ..dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = focusNode.hasFocus;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 160),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: focused
+            ? const [
+                BoxShadow(
+                  color: Color(0x330B8C7E),
+                  blurRadius: 0,
+                  spreadRadius: 4,
+                ),
+              ]
+            : const [],
+      ),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: focusNode,
+        autofocus: widget.autofocus,
+        obscureText: widget.obscureText,
+        textInputAction: widget.textInputAction,
+        autofillHints: widget.autofillHints,
+        onSubmitted: widget.onSubmitted,
+        style: const TextStyle(
+          color: HesbaColors.navy,
+          fontSize: 14,
+          fontWeight: FontWeight.w400,
+        ),
+        decoration: InputDecoration(
+          filled: true,
+          fillColor: Colors.white,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 14,
+          ),
+          border: _border(HesbaColors.border),
+          enabledBorder: _border(const Color(0xFFD5E0E5)),
+          focusedBorder: _border(HesbaColors.teal),
         ),
       ),
     );
   }
 
-  Widget _feature(IconData icon, String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 18),
-    child: Row(
-      children: [
-        Icon(icon, color: const Color(0xFF8ED3CA)),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+  OutlineInputBorder _border(Color color, {double width = 1}) {
+    return OutlineInputBorder(
+      borderRadius: BorderRadius.circular(11),
+      borderSide: BorderSide(color: color, width: width),
+    );
+  }
+}
+
+class _DemoAccounts extends StatelessWidget {
+  const _DemoAccounts();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F9FA),
+        borderRadius: BorderRadius.circular(11),
+      ),
+      child: const Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'حسابات النسخة التجريبية',
+              style: TextStyle(
+                color: HesbaColors.navy,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+          SizedBox(height: 2),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'الأدمن: demo / demo',
+              style: TextStyle(
+                color: HesbaColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'موظف المحل: shix / shix',
+              style: TextStyle(
+                color: HesbaColors.muted,
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
