@@ -281,9 +281,11 @@ ThemeData hesbaTheme() {
     seedColor: HesbaColors.teal,
     primary: HesbaColors.teal,
     surface: Colors.white,
+    brightness: Brightness.light,
   );
   return ThemeData(
     useMaterial3: true,
+    brightness: Brightness.light,
     colorScheme: scheme,
     scaffoldBackgroundColor: HesbaColors.soft,
     fontFamily: HesbaText.family,
@@ -353,6 +355,121 @@ ThemeData hesbaTheme() {
     dataTableTheme: const DataTableThemeData(
       headingTextStyle: HesbaText.tableHeader,
       dataTextStyle: HesbaText.tableCell,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.white,
+      foregroundColor: HesbaColors.ink,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+    ),
+    dividerColor: const Color(0xFFE9EEF2),
+  );
+}
+
+ThemeData hesbaDarkTheme() {
+  const surface = Color(0xFF152833);
+  const soft = Color(0xFF0F1F28);
+  const border = Color(0xFF2A4050);
+  const ink = Color(0xFFE6EEF2);
+  const muted = Color(0xFF9AADB8);
+
+  final scheme = ColorScheme.fromSeed(
+    seedColor: HesbaColors.teal,
+    primary: HesbaColors.teal,
+    surface: surface,
+    brightness: Brightness.dark,
+  );
+
+  return ThemeData(
+    useMaterial3: true,
+    brightness: Brightness.dark,
+    colorScheme: scheme.copyWith(
+      surface: surface,
+      onSurface: ink,
+      outline: border,
+    ),
+    scaffoldBackgroundColor: soft,
+    fontFamily: HesbaText.family,
+    textTheme: TextTheme(
+      headlineLarge: HesbaText.pageTitle.copyWith(color: ink),
+      headlineMedium: HesbaText.loginTitle.copyWith(color: ink),
+      headlineSmall: HesbaText.modalTitle.copyWith(color: ink),
+      titleLarge: HesbaText.sectionTitle.copyWith(color: ink),
+      titleMedium: HesbaText.contextStrong.copyWith(color: ink),
+      titleSmall: HesbaText.fieldLabel.copyWith(color: muted),
+      bodyLarge: HesbaText.body.copyWith(color: ink),
+      bodyMedium: HesbaText.bodyMuted.copyWith(color: muted),
+      bodySmall: HesbaText.help.copyWith(color: muted),
+      labelLarge: HesbaText.button.copyWith(color: ink),
+      labelMedium: HesbaText.tableHeader.copyWith(color: muted),
+      labelSmall: HesbaText.badge.copyWith(color: muted),
+    ),
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: const Color(0xFF1B3140),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+      labelStyle: HesbaText.fieldLabel.copyWith(color: muted),
+      hintStyle: HesbaText.help.copyWith(color: muted),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(9),
+        borderSide: const BorderSide(color: border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(9),
+        borderSide: const BorderSide(color: border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(9),
+        borderSide: const BorderSide(color: HesbaColors.teal),
+      ),
+    ),
+    cardTheme: CardThemeData(
+      color: surface,
+      elevation: 0,
+      margin: EdgeInsets.zero,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: const BorderSide(color: border),
+      ),
+    ),
+    filledButtonTheme: FilledButtonThemeData(
+      style: FilledButton.styleFrom(
+        backgroundColor: HesbaColors.teal,
+        foregroundColor: Colors.white,
+        minimumSize: const Size(130, 46),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        textStyle: HesbaText.button.copyWith(color: Colors.white),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: ink,
+        minimumSize: const Size(110, 46),
+        side: const BorderSide(color: border),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
+        textStyle: HesbaText.button.copyWith(color: ink),
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: HesbaColors.teal,
+        textStyle: HesbaText.button,
+      ),
+    ),
+    dataTableTheme: DataTableThemeData(
+      headingTextStyle: HesbaText.tableHeader.copyWith(color: muted),
+      dataTextStyle: HesbaText.tableCell.copyWith(color: ink),
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: surface,
+      foregroundColor: ink,
+      elevation: 0,
+      surfaceTintColor: Colors.transparent,
+    ),
+    dividerColor: border,
+    dialogTheme: DialogThemeData(
+      backgroundColor: surface,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
     ),
   );
 }

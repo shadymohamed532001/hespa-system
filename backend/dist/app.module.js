@@ -7,6 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
@@ -15,8 +16,10 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
+import { SecurityModule } from './common/security.module.js';
+import { validateConfig } from './config/validate-config.js';
 import { CollectionsModule } from './collections/collections.module.js';
-import { AppNotification, Collection, FinancialAccount, InventoryProduct, InventorySale, InventoryTreasury, LedgerEntry, Machine, Treasury, User, Wallet, } from './database/entities/index.js';
+import { AppNotification, AuditEvent, Collection, FinancialAccount, InventoryProduct, InventorySale, InventoryTreasury, IdempotencyRecord, LedgerEntry, Machine, Treasury, User, Wallet, } from './database/entities/index.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { MachinesModule } from './machines/machines.module.js';
@@ -30,7 +33,15 @@ let AppModule = class AppModule {
 AppModule = __decorate([
     Module({
         imports: [
-            ConfigModule.forRoot({ isGlobal: true }),
+            ConfigModule.forRoot({ isGlobal: true, validate: validateConfig }),
+            ThrottlerModule.forRoot([
+                {
+                    name: 'default',
+                    ttl: 60_000,
+                    limit: 120,
+                    blockDuration: 60_000,
+                },
+            ]),
             TypeOrmModule.forRootAsync({
                 inject: [ConfigService],
                 useFactory: (config) => ({
@@ -52,8 +63,11 @@ AppModule = __decorate([
                         InventoryProduct,
                         InventorySale,
                         InventoryTreasury,
+                        IdempotencyRecord,
+                        AuditEvent,
                     ],
-                    synchronize: config.get('DB_SYNC', 'true') === 'true',
+                    synchronize: config.get('NODE_ENV', 'development') !== 'production' &&
+                        config.get('DB_SYNC', 'true') === 'true',
                 }),
             }),
             AuthModule,
@@ -67,10 +81,12 @@ AppModule = __decorate([
             NotificationsModule,
             InventoryModule,
             ReportsModule,
+            SecurityModule,
         ],
         controllers: [AppController],
         providers: [
             AppService,
+            { provide: APP_GUARD, useClass: ThrottlerGuard },
             { provide: APP_GUARD, useClass: JwtAuthGuard },
             { provide: APP_GUARD, useClass: RolesGuard },
             { provide: APP_GUARD, useClass: PermissionsGuard },

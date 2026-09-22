@@ -8,7 +8,6 @@ import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/error_box.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/metric_card.dart';
-import '../../core/widgets/notifications_bell.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
 import '../collections/receive_collection_dialog.dart';
@@ -80,7 +79,6 @@ class _DashboardPageState extends State<DashboardPage> {
       title: 'لوحة المتابعة',
       subtitle: 'ملخص الأرصدة والحركات الحالية',
       actions: [
-        NotificationsBell(session: widget.session),
         FilledButton(onPressed: _receive, child: const Text('استلام من مندوب')),
       ],
       child: loading

@@ -46,6 +46,10 @@ export class User {
   @Column({ default: true })
   active: boolean;
 
+  /** Incremented whenever credentials, role, permissions, or status change. */
+  @Column({ name: 'token_version', type: 'int', default: 0 })
+  tokenVersion: number;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

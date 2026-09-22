@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AccountType, LedgerCategory } from '../database/enums.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 
 export const FAWRY_MAX_BALANCE = 5_000_000;
 
@@ -15,9 +17,11 @@ export class AccountsService implements OnModuleInit {
     @InjectRepository(FinancialAccount) private readonly accounts: Repository<FinancialAccount>,
     @InjectRepository(LedgerEntry) private readonly ledger: Repository<LedgerEntry>,
     private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
+    if (!shouldSeedDemoData(this.config)) return;
     if (await this.accounts.count()) return;
     await this.accounts.save([
       this.accounts.create({ name: 'حساب فوري 01', type: AccountType.FAWRY, openingBalance: 82400, balance: 82400 }),
@@ -120,4 +124,3 @@ export class AccountsService implements OnModuleInit {
     };
   }
 }
-

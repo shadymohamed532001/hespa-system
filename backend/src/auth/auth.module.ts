@@ -18,7 +18,11 @@ import { JwtStrategy } from './jwt.strategy.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.getOrThrow<string>('JWT_SECRET'),
-        signOptions: { expiresIn: '8h' },
+        signOptions: {
+          expiresIn: config.get('JWT_EXPIRES_IN', '30m'),
+          issuer: config.get('JWT_ISSUER', 'hesba-api'),
+          audience: config.get('JWT_AUDIENCE', 'hesba-desktop'),
+        },
       }),
     }),
   ],

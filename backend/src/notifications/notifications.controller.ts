@@ -1,7 +1,10 @@
 import { Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 import { NotificationsService } from './notifications.service.js';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { AppPermission } from '../database/enums.js';
 
 @Controller('notifications')
+@RequirePermissions(AppPermission.VIEW_BALANCES)
 export class NotificationsController {
   constructor(private readonly notifications: NotificationsService) {}
 

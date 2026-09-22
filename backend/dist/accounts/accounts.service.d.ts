@@ -1,4 +1,5 @@
 import { OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
@@ -9,7 +10,8 @@ export declare class AccountsService implements OnModuleInit {
     private readonly accounts;
     private readonly ledger;
     private readonly dataSource;
-    constructor(accounts: Repository<FinancialAccount>, ledger: Repository<LedgerEntry>, dataSource: DataSource);
+    private readonly config;
+    constructor(accounts: Repository<FinancialAccount>, ledger: Repository<LedgerEntry>, dataSource: DataSource, config: ConfigService);
     onModuleInit(): Promise<void>;
     findAll(includeInactive?: boolean): Promise<FinancialAccount[]>;
     create(dto: CreateAccountDto, username: string): Promise<FinancialAccount>;

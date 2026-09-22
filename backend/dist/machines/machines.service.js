@@ -12,18 +12,24 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { BadRequestException, ConflictException, Injectable, NotFoundException, } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
 import { LedgerCategory } from '../database/enums.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 let MachinesService = class MachinesService {
     machines;
     dataSource;
-    constructor(machines, dataSource) {
+    config;
+    constructor(machines, dataSource, config) {
         this.machines = machines;
         this.dataSource = dataSource;
+        this.config = config;
     }
     async onModuleInit() {
+        if (!shouldSeedDemoData(this.config))
+            return;
         if (await this.machines.count())
             return;
         await this.machines.save(this.machines.create({ name: 'ماكينة شحن 01', loadedBalance: 20000 }));
@@ -135,7 +141,8 @@ MachinesService = __decorate([
     Injectable(),
     __param(0, InjectRepository(Machine)),
     __metadata("design:paramtypes", [Repository,
-        DataSource])
+        DataSource,
+        ConfigService])
 ], MachinesService);
 export { MachinesService };
 //# sourceMappingURL=machines.service.js.map

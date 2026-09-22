@@ -10,6 +10,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
 import { LoadMachineDto } from './dto/load-machine.dto.js';
@@ -19,6 +20,7 @@ import { MachinesService } from './machines.service.js';
 type UserRequest = { user: { username: string } };
 
 @Controller('machines')
+@RequirePermissions(AppPermission.VIEW_BALANCES)
 export class MachinesController {
   constructor(private readonly machines: MachinesService) {}
 
@@ -31,12 +33,14 @@ export class MachinesController {
   }
 
   @RequirePermissions(AppPermission.MANAGE_ASSETS)
+  @Idempotent()
   @Post()
   create(@Body() dto: CreateMachineDto, @Request() request: UserRequest) {
     return this.machines.create(dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.TOP_UP_ASSETS)
+  @Idempotent()
   @Post(':id/load')
   load(
     @Param('id') id: string,
@@ -47,6 +51,7 @@ export class MachinesController {
   }
 
   @RequirePermissions(AppPermission.USE_MACHINES)
+  @Idempotent()
   @Post(':id/use')
   use(
     @Param('id') id: string,
@@ -58,7 +63,10 @@ export class MachinesController {
 
   @RequirePermissions(AppPermission.MANAGE_ASSETS)
   @Patch(':id/status')
-  setStatus(@Param('id') id: string, @Body('active') active: boolean) {
+  setStatus(
+    @Param('id') id: string,
+    @Body('active', ParseBoolPipe) active: boolean,
+  ) {
     return this.machines.setActive(id, active);
   }
 }

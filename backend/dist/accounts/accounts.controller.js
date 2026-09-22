@@ -12,6 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Body, Controller, Delete, Get, Param, ParseBoolPipe, Patch, Post, Query, Request } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { AccountsService } from './accounts.service.js';
@@ -50,6 +51,7 @@ __decorate([
 ], AccountsController.prototype, "findAll", null);
 __decorate([
     RequirePermissions(AppPermission.MANAGE_ASSETS),
+    Idempotent(),
     Post(),
     __param(0, Body()),
     __param(1, Request()),
@@ -59,6 +61,7 @@ __decorate([
 ], AccountsController.prototype, "create", null);
 __decorate([
     RequirePermissions(AppPermission.TOP_UP_ASSETS),
+    Idempotent(),
     Post(':id/top-up'),
     __param(0, Param('id')),
     __param(1, Body()),
@@ -71,13 +74,14 @@ __decorate([
     RequirePermissions(AppPermission.MANAGE_ASSETS),
     Patch(':id/status'),
     __param(0, Param('id')),
-    __param(1, Body('active')),
+    __param(1, Body('active', ParseBoolPipe)),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Boolean]),
     __metadata("design:returntype", void 0)
 ], AccountsController.prototype, "setStatus", null);
 __decorate([
     RequirePermissions(AppPermission.MANAGE_ASSETS),
+    Idempotent(),
     Delete(':id'),
     __param(0, Param('id')),
     __param(1, Request()),
@@ -87,6 +91,7 @@ __decorate([
 ], AccountsController.prototype, "remove", null);
 AccountsController = __decorate([
     Controller('accounts'),
+    RequirePermissions(AppPermission.VIEW_BALANCES),
     __metadata("design:paramtypes", [AccountsService,
         UsersService])
 ], AccountsController);

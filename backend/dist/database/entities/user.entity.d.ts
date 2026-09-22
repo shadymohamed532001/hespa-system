@@ -9,6 +9,7 @@ export declare class User {
     permissions: AppPermission[];
     limits: UserLimits;
     active: boolean;
+    tokenVersion: number;
     createdAt: Date;
     updatedAt: Date;
 }

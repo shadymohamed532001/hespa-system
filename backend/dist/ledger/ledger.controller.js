@@ -14,6 +14,8 @@ import { Controller, Get, Query } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { AppPermission } from '../database/enums.js';
 let LedgerController = class LedgerController {
     ledger;
     constructor(ledger) {
@@ -33,6 +35,7 @@ __decorate([
 ], LedgerController.prototype, "findAll", null);
 LedgerController = __decorate([
     Controller('ledger'),
+    RequirePermissions(AppPermission.VIEW_BALANCES),
     __param(0, InjectRepository(LedgerEntry)),
     __metadata("design:paramtypes", [Repository])
 ], LedgerController);

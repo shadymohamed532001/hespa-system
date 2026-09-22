@@ -8,6 +8,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { CreateInventoryProductDto } from './dto/create-product.dto.js';
@@ -18,6 +19,7 @@ import { InventoryService } from './inventory.service.js';
 type UserRequest = { user: { userId: string; username: string } };
 
 @Controller('inventory')
+@RequirePermissions(AppPermission.VIEW_BALANCES)
 export class InventoryController {
   constructor(
     private readonly inventory: InventoryService,
@@ -40,18 +42,21 @@ export class InventoryController {
   }
 
   @RequirePermissions(AppPermission.MANAGE_INVENTORY)
+  @Idempotent()
   @Post('products')
   create(@Body() dto: CreateInventoryProductDto) {
     return this.inventory.createProduct(dto);
   }
 
   @RequirePermissions(AppPermission.MANAGE_INVENTORY)
+  @Idempotent()
   @Post('products/:id/stock-in')
   stockIn(@Param('id') id: string, @Body() dto: StockInDto) {
     return this.inventory.stockIn(id, dto);
   }
 
   @RequirePermissions(AppPermission.SELL_INVENTORY)
+  @Idempotent()
   @Post('products/:id/sell')
   async sell(
     @Param('id') id: string,

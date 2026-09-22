@@ -26,7 +26,11 @@ AuthModule = __decorate([
                 inject: [ConfigService],
                 useFactory: (config) => ({
                     secret: config.getOrThrow('JWT_SECRET'),
-                    signOptions: { expiresIn: '8h' },
+                    signOptions: {
+                        expiresIn: config.get('JWT_EXPIRES_IN', '30m'),
+                        issuer: config.get('JWT_ISSUER', 'hesba-api'),
+                        audience: config.get('JWT_AUDIENCE', 'hesba-desktop'),
+                    },
                 }),
             }),
         ],

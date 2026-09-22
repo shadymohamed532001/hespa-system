@@ -7,18 +7,20 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsString, MinLength } from 'class-validator';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 export class LoginDto {
     username;
     password;
 }
 __decorate([
     IsString(),
+    MaxLength(80),
     __metadata("design:type", String)
 ], LoginDto.prototype, "username", void 0);
 __decorate([
     IsString(),
     MinLength(4),
+    MaxLength(128),
     __metadata("design:type", String)
 ], LoginDto.prototype, "password", void 0);
 //# sourceMappingURL=login.dto.js.map

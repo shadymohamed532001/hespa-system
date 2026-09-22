@@ -12,6 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
@@ -45,6 +46,7 @@ __decorate([
 ], CollectionsController.prototype, "findAll", null);
 __decorate([
     RequirePermissions(AppPermission.RECEIVE_COLLECTIONS),
+    Idempotent(),
     Post('receive'),
     __param(0, Body()),
     __param(1, Request()),
@@ -54,6 +56,7 @@ __decorate([
 ], CollectionsController.prototype, "receive", null);
 __decorate([
     RequirePermissions(AppPermission.RECEIVE_COLLECTIONS),
+    Idempotent(),
     Post(':id/execute'),
     __param(0, Param('id')),
     __param(1, Body()),
@@ -64,6 +67,7 @@ __decorate([
 ], CollectionsController.prototype, "execute", null);
 CollectionsController = __decorate([
     Controller('collections'),
+    RequirePermissions(AppPermission.VIEW_BALANCES),
     __metadata("design:paramtypes", [CollectionsService,
         UsersService])
 ], CollectionsController);

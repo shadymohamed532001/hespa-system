@@ -11,6 +11,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { compare, hash } from 'bcryptjs';
@@ -22,14 +23,58 @@ let AuthService = class AuthService {
     users;
     usersService;
     jwt;
-    constructor(users, usersService, jwt) {
+    config;
+    constructor(users, usersService, jwt, config) {
         this.users = users;
         this.usersService = usersService;
         this.jwt = jwt;
+        this.config = config;
     }
     async onModuleInit() {
-        await this.ensureDemoUser('demo', 'demo', UserRole.ADMIN, 'مدير النظام');
-        await this.ensureDemoUser('shix', 'shix', UserRole.EMPLOYEE, 'موظف المحل');
+        const production = this.config.get('NODE_ENV', 'development') === 'production';
+        const seedDemo = this.config.get('SEED_DEMO_DATA', production ? 'false' : 'true') === 'true';
+        if (seedDemo) {
+            await this.ensureDemoUser('demo', 'demo', UserRole.ADMIN, 'مدير النظام');
+            await this.ensureDemoUser('shix', 'shix', UserRole.EMPLOYEE, 'موظف المحل');
+            return;
+        }
+        await this.disableUnchangedDemoUsers();
+        await this.ensureProductionAdmin();
+    }
+    async disableUnchangedDemoUsers() {
+        const demoCredentials = [
+            { username: 'demo', password: 'demo' },
+            { username: 'shix', password: 'shix' },
+        ];
+        for (const credential of demoCredentials) {
+            const user = await this.users.findOne({ where: { username: credential.username } });
+            if (!user || !user.active)
+                continue;
+            if (await compare(credential.password, user.passwordHash)) {
+                user.active = false;
+                user.tokenVersion = Number(user.tokenVersion ?? 0) + 1;
+                await this.users.save(user);
+            }
+        }
+    }
+    async ensureProductionAdmin() {
+        if (await this.users.exists({ where: { role: UserRole.ADMIN, active: true } }))
+            return;
+        const username = this.config.get('BOOTSTRAP_ADMIN_USERNAME')?.trim().toLowerCase();
+        const password = this.config.get('BOOTSTRAP_ADMIN_PASSWORD');
+        if (!username || !password || password.length < 10 || password.length > 128) {
+            throw new Error('No active admin exists. Set BOOTSTRAP_ADMIN_USERNAME and a 10+ character BOOTSTRAP_ADMIN_PASSWORD for the first production start.');
+        }
+        await this.users.save(this.users.create({
+            username,
+            displayName: 'مدير النظام',
+            passwordHash: await hash(password, 12),
+            role: UserRole.ADMIN,
+            permissions: [...ALL_PERMISSIONS],
+            limits: { ...DEFAULT_USER_LIMITS },
+            active: true,
+            tokenVersion: 0,
+        }));
     }
     async ensureDemoUser(username, password, role, displayName) {
         if (await this.users.exists({ where: { username } }))
@@ -48,7 +93,7 @@ let AuthService = class AuthService {
     }
     async login(dto) {
         const user = await this.users.findOne({
-            where: { username: dto.username, active: true },
+            where: { username: dto.username.trim().toLowerCase(), active: true },
         });
         if (!user || !(await compare(dto.password, user.passwordHash))) {
             throw new UnauthorizedException('اسم المستخدم أو كلمة المرور غير صحيحة');
@@ -59,6 +104,7 @@ let AuthService = class AuthService {
                 sub: user.id,
                 username: user.username,
                 role: user.role,
+                ver: Number(user.tokenVersion ?? 0),
             }),
             user: publicUser,
         };
@@ -73,7 +119,8 @@ AuthService = __decorate([
     __param(0, InjectRepository(User)),
     __metadata("design:paramtypes", [Repository,
         UsersService,
-        JwtService])
+        JwtService,
+        ConfigService])
 ], AuthService);
 export { AuthService };
 //# sourceMappingURL=auth.service.js.map

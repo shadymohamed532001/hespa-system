@@ -1,8 +1,10 @@
 export { Collection } from './collection.entity.js';
+export { AuditEvent } from './audit-event.entity.js';
 export { FinancialAccount } from './financial-account.entity.js';
 export { InventoryProduct } from './inventory-product.entity.js';
 export { InventorySale } from './inventory-sale.entity.js';
 export { InventoryTreasury } from './inventory-treasury.entity.js';
+export { IdempotencyRecord, IdempotencyStatus } from './idempotency-record.entity.js';
 export { LedgerEntry } from './ledger-entry.entity.js';
 export { Machine } from './machine.entity.js';
 export { AppNotification } from './notification.entity.js';

@@ -12,6 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { CreateWalletDto } from './dto/create-wallet.dto.js';
@@ -27,8 +28,8 @@ let WalletsController = class WalletsController {
     findAll() {
         return this.wallets.findAll();
     }
-    create(dto) {
-        return this.wallets.create(dto);
+    create(dto, request) {
+        return this.wallets.create(dto, request.user.username);
     }
     async topUp(id, dto, request) {
         await this.users.assertAmountLimit(request.user.userId, 'maxTopUpAmount', dto.amount);
@@ -43,14 +44,17 @@ __decorate([
 ], WalletsController.prototype, "findAll", null);
 __decorate([
     RequirePermissions(AppPermission.MANAGE_ASSETS),
+    Idempotent(),
     Post(),
     __param(0, Body()),
+    __param(1, Request()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [CreateWalletDto]),
+    __metadata("design:paramtypes", [CreateWalletDto, Object]),
     __metadata("design:returntype", void 0)
 ], WalletsController.prototype, "create", null);
 __decorate([
     RequirePermissions(AppPermission.TOP_UP_ASSETS),
+    Idempotent(),
     Post(':id/top-up'),
     __param(0, Param('id')),
     __param(1, Body()),
@@ -61,6 +65,7 @@ __decorate([
 ], WalletsController.prototype, "topUp", null);
 WalletsController = __decorate([
     Controller('wallets'),
+    RequirePermissions(AppPermission.VIEW_BALANCES),
     __metadata("design:paramtypes", [WalletsService,
         UsersService])
 ], WalletsController);

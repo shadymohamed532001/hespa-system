@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { Collection } from '../database/entities/collection.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
@@ -8,6 +9,7 @@ import { Treasury } from '../database/entities/treasury.entity.js';
 import { CollectionStatus, ExecutionMode, LedgerCategory } from '../database/enums.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 
 @Injectable()
 export class CollectionsService implements OnModuleInit {
@@ -15,12 +17,17 @@ export class CollectionsService implements OnModuleInit {
     @InjectRepository(Collection) private readonly collections: Repository<Collection>,
     @InjectRepository(Treasury) private readonly treasury: Repository<Treasury>,
     private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
     if (!(await this.treasury.exists({ where: { id: 'main' } }))) {
-      await this.treasury.save({ id: 'main', balance: 148750 });
+      await this.treasury.save({
+        id: 'main',
+        balance: shouldSeedDemoData(this.config) ? 148750 : 0,
+      });
     }
+    if (!shouldSeedDemoData(this.config)) return;
     if (await this.collections.count()) return;
     await this.collections.save({
       reference: 'HLD-001',

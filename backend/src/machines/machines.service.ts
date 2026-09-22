@@ -6,6 +6,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
@@ -13,15 +14,18 @@ import { LedgerCategory } from '../database/enums.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
 import { LoadMachineDto } from './dto/load-machine.dto.js';
 import { UseMachineDto } from './dto/use-machine.dto.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 
 @Injectable()
 export class MachinesService implements OnModuleInit {
   constructor(
     @InjectRepository(Machine) private readonly machines: Repository<Machine>,
     private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
+    if (!shouldSeedDemoData(this.config)) return;
     if (await this.machines.count()) return;
     await this.machines.save(
       this.machines.create({ name: 'ماكينة شحن 01', loadedBalance: 20000 }),

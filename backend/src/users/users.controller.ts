@@ -8,6 +8,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto.js';
 import { UsersService } from './users.service.js';
@@ -31,6 +32,7 @@ export class UsersController {
   }
 
   @RequirePermissions(AppPermission.MANAGE_USERS)
+  @Idempotent()
   @Post()
   create(@Body() dto: CreateUserDto) {
     return this.users.create(dto);

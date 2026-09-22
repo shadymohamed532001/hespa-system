@@ -114,28 +114,36 @@ export class UsersService implements OnModuleInit {
         : [...DEFAULT_EMPLOYEE_PERMISSIONS],
       limits: this.mergeLimits(DEFAULT_USER_LIMITS, dto.limits),
       active: true,
+      tokenVersion: 0,
     });
     return this.toPublic(await this.users.save(user));
   }
 
   async update(id: string, dto: UpdateUserDto, actorId: string) {
     const user = await this.findById(id);
+    let revokeSessions = false;
     if (user.role === UserRole.ADMIN && user.id !== actorId) {
       throw new ForbiddenException('لا يمكن تعديل حساب الأدمن الأساسي بهذه الطريقة');
     }
     if (dto.displayName != null) user.displayName = dto.displayName.trim();
-    if (dto.password) user.passwordHash = await hash(dto.password, 12);
+    if (dto.password) {
+      user.passwordHash = await hash(dto.password, 12);
+      revokeSessions = true;
+    }
     if (dto.role != null && user.role !== UserRole.ADMIN) {
       if (dto.role === UserRole.ADMIN) {
         throw new BadRequestException('لا يمكن ترقية المستخدم إلى أدمن');
       }
       user.role = dto.role;
+      revokeSessions = true;
     }
     if (dto.permissions && user.role !== UserRole.ADMIN) {
       user.permissions = [...new Set(dto.permissions)];
+      revokeSessions = true;
     }
     if (dto.limits) {
       user.limits = this.mergeLimits(user.limits ?? DEFAULT_USER_LIMITS, dto.limits);
+      revokeSessions = true;
     }
     if (dto.active != null) {
       if (user.id === actorId && dto.active === false) {
@@ -145,7 +153,9 @@ export class UsersService implements OnModuleInit {
         throw new BadRequestException('لا يمكن تعطيل حساب الأدمن');
       }
       user.active = dto.active;
+      revokeSessions = true;
     }
+    if (revokeSessions) user.tokenVersion = Number(user.tokenVersion ?? 0) + 1;
     return this.toPublic(await this.users.save(user));
   }
 

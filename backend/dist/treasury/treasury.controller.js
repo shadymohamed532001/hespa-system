@@ -12,6 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Body, Controller, Get, Post, Request } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
@@ -42,6 +43,7 @@ __decorate([
 ], TreasuryController.prototype, "summary", null);
 __decorate([
     RequirePermissions(AppPermission.INTERNAL_TRANSFER),
+    Idempotent(),
     Post('transfer'),
     __param(0, Body()),
     __param(1, Request()),
@@ -51,6 +53,7 @@ __decorate([
 ], TreasuryController.prototype, "transfer", null);
 __decorate([
     RequirePermissions(AppPermission.DAILY_ROLLOVER),
+    Idempotent(),
     Post('rollover'),
     __param(0, Request()),
     __metadata("design:type", Function),
@@ -59,6 +62,7 @@ __decorate([
 ], TreasuryController.prototype, "rollover", null);
 TreasuryController = __decorate([
     Controller('treasury'),
+    RequirePermissions(AppPermission.VIEW_BALANCES),
     __metadata("design:paramtypes", [TreasuryService,
         UsersService])
 ], TreasuryController);

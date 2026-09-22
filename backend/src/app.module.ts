@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
@@ -9,14 +10,18 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
+import { SecurityModule } from './common/security.module.js';
+import { validateConfig } from './config/validate-config.js';
 import { CollectionsModule } from './collections/collections.module.js';
 import {
   AppNotification,
+  AuditEvent,
   Collection,
   FinancialAccount,
   InventoryProduct,
   InventorySale,
   InventoryTreasury,
+  IdempotencyRecord,
   LedgerEntry,
   Machine,
   Treasury,
@@ -34,7 +39,15 @@ import { WalletsModule } from './wallets/wallets.module.js';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, validate: validateConfig }),
+    ThrottlerModule.forRoot([
+      {
+        name: 'default',
+        ttl: 60_000,
+        limit: 120,
+        blockDuration: 60_000,
+      },
+    ]),
     TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -56,8 +69,12 @@ import { WalletsModule } from './wallets/wallets.module.js';
           InventoryProduct,
           InventorySale,
           InventoryTreasury,
+          IdempotencyRecord,
+          AuditEvent,
         ],
-        synchronize: config.get('DB_SYNC', 'true') === 'true',
+        synchronize:
+          config.get('NODE_ENV', 'development') !== 'production' &&
+          config.get('DB_SYNC', 'true') === 'true',
       }),
     }),
     AuthModule,
@@ -71,10 +88,12 @@ import { WalletsModule } from './wallets/wallets.module.js';
     NotificationsModule,
     InventoryModule,
     ReportsModule,
+    SecurityModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },

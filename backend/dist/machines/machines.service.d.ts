@@ -1,4 +1,5 @@
 import { OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { Machine } from '../database/entities/machine.entity.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
@@ -7,7 +8,8 @@ import { UseMachineDto } from './dto/use-machine.dto.js';
 export declare class MachinesService implements OnModuleInit {
     private readonly machines;
     private readonly dataSource;
-    constructor(machines: Repository<Machine>, dataSource: DataSource);
+    private readonly config;
+    constructor(machines: Repository<Machine>, dataSource: DataSource, config: ConfigService);
     onModuleInit(): Promise<void>;
     private withRemaining;
     findAll(includeInactive?: boolean): Promise<(Machine & {

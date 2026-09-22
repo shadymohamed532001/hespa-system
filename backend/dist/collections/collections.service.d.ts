@@ -1,4 +1,5 @@
 import { OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { Collection } from '../database/entities/collection.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
@@ -10,7 +11,8 @@ export declare class CollectionsService implements OnModuleInit {
     private readonly collections;
     private readonly treasury;
     private readonly dataSource;
-    constructor(collections: Repository<Collection>, treasury: Repository<Treasury>, dataSource: DataSource);
+    private readonly config;
+    constructor(collections: Repository<Collection>, treasury: Repository<Treasury>, dataSource: DataSource, config: ConfigService);
     onModuleInit(): Promise<void>;
     findAll(): Promise<Collection[]>;
     findOne(id: string): Promise<Collection>;

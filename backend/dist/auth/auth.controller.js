@@ -11,6 +11,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 import { Body, Controller, Get, Post, Request } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator.js';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
@@ -28,6 +29,7 @@ let AuthController = class AuthController {
 };
 __decorate([
     Public(),
+    Throttle({ default: { limit: 5, ttl: 15 * 60_000, blockDuration: 15 * 60_000 } }),
     Post('login'),
     __param(0, Body()),
     __metadata("design:type", Function),

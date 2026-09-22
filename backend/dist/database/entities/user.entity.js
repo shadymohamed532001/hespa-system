@@ -18,6 +18,7 @@ let User = class User {
     permissions;
     limits;
     active;
+    tokenVersion;
     createdAt;
     updatedAt;
 };
@@ -59,6 +60,10 @@ __decorate([
     Column({ default: true }),
     __metadata("design:type", Boolean)
 ], User.prototype, "active", void 0);
+__decorate([
+    Column({ name: 'token_version', type: 'int', default: 0 }),
+    __metadata("design:type", Number)
+], User.prototype, "tokenVersion", void 0);
 __decorate([
     CreateDateColumn({ name: 'created_at' }),
     __metadata("design:type", Date)

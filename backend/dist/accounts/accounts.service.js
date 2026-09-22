@@ -12,21 +12,27 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AccountType, LedgerCategory } from '../database/enums.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 export const FAWRY_MAX_BALANCE = 5_000_000;
 let AccountsService = class AccountsService {
     accounts;
     ledger;
     dataSource;
-    constructor(accounts, ledger, dataSource) {
+    config;
+    constructor(accounts, ledger, dataSource, config) {
         this.accounts = accounts;
         this.ledger = ledger;
         this.dataSource = dataSource;
+        this.config = config;
     }
     async onModuleInit() {
+        if (!shouldSeedDemoData(this.config))
+            return;
         if (await this.accounts.count())
             return;
         await this.accounts.save([
@@ -128,7 +134,8 @@ AccountsService = __decorate([
     __param(1, InjectRepository(LedgerEntry)),
     __metadata("design:paramtypes", [Repository,
         Repository,
-        DataSource])
+        DataSource,
+        ConfigService])
 ], AccountsService);
 export { AccountsService };
 //# sourceMappingURL=accounts.service.js.map

@@ -5,6 +5,7 @@ import {
   OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { InventoryProduct } from '../database/entities/inventory-product.entity.js';
 import { InventorySale } from '../database/entities/inventory-sale.entity.js';
@@ -13,6 +14,7 @@ import { InventoryCategory } from '../database/enums.js';
 import { CreateInventoryProductDto } from './dto/create-product.dto.js';
 import { SellProductDto } from './dto/sell-product.dto.js';
 import { StockInDto } from './dto/stock-in.dto.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 
 @Injectable()
 export class InventoryService implements OnModuleInit {
@@ -24,6 +26,7 @@ export class InventoryService implements OnModuleInit {
     @InjectRepository(InventoryTreasury)
     private readonly treasury: Repository<InventoryTreasury>,
     private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
@@ -34,7 +37,7 @@ export class InventoryService implements OnModuleInit {
       );
     }
 
-    if (await this.products.count()) return;
+    if (!shouldSeedDemoData(this.config) || (await this.products.count())) return;
 
     await this.products.save([
       this.products.create({

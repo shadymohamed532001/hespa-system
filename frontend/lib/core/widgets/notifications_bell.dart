@@ -6,13 +6,20 @@ import 'package:intl/intl.dart' show DateFormat;
 import '../../features/auth/session_controller.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
+import '../settings/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/money_formatter.dart';
+import 'header_icon_button.dart';
 
 class NotificationsBell extends StatefulWidget {
-  const NotificationsBell({super.key, required this.session});
+  const NotificationsBell({
+    super.key,
+    required this.session,
+    this.strings,
+  });
 
   final SessionController session;
+  final AppStrings? strings;
 
   @override
   State<NotificationsBell> createState() => _NotificationsBellState();
@@ -25,6 +32,9 @@ class _NotificationsBellState extends State<NotificationsBell> {
   bool _loadingList = false;
   final _layerLink = LayerLink();
   OverlayEntry? _overlay;
+
+  AppStrings get _t =>
+      widget.strings ?? AppStrings.of(Localizations.localeOf(context));
 
   @override
   void initState() {
@@ -90,6 +100,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
         loading: _loadingList,
         items: _items,
         unread: _unread,
+        strings: _t,
         onDismiss: _closeOverlay,
         onMarkAll: _markAllRead,
         onOpen: _markOneRead,
@@ -132,54 +143,40 @@ class _NotificationsBellState extends State<NotificationsBell> {
   Widget build(BuildContext context) {
     return CompositedTransformTarget(
       link: _layerLink,
-      child: Material(
-        color: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(9),
-          side: const BorderSide(color: HesbaColors.border),
-        ),
-        child: InkWell(
-          onTap: _togglePanel,
-          borderRadius: BorderRadius.circular(9),
-          child: SizedBox(
-            width: 44,
-            height: 44,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                const Icon(
-                  Icons.notifications_none_rounded,
-                  color: HesbaColors.navy,
-                  size: 22,
-                ),
-                if (_unread > 0)
-                  Positioned(
-                    top: 7,
-                    left: 7,
-                    child: Container(
-                      constraints: const BoxConstraints(minWidth: 16),
-                      height: 16,
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: HesbaColors.red,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        _unread > 9 ? '9+' : '$_unread',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w400,
-                          height: 1,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          HeaderIconButton(
+            tooltip: _t.notificationsTooltip,
+            onPressed: _togglePanel,
+            icon: Icons.notifications_none_rounded,
           ),
-        ),
+          if (_unread > 0)
+            Positioned.directional(
+              textDirection: Directionality.of(context),
+              top: 6,
+              start: 6,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 16),
+                height: 16,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  color: HesbaColors.red,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  _unread > 9 ? '9+' : '$_unread',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w400,
+                    height: 1,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -191,6 +188,7 @@ class _NotificationsOverlay extends StatelessWidget {
     required this.loading,
     required this.items,
     required this.unread,
+    required this.strings,
     required this.onDismiss,
     required this.onMarkAll,
     required this.onOpen,
@@ -200,12 +198,20 @@ class _NotificationsOverlay extends StatelessWidget {
   final bool loading;
   final List<dynamic> items;
   final int unread;
+  final AppStrings strings;
   final VoidCallback onDismiss;
   final VoidCallback onMarkAll;
   final ValueChanged<String> onOpen;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final surface = isDark ? const Color(0xFF152833) : Colors.white;
+    final ink = isDark ? const Color(0xFFE6EEF2) : HesbaColors.ink;
+    final muted = isDark ? const Color(0xFF9AADB8) : HesbaColors.muted;
+    final divider = isDark ? const Color(0xFF2A4050) : const Color(0xFFE9EEF2);
+    final locale = Localizations.localeOf(context).languageCode;
+
     return Stack(
       children: [
         Positioned.fill(
@@ -223,7 +229,7 @@ class _NotificationsOverlay extends StatelessWidget {
           offset: const Offset(0, 8),
           child: Material(
             elevation: 10,
-            color: Colors.white,
+            color: surface,
             borderRadius: BorderRadius.circular(14),
             child: SizedBox(
               width: 380,
@@ -235,46 +241,45 @@ class _NotificationsOverlay extends StatelessWidget {
                     padding: const EdgeInsets.fromLTRB(16, 14, 16, 10),
                     child: Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Text(
-                            'الإشعارات',
+                            strings.notificationsTitle,
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w400,
-                              color: HesbaColors.ink,
+                              color: ink,
                             ),
                           ),
                         ),
                         if (unread > 0)
                           TextButton(
                             onPressed: onMarkAll,
-                            child: const Text('تعيين الكل كمقروء'),
+                            child: Text(strings.markAllRead),
                           ),
                       ],
                     ),
                   ),
-                  const Divider(height: 1, color: Color(0xFFE9EEF2)),
+                  Divider(height: 1, color: divider),
                   Expanded(
                     child: loading
                         ? const Center(child: CircularProgressIndicator())
                         : items.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Text(
-                              'لا توجد إشعارات بعد',
-                              style: TextStyle(color: HesbaColors.muted),
+                              strings.noNotifications,
+                              style: TextStyle(color: muted),
                             ),
                           )
                         : ListView.separated(
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemCount: items.length,
-                            separatorBuilder: (_, _) => const Divider(
-                              height: 1,
-                              color: Color(0xFFF0F3F5),
-                            ),
+                            separatorBuilder: (_, _) =>
+                                Divider(height: 1, color: divider),
                             itemBuilder: (context, index) {
                               final item = items[index] as Map<String, dynamic>;
                               return _NotificationTile(
                                 item: item,
+                                locale: locale,
                                 onTap: () {
                                   final id = '${item['id']}';
                                   if (item['isRead'] != true) onOpen(id);
@@ -294,10 +299,15 @@ class _NotificationsOverlay extends StatelessWidget {
 }
 
 class _NotificationTile extends StatelessWidget {
-  const _NotificationTile({required this.item, required this.onTap});
+  const _NotificationTile({
+    required this.item,
+    required this.onTap,
+    required this.locale,
+  });
 
   final Map<String, dynamic> item;
   final VoidCallback onTap;
+  final String locale;
 
   @override
   Widget build(BuildContext context) {
@@ -305,11 +315,16 @@ class _NotificationTile extends StatelessWidget {
     final unread = item['isRead'] != true;
     final amount = item['amount'];
     final createdAt = DateTime.tryParse('${item['createdAt']}')?.toLocal();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? const Color(0xFFE6EEF2) : HesbaColors.ink;
+    final muted = isDark ? const Color(0xFF9AADB8) : HesbaColors.muted;
+    final unreadBg =
+        isDark ? const Color(0xFF1A3540) : const Color(0xFFF3FAF8);
 
     return InkWell(
       onTap: onTap,
       child: Container(
-        color: unread ? const Color(0xFFF3FAF8) : Colors.transparent,
+        color: unread ? unreadBg : Colors.transparent,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,7 +346,7 @@ class _NotificationTile extends StatelessWidget {
                   Text(
                     '${item['title']}',
                     style: TextStyle(
-                      color: HesbaColors.ink,
+                      color: ink,
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                     ),
@@ -341,8 +356,8 @@ class _NotificationTile extends StatelessWidget {
                     '${item['body']}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: HesbaColors.muted,
+                    style: TextStyle(
+                      color: muted,
                       fontSize: 12,
                       height: 1.45,
                     ),
@@ -363,9 +378,9 @@ class _NotificationTile extends StatelessWidget {
                       ],
                       if (createdAt != null)
                         Text(
-                          DateFormat('d MMM، h:mm a', 'ar').format(createdAt),
-                          style: const TextStyle(
-                            color: Color(0xFF8A9AA5),
+                          DateFormat('d MMM, h:mm a', locale).format(createdAt),
+                          style: TextStyle(
+                            color: muted,
                             fontSize: 11,
                           ),
                         ),
@@ -391,16 +406,16 @@ class _NotificationTile extends StatelessWidget {
   }
 
   static IconData _kindIcon(String kind) => switch (kind) {
-    'deposit' => Icons.south_west_rounded,
-    'withdrawal' => Icons.north_east_rounded,
-    'transfer' => Icons.swap_horiz_rounded,
-    _ => Icons.info_outline_rounded,
-  };
+        'deposit' => Icons.south_west_rounded,
+        'withdrawal' => Icons.north_east_rounded,
+        'transfer' => Icons.swap_horiz_rounded,
+        _ => Icons.info_outline_rounded,
+      };
 
   static Color _kindColor(String kind) => switch (kind) {
-    'deposit' => HesbaColors.teal,
-    'withdrawal' => HesbaColors.red,
-    'transfer' => const Color(0xFF50657D),
-    _ => HesbaColors.navy,
-  };
+        'deposit' => HesbaColors.teal,
+        'withdrawal' => HesbaColors.red,
+        'transfer' => const Color(0xFF50657D),
+        _ => HesbaColors.navy,
+      };
 }

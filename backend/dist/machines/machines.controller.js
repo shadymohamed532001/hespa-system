@@ -12,6 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { Body, Controller, Get, Param, ParseBoolPipe, Patch, Post, Query, Request, } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
 import { LoadMachineDto } from './dto/load-machine.dto.js';
@@ -47,6 +48,7 @@ __decorate([
 ], MachinesController.prototype, "findAll", null);
 __decorate([
     RequirePermissions(AppPermission.MANAGE_ASSETS),
+    Idempotent(),
     Post(),
     __param(0, Body()),
     __param(1, Request()),
@@ -56,6 +58,7 @@ __decorate([
 ], MachinesController.prototype, "create", null);
 __decorate([
     RequirePermissions(AppPermission.TOP_UP_ASSETS),
+    Idempotent(),
     Post(':id/load'),
     __param(0, Param('id')),
     __param(1, Body()),
@@ -66,6 +69,7 @@ __decorate([
 ], MachinesController.prototype, "load", null);
 __decorate([
     RequirePermissions(AppPermission.USE_MACHINES),
+    Idempotent(),
     Post(':id/use'),
     __param(0, Param('id')),
     __param(1, Body()),
@@ -78,13 +82,14 @@ __decorate([
     RequirePermissions(AppPermission.MANAGE_ASSETS),
     Patch(':id/status'),
     __param(0, Param('id')),
-    __param(1, Body('active')),
+    __param(1, Body('active', ParseBoolPipe)),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, Boolean]),
     __metadata("design:returntype", void 0)
 ], MachinesController.prototype, "setStatus", null);
 MachinesController = __decorate([
     Controller('machines'),
+    RequirePermissions(AppPermission.VIEW_BALANCES),
     __metadata("design:paramtypes", [MachinesService])
 ], MachinesController);
 export { MachinesController };

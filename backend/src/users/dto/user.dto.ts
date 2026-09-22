@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   MinLength,
   ValidateNested,
@@ -37,14 +38,17 @@ export class UserLimitsDto {
 export class CreateUserDto {
   @IsString()
   @MinLength(3)
+  @MaxLength(80)
   username: string;
 
   @IsString()
-  @MinLength(4)
+  @MinLength(10)
+  @MaxLength(128)
   password: string;
 
   @IsOptional()
   @IsString()
+  @MaxLength(120)
   displayName?: string;
 
   @IsOptional()
@@ -69,7 +73,8 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
-  @MinLength(4)
+  @MinLength(10)
+  @MaxLength(128)
   password?: string;
 
   @IsOptional()

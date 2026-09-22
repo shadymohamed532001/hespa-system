@@ -1,11 +1,13 @@
 import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
 import { LedgerCategory } from '../database/enums.js';
 import { CreateWalletDto } from './dto/create-wallet.dto.js';
 import { TopUpWalletDto } from './dto/top-up-wallet.dto.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 
 export const WALLET_DAILY_TOP_UP_LIMIT = 60_000;
 export const WALLET_MONTHLY_TOP_UP_LIMIT = 200_000;
@@ -22,9 +24,11 @@ export class WalletsService implements OnModuleInit {
   constructor(
     @InjectRepository(Wallet) private readonly wallets: Repository<Wallet>,
     private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
   ) {}
 
   async onModuleInit() {
+    if (!shouldSeedDemoData(this.config)) return;
     if (await this.wallets.count()) return;
     await this.wallets.save([
       this.wallets.create({ name: 'محفظة 01', type: 'wallet', openingBalance: 11250, balance: 11250 }),
@@ -36,13 +40,29 @@ export class WalletsService implements OnModuleInit {
     return this.wallets.find({ where: { active: true }, order: { createdAt: 'ASC' } });
   }
 
-  async create(dto: CreateWalletDto) {
-    return this.wallets.save(this.wallets.create({
-      name: dto.name,
-      type: dto.type,
-      openingBalance: dto.openingBalance,
-      balance: dto.openingBalance,
-    }));
+  async create(dto: CreateWalletDto, username: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const wallet = await manager.getRepository(Wallet).save(
+        manager.getRepository(Wallet).create({
+          name: dto.name,
+          type: dto.type,
+          openingBalance: dto.openingBalance,
+          balance: dto.openingBalance,
+        }),
+      );
+      if (dto.openingBalance > 0) {
+        await manager.getRepository(LedgerEntry).save({
+          category: LedgerCategory.OPENING_BALANCE,
+          amount: dto.openingBalance,
+          entityType: 'wallet',
+          entityId: wallet.id,
+          reference: null,
+          description: `رصيد افتتاحي للمحفظة ${wallet.name}`,
+          performedBy: username,
+        });
+      }
+      return wallet;
+    });
   }
 
   async topUp(id: string, dto: TopUpWalletDto, username: string) {
@@ -93,4 +113,3 @@ export class WalletsService implements OnModuleInit {
     });
   }
 }
-

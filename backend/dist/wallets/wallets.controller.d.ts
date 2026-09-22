@@ -13,7 +13,7 @@ export declare class WalletsController {
     private readonly users;
     constructor(wallets: WalletsService, users: UsersService);
     findAll(): Promise<import("../database/entities/wallet.entity.js").Wallet[]>;
-    create(dto: CreateWalletDto): Promise<import("../database/entities/wallet.entity.js").Wallet>;
+    create(dto: CreateWalletDto, request: UserRequest): Promise<import("../database/entities/wallet.entity.js").Wallet>;
     topUp(id: string, dto: TopUpWalletDto, request: UserRequest): Promise<import("../database/entities/wallet.entity.js").Wallet>;
 }
 export {};

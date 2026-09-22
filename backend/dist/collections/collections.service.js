@@ -12,25 +12,34 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 };
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { Collection } from '../database/entities/collection.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { CollectionStatus, ExecutionMode, LedgerCategory } from '../database/enums.js';
+import { shouldSeedDemoData } from '../config/demo-data.js';
 let CollectionsService = class CollectionsService {
     collections;
     treasury;
     dataSource;
-    constructor(collections, treasury, dataSource) {
+    config;
+    constructor(collections, treasury, dataSource, config) {
         this.collections = collections;
         this.treasury = treasury;
         this.dataSource = dataSource;
+        this.config = config;
     }
     async onModuleInit() {
         if (!(await this.treasury.exists({ where: { id: 'main' } }))) {
-            await this.treasury.save({ id: 'main', balance: 148750 });
+            await this.treasury.save({
+                id: 'main',
+                balance: shouldSeedDemoData(this.config) ? 148750 : 0,
+            });
         }
+        if (!shouldSeedDemoData(this.config))
+            return;
         if (await this.collections.count())
             return;
         await this.collections.save({
@@ -177,7 +186,8 @@ CollectionsService = __decorate([
     __param(1, InjectRepository(Treasury)),
     __metadata("design:paramtypes", [Repository,
         Repository,
-        DataSource])
+        DataSource,
+        ConfigService])
 ], CollectionsService);
 export { CollectionsService };
 //# sourceMappingURL=collections.service.js.map
