@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/page_frame.dart';
+import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
 
 class AdminPage extends StatelessWidget {
@@ -74,11 +75,7 @@ class AdminPage extends StatelessWidget {
                     padding: EdgeInsets.symmetric(horizontal: 22),
                     child: Text(
                       'مصفوفة الصلاحيات',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: HesbaColors.ink,
-                      ),
+                      style: HesbaText.sectionTitle,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -86,11 +83,7 @@ class AdminPage extends StatelessWidget {
                     padding: EdgeInsets.symmetric(horizontal: 22),
                     child: Text(
                       'الأدمن يملك الإعدادات الحساسة، وموظف المحل ينفذ المهام اليومية فقط.',
-                      style: TextStyle(
-                        color: HesbaColors.muted,
-                        fontSize: 13,
-                        height: 1.55,
-                      ),
+                      style: HesbaText.panelSub,
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -143,32 +136,24 @@ class AdminPage extends StatelessWidget {
                                   DataCell(
                                     Text(
                                       item.action,
-                                      style: const TextStyle(
-                                        color: HesbaColors.ink,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w600,
+                                      style: HesbaText.tableEmphasis.copyWith(
+                                        color: const Color(0xFF5A6F7C),
+                                        fontWeight: FontWeight.w400,
                                       ),
                                     ),
                                   ),
                                   DataCell(
-                                    _PermissionBadge(
+                                    SoftBadge.permission(
                                       allowed: item.adminAllowed,
                                     ),
                                   ),
                                   DataCell(
-                                    _PermissionBadge(
+                                    SoftBadge.permission(
                                       allowed: item.staffAllowed,
                                     ),
                                   ),
                                   DataCell(
-                                    Text(
-                                      item.note,
-                                      style: const TextStyle(
-                                        color: HesbaColors.muted,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
+                                    Text(item.note, style: HesbaText.tableCell),
                                   ),
                                 ],
                               ),
@@ -187,11 +172,7 @@ class AdminPage extends StatelessWidget {
   }
 }
 
-const _headerStyle = TextStyle(
-  color: Color(0xFF607480),
-  fontSize: 12,
-  fontWeight: FontWeight.w600,
-);
+const _headerStyle = HesbaText.tableHeader;
 
 class _PermissionItem {
   const _PermissionItem({
@@ -221,37 +202,7 @@ class _BackendNotice extends StatelessWidget {
       ),
       child: const Text(
         'مهم: في التطبيق الحقيقي تُطبَّق الصلاحيات من الباك إند، وليس بمجرد إخفاء الأزرار من الواجهة.',
-        style: TextStyle(
-          color: Color(0xFF50657D),
-          fontSize: 13,
-          height: 1.55,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-class _PermissionBadge extends StatelessWidget {
-  const _PermissionBadge({required this.allowed});
-
-  final bool allowed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-      decoration: BoxDecoration(
-        color: allowed ? HesbaColors.tealLight : const Color(0xFFFFEEEE),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        allowed ? 'مسموح' : 'غير مسموح',
-        style: TextStyle(
-          color: allowed ? HesbaColors.teal : const Color(0xFFB42318),
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
+        style: HesbaText.callout,
       ),
     );
   }

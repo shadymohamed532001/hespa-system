@@ -94,15 +94,30 @@ export class AccountsService implements OnModuleInit {
     return this.accounts.save(account);
   }
 
-  async remove(id: string) {
+  async remove(id: string, username: string) {
     const account = await this.accounts.findOne({ where: { id } });
     if (!account) throw new NotFoundException('الحساب غير موجود');
-    const history = await this.ledger.count({ where: { entityType: 'account', entityId: id } });
+
+    const history = await this.ledger.count({
+      where: { entityType: 'account', entityId: id },
+    });
+
     if (account.balance !== 0 || account.commissionBalance !== 0 || history > 0) {
-      throw new BadRequestException('لا يمكن حذف حساب له رصيد أو حركات؛ أوقفه بدلًا من الحذف');
+      throw new BadRequestException(
+        'لا يمكن الحذف النهائي إلا إذا كان الرصيد والعمولة صفرًا ولا توجد أي حركات مرتبطة بالحساب',
+      );
     }
+
+    const name = account.name;
     await this.accounts.remove(account);
-    return { deleted: true };
+
+    return {
+      deleted: true,
+      id,
+      name,
+      deletedBy: username,
+      message: `تم الحذف النهائي للحساب «${name}» بنجاح`,
+    };
   }
 }
 

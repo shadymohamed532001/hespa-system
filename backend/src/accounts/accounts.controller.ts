@@ -36,8 +36,8 @@ export class AccountsController {
 
   @Roles(UserRole.ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.accounts.remove(id);
+  remove(@Param('id') id: string, @Request() request: UserRequest) {
+    return this.accounts.remove(id, request.user.username);
   }
 }
 

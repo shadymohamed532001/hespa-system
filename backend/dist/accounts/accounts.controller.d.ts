@@ -13,8 +13,12 @@ export declare class AccountsController {
     create(dto: CreateAccountDto, request: UserRequest): Promise<import("../database/entities/financial-account.entity.js").FinancialAccount>;
     topUp(id: string, dto: TopUpAccountDto, request: UserRequest): Promise<import("../database/entities/financial-account.entity.js").FinancialAccount>;
     setStatus(id: string, active: boolean): Promise<import("../database/entities/financial-account.entity.js").FinancialAccount>;
-    remove(id: string): Promise<{
+    remove(id: string, request: UserRequest): Promise<{
         deleted: boolean;
+        id: string;
+        name: string;
+        deletedBy: string;
+        message: string;
     }>;
 }
 export {};

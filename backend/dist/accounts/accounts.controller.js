@@ -33,8 +33,8 @@ let AccountsController = class AccountsController {
     setStatus(id, active) {
         return this.accounts.setActive(id, active);
     }
-    remove(id) {
-        return this.accounts.remove(id);
+    remove(id, request) {
+        return this.accounts.remove(id, request.user.username);
     }
 };
 __decorate([
@@ -76,8 +76,9 @@ __decorate([
     Roles(UserRole.ADMIN),
     Delete(':id'),
     __param(0, Param('id')),
+    __param(1, Request()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", void 0)
 ], AccountsController.prototype, "remove", null);
 AccountsController = __decorate([

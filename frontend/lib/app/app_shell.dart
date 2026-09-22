@@ -151,23 +151,11 @@ class _Sidebar extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      'حِسبة',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 35,
-                        height: 1.15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    Text('حِسبة', style: HesbaText.brand),
                     SizedBox(height: 5),
                     Text(
                       'إدارة التحصيل والمدفوعات',
-                      style: TextStyle(
-                        color: Color(0x91FFFFFF),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                      ),
+                      style: HesbaText.brandSub,
                     ),
                   ],
                 ),
@@ -223,11 +211,7 @@ class _NavigationItem extends StatelessWidget {
               alignment: Alignment.centerRight,
               child: Text(
                 label,
-                style: TextStyle(
-                  color: active ? Colors.white : const Color(0x96FFFFFF),
-                  fontSize: 14,
-                  fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                ),
+                style: active ? HesbaText.navActive : HesbaText.nav,
               ),
             ),
           ),
@@ -255,25 +239,18 @@ class _UserCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'المستخدم الحالي',
-            style: TextStyle(color: Color(0x9EFFFFFF), fontSize: 11),
-          ),
+          const Text('المستخدم الحالي', style: HesbaText.sideMeta),
           const SizedBox(height: 5),
           Text(
             '${session.username ?? '—'} — $role',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            style: HesbaText.sideUser,
           ),
           const SizedBox(height: 5),
           Text(
             session.isAdmin
                 ? 'صلاحيات كاملة لإدارة النظام'
                 : 'صلاحيات التشغيل اليومية',
-            style: const TextStyle(color: Color(0x7AFFFFFF), fontSize: 10),
+            style: HesbaText.sideTiny,
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -286,11 +263,9 @@ class _UserCard extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
+                textStyle: HesbaText.button,
               ),
-              child: const Text(
-                'تسجيل الخروج',
-                style: TextStyle(fontWeight: FontWeight.w500),
-              ),
+              child: const Text('تسجيل الخروج'),
             ),
           ),
         ],
@@ -321,25 +296,21 @@ class _ContextBar extends StatelessWidget {
             child: Text(
               'الفرع الرئيسي  /  الإدارة المالية',
               textAlign: TextAlign.right,
-              style: TextStyle(
-                color: HesbaColors.ink,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+              style: HesbaText.contextStrong,
             ),
           ),
           Expanded(
             child: Text(
               DateFormat('EEEE، d MMMM y', 'ar').format(DateTime.now()),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: HesbaColors.muted, fontSize: 13),
+              style: HesbaText.bodyMuted,
             ),
           ),
           Expanded(
             child: Text(
               '${session.username ?? '—'}  ·  $role',
               textAlign: TextAlign.left,
-              style: const TextStyle(color: HesbaColors.muted, fontSize: 13),
+              style: HesbaText.bodyMuted,
             ),
           ),
         ],

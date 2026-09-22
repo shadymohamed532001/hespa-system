@@ -15,7 +15,11 @@ export declare class AccountsService implements OnModuleInit {
     create(dto: CreateAccountDto, username: string): Promise<FinancialAccount>;
     topUp(id: string, dto: TopUpAccountDto, username: string): Promise<FinancialAccount>;
     setActive(id: string, active: boolean): Promise<FinancialAccount>;
-    remove(id: string): Promise<{
+    remove(id: string, username: string): Promise<{
         deleted: boolean;
+        id: string;
+        name: string;
+        deletedBy: string;
+        message: string;
     }>;
 }

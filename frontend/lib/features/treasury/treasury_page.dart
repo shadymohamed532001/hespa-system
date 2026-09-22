@@ -178,7 +178,7 @@ class _AccountingRule extends StatelessWidget {
           children: [
             TextSpan(
               text: 'قاعدة محاسبية: ',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w400),
             ),
             TextSpan(
               text:
@@ -216,16 +216,12 @@ class _TreasuryMovements extends StatelessWidget {
               children: [
                 Text(
                   'حركات الخزنة',
-                  style: TextStyle(
-                    color: HesbaColors.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: HesbaText.sectionTitle,
                 ),
                 SizedBox(height: 2),
                 Text(
                   'مع توضيح نوع وأثر كل حركة',
-                  style: TextStyle(color: HesbaColors.muted, fontSize: 12),
+                  style: HesbaText.panelSub,
                 ),
               ],
             ),
@@ -297,7 +293,7 @@ class _TreasuryMovements extends StatelessWidget {
             _categoryName(category),
             style: const TextStyle(
               color: HesbaColors.ink,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ),
@@ -307,7 +303,7 @@ class _TreasuryMovements extends StatelessWidget {
             textDirection: TextDirection.ltr,
             child: Text(
               '$sign${money(rawAmount.abs())}',
-              style: TextStyle(color: color, fontWeight: FontWeight.w600),
+              style: TextStyle(color: color, fontWeight: FontWeight.w400),
             ),
           ),
         ),
@@ -386,7 +382,7 @@ class _MovementBadge extends StatelessWidget {
         ? HesbaColors.warning
         : internal
         ? const Color(0xFF50657D)
-        : const Color(0xFF287E75);
+        : HesbaColors.tealSoft;
     final label = hold
         ? 'معلّق'
         : internal
@@ -406,7 +402,7 @@ class _MovementBadge extends StatelessWidget {
         style: TextStyle(
           color: foreground,
           fontSize: 11,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );

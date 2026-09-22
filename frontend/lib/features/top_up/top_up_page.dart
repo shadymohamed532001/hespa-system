@@ -283,7 +283,7 @@ class _RolloverNotice extends StatelessWidget {
           children: [
             TextSpan(
               text: 'منطق الترحيل: ',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w400),
             ),
             TextSpan(
               text:
@@ -344,16 +344,12 @@ class _TopUpFormCard extends StatelessWidget {
               children: [
                 Text(
                   'بيانات الشحن',
-                  style: TextStyle(
-                    color: HesbaColors.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: HesbaText.sectionTitle,
                 ),
                 SizedBox(height: 2),
                 Text(
                   'اختر الحساب أو المحفظة وأضف الرصيد مباشرة',
-                  style: TextStyle(color: HesbaColors.muted, fontSize: 12),
+                  style: HesbaText.panelSub,
                 ),
               ],
             ),
@@ -535,11 +531,7 @@ class _DailyBalanceFormula extends StatelessWidget {
         children: [
           const Text(
             'معادلة الرصيد اليومية',
-            style: TextStyle(
-              color: HesbaColors.ink,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-            ),
+            style: HesbaText.sectionTitle,
           ),
           const SizedBox(height: 14),
           Container(
@@ -554,7 +546,7 @@ class _DailyBalanceFormula extends StatelessWidget {
                 color: Color(0xFF50657D),
                 fontSize: 13,
                 height: 1.55,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -575,14 +567,7 @@ class _LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF5A6F7C),
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(label, style: HesbaText.fieldLabel),
         const SizedBox(height: 8),
         child,
       ],

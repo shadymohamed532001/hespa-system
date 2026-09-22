@@ -40,28 +40,11 @@ class MetricCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: HesbaColors.muted,
-              fontSize: 13,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
+          Text(label, style: HesbaText.kpiLabel),
           const SizedBox(height: 10),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
-              color: HesbaColors.ink,
-            ),
-          ),
+          Text(value, style: HesbaText.kpiValue),
           const SizedBox(height: 4),
-          Text(
-            note,
-            style: const TextStyle(color: HesbaColors.muted, fontSize: 11),
-          ),
+          Text(note, style: HesbaText.kpiNote),
         ],
       ),
     ),

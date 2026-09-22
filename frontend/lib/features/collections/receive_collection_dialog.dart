@@ -176,7 +176,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                       color: HesbaColors.ink,
                       fontSize: 23,
                       height: 1.35,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -267,7 +267,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                         vertical: 11,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFFFEEEE),
+                        color: HesbaColors.redLight,
                         borderRadius: BorderRadius.circular(9),
                       ),
                       child: Text(
@@ -443,7 +443,7 @@ class _LabeledField extends StatelessWidget {
           style: const TextStyle(
             color: HesbaColors.ink,
             fontSize: 14,
-            fontWeight: FontWeight.w600,
+            fontWeight: FontWeight.w400,
           ),
         ),
         const SizedBox(height: 7),
@@ -471,7 +471,7 @@ class _WorkflowCallout extends StatelessWidget {
           children: [
             TextSpan(
               text: immediate ? 'تنفيذ فوري: ' : 'معلّق: ',
-              style: const TextStyle(fontWeight: FontWeight.w700),
+              style: const TextStyle(fontWeight: FontWeight.w400),
             ),
             TextSpan(
               text: immediate

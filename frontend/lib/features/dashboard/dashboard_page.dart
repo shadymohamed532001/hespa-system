@@ -349,7 +349,7 @@ class _LedgerPanel extends StatelessWidget {
             _categoryName(category),
             style: const TextStyle(
               color: HesbaColors.ink,
-              fontWeight: FontWeight.w500,
+              fontWeight: FontWeight.w400,
             ),
           ),
         ),
@@ -359,7 +359,7 @@ class _LedgerPanel extends StatelessWidget {
             textDirection: TextDirection.ltr,
             child: Text(
               '$sign${money(amount.abs())}',
-              style: TextStyle(color: amountColor, fontWeight: FontWeight.w600),
+              style: TextStyle(color: amountColor, fontWeight: FontWeight.w400),
             ),
           ),
         ),
@@ -437,7 +437,7 @@ class _AssetRow extends StatelessWidget {
                   style: const TextStyle(
                     color: HesbaColors.ink,
                     fontSize: 13,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -457,7 +457,7 @@ class _AssetRow extends StatelessWidget {
               money(asset.balance),
               style: const TextStyle(
                 color: HesbaColors.ink,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -508,7 +508,7 @@ class _PendingPanel extends StatelessWidget {
                       style: const TextStyle(
                         color: HesbaColors.ink,
                         fontSize: 24,
-                        fontWeight: FontWeight.w700,
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                   ),
@@ -581,11 +581,7 @@ class _PanelHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: HesbaColors.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: HesbaText.sectionTitle,
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -624,7 +620,7 @@ class _CategoryBadge extends StatelessWidget {
         ? HesbaColors.warning
         : internal
         ? const Color(0xFF50657D)
-        : const Color(0xFF287E75);
+        : HesbaColors.tealSoft;
 
     return Container(
       constraints: const BoxConstraints(minWidth: 76),

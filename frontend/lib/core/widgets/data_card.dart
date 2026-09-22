@@ -25,14 +25,7 @@ class DataCard extends StatelessWidget {
               columns: columns
                   .map(
                     (c) => DataColumn(
-                      label: Text(
-                        c,
-                        style: const TextStyle(
-                          color: Color(0xFF607480),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
+                      label: Text(c, style: HesbaText.tableHeader),
                     ),
                   )
                   .toList(),
@@ -44,14 +37,7 @@ class DataCard extends StatelessWidget {
                             (cell) => DataCell(
                               cell is Widget
                                   ? cell
-                                  : Text(
-                                      '$cell',
-                                      style: const TextStyle(
-                                        color: HesbaColors.muted,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w400,
-                                      ),
-                                    ),
+                                  : Text('$cell', style: HesbaText.tableCell),
                             ),
                           )
                           .toList(),

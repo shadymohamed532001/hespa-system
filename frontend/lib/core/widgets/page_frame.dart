@@ -28,16 +28,9 @@ class PageFrame extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.headlineLarge),
+                  Text(title, style: HesbaText.pageTitle),
                   const SizedBox(height: 5),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: HesbaColors.muted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
+                  Text(subtitle, style: HesbaText.bodyMuted),
                 ],
               ),
             ),

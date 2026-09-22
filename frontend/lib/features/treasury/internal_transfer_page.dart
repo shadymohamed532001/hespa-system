@@ -199,7 +199,7 @@ class _TransferNotice extends StatelessWidget {
           children: [
             TextSpan(
               text: 'هذه الحركة لا تُسجّل كمصروف أو ربح. ',
-              style: TextStyle(fontWeight: FontWeight.w700),
+              style: TextStyle(fontWeight: FontWeight.w400),
             ),
             TextSpan(
               text: 'يتم فقط خفض رصيد الأصل المصدر وزيادة رصيد الأصل المستلم.',
@@ -255,16 +255,12 @@ class _TransferFormCard extends StatelessWidget {
               children: [
                 Text(
                   'بيانات التحويل',
-                  style: TextStyle(
-                    color: HesbaColors.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
+                  style: HesbaText.sectionTitle,
                 ),
                 SizedBox(height: 2),
                 Text(
                   'انقل مبلغًا بين الخزنة وحسابات التشغيل',
-                  style: TextStyle(color: HesbaColors.muted, fontSize: 12),
+                  style: HesbaText.panelSub,
                 ),
               ],
             ),
@@ -424,14 +420,7 @@ class _LabeledField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: HesbaColors.ink,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(label, style: HesbaText.fieldLabel),
         const SizedBox(height: 7),
         child,
       ],

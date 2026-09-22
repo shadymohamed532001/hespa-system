@@ -67,7 +67,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(ApiClient.errorMessage(exception)),
-            backgroundColor: const Color(0xFFB42318),
+            backgroundColor: HesbaColors.red,
           ),
         );
       }
@@ -113,7 +113,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(ApiClient.errorMessage(exception)),
-            backgroundColor: const Color(0xFFB42318),
+            backgroundColor: HesbaColors.red,
           ),
         );
       }
@@ -161,7 +161,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
                       height: 16,
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFB42318),
+                        color: HesbaColors.red,
                         borderRadius: BorderRadius.circular(20),
                       ),
                       alignment: Alignment.center,
@@ -170,7 +170,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 9,
-                          fontWeight: FontWeight.w700,
+                          fontWeight: FontWeight.w400,
                           height: 1,
                         ),
                       ),
@@ -240,7 +240,7 @@ class _NotificationsOverlay extends StatelessWidget {
                             'الإشعارات',
                             style: TextStyle(
                               fontSize: 16,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w400,
                               color: HesbaColors.ink,
                             ),
                           ),
@@ -333,7 +333,7 @@ class _NotificationTile extends StatelessWidget {
                     style: TextStyle(
                       color: HesbaColors.ink,
                       fontSize: 13,
-                      fontWeight: unread ? FontWeight.w700 : FontWeight.w600,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -356,7 +356,7 @@ class _NotificationTile extends StatelessWidget {
                           style: TextStyle(
                             color: _kindColor(kind),
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -399,7 +399,7 @@ class _NotificationTile extends StatelessWidget {
 
   static Color _kindColor(String kind) => switch (kind) {
     'deposit' => HesbaColors.teal,
-    'withdrawal' => const Color(0xFFB42318),
+    'withdrawal' => HesbaColors.red,
     'transfer' => const Color(0xFF50657D),
     _ => HesbaColors.navy,
   };

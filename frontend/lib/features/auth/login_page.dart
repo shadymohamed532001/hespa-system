@@ -100,20 +100,13 @@ class _LoginHeader extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'حِسبة',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 34,
-              height: 1.2,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Text('حِسبة', style: HesbaText.loginBrand),
           SizedBox(height: 5),
           Text(
             'إدارة التحصيل والمدفوعات',
             style: TextStyle(
-              color: Color(0xFF9FB1BB),
+              fontFamily: HesbaText.family,
+              color: Color(0x99FFFFFF),
               fontSize: 14,
               fontWeight: FontWeight.w400,
             ),
@@ -147,22 +140,11 @@ class _LoginForm extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'تسجيل الدخول',
-                style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                  fontSize: 27,
-                  height: 1.35,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
+              const Text('تسجيل الدخول', style: HesbaText.loginTitle),
               const SizedBox(height: 5),
               const Text(
                 'أدخل اسم المستخدم وكلمة المرور للمتابعة.',
-                style: TextStyle(
-                  color: HesbaColors.muted,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                ),
+                style: HesbaText.bodyMuted,
               ),
               const SizedBox(height: 23),
               const _FieldLabel('اسم المستخدم'),
@@ -188,14 +170,14 @@ class _LoginForm extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFEEEE),
+                    color: HesbaColors.redLight,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     session.error!,
                     style: const TextStyle(
-                      color: Color(0xFFB42318),
-                      fontWeight: FontWeight.w600,
+                      color: HesbaColors.red,
+                      fontWeight: FontWeight.w400,
                     ),
                   ),
                 ),
@@ -224,7 +206,7 @@ class _LoginForm extends StatelessWidget {
                           'دخول إلى النظام',
                           style: TextStyle(
                             fontSize: 14,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                 ),
@@ -246,14 +228,7 @@ class _FieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: HesbaColors.ink,
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-      ),
-    );
+    return Text(text, style: HesbaText.fieldLabel);
   }
 }
 
@@ -373,7 +348,7 @@ class _DemoAccounts extends StatelessWidget {
               style: TextStyle(
                 color: HesbaColors.navy,
                 fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
