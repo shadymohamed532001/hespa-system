@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
-import 'api_client.dart';
-import 'login_page.dart';
-import 'session.dart';
-import 'shell.dart';
-import 'theme.dart';
+import '../core/network/api_client.dart';
+import '../features/auth/login_page.dart';
+import '../features/auth/session_controller.dart';
+import 'app_shell.dart';
+import '../core/theme/app_theme.dart';
 
 class HesbaApp extends StatefulWidget {
   const HesbaApp({super.key});

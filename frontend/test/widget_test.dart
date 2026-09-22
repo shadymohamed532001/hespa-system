@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:hesba_desktop/src/app.dart';
+import 'package:hesba_desktop/app/app.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -9,6 +9,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('تسجيل الدخول'), findsOneWidget);
-    expect(find.text('دخول إلى حِسبة'), findsOneWidget);
+    expect(find.text('دخول إلى النظام'), findsOneWidget);
   });
 }

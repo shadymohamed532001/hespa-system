@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
-import 'pages.dart';
-import 'session.dart';
-import 'theme.dart';
+import '../features/accounts/accounts_page.dart';
+import '../features/admin/admin_page.dart';
+import '../features/auth/session_controller.dart';
+import '../features/collections/collections_page.dart';
+import '../features/dashboard/dashboard_page.dart';
+import '../features/ledger/ledger_page.dart';
+import '../features/machines/machines_page.dart';
+import '../features/treasury/treasury_page.dart';
+import '../features/wallets/wallets_page.dart';
+import '../core/theme/app_theme.dart';
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.session});

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'session.dart';
-import 'theme.dart';
+import 'session_controller.dart';
+import '../../core/theme/app_theme.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.session});

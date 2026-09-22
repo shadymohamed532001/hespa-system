@@ -21,7 +21,7 @@ ThemeData hesbaTheme() {
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: HesbaColors.background,
-    fontFamily: 'Arial',
+    fontFamily: 'Cairo',
     textTheme: const TextTheme(
       headlineLarge: TextStyle(
         fontSize: 36,

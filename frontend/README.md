@@ -1,17 +1,42 @@
-# hesba_desktop
+# حِسبة — تطبيق سطح المكتب
 
-A new Flutter project.
+واجهة Flutter لنظام حِسبة، منظمة بأسلوب feature-first حتى يمكن تطوير كل جزء
+بشكل مستقل دون تجميع الشاشات والخدمات في ملفات كبيرة.
 
-## Getting Started
+## هيكل `lib`
 
-This project is a starting point for a Flutter application.
+```text
+lib/
+├── app/                 # تشغيل التطبيق والـshell والتنقل الرئيسي
+├── core/                # كود مشترك لا يخص feature بعينها
+│   ├── network/         # عميل الـAPI ومعالجة أخطاء الشبكة
+│   ├── theme/           # الألوان والثيم العام
+│   ├── utils/           # أدوات التنسيق العامة
+│   └── widgets/         # widgets مشتركة بين أكثر من feature
+├── features/            # أجزاء النظام المستقلة
+│   ├── accounts/
+│   ├── admin/
+│   ├── auth/
+│   ├── collections/
+│   ├── dashboard/
+│   ├── ledger/
+│   ├── machines/
+│   ├── resources/       # السلوك المشترك بين المحافظ والماكينات
+│   ├── treasury/
+│   └── wallets/
+└── main.dart
+```
 
-A few resources to get you started if this is your first Flutter project:
+## قواعد الإضافة
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+- أي شاشة أو منطق يخص مجالًا واحدًا يوضع داخل `features/<feature>`.
+- الكود ينتقل إلى `core` فقط عندما يكون عامًا ويستخدمه أكثر من feature.
+- `app` مسؤول عن تجميع الـfeatures، ولا يوضع داخله منطق أعمال.
+- تجنب إنشاء ملف صفحات مركزي؛ أضف كل صفحة بجوار الـfeature الخاص بها.
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## التحقق
+
+```bash
+flutter analyze
+flutter test
+```
