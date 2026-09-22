@@ -53,6 +53,18 @@ class AdminPage extends StatelessWidget {
       staffAllowed: false,
       note: 'إعدادات النظام',
     ),
+    _PermissionItem(
+      action: 'بيع أصناف من مخزن الموبايلات والإكسسوارات',
+      adminAllowed: true,
+      staffAllowed: true,
+      note: 'فلوس البيع تذهب لخزنة المخزن فقط',
+    ),
+    _PermissionItem(
+      action: 'إضافة أصناف وتوريد مخزون للمخزن',
+      adminAllowed: true,
+      staffAllowed: false,
+      note: 'إعدادات مخزن منفصل عن الكاش',
+    ),
   ];
 
   @override

@@ -54,4 +54,17 @@ abstract final class ApiEndpoints {
 
   static String ledgerList({int? limit}) =>
       limit == null ? ledger : '$ledger?limit=$limit';
+
+  // Inventory (separate from cash treasury)
+  static const String inventory = '/inventory';
+  static const String inventoryProducts = '$inventory/products';
+  static const String inventorySales = '$inventory/sales';
+  static const String inventoryTreasurySummary = '$inventory/treasury/summary';
+
+  static String inventoryStockIn(String id) =>
+      '$inventoryProducts/$id/stock-in';
+  static String inventorySell(String id) => '$inventoryProducts/$id/sell';
+
+  static String inventorySalesList({int? limit}) =>
+      limit == null ? inventorySales : '$inventorySales?limit=$limit';
 }

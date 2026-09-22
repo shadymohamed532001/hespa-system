@@ -7,6 +7,7 @@ import '../features/admin/admin_page.dart';
 import '../features/auth/session_controller.dart';
 import '../features/collections/collections_page.dart';
 import '../features/dashboard/dashboard_page.dart';
+import '../features/inventory/inventory_page.dart';
 import '../features/ledger/ledger_page.dart';
 import '../features/machines/machines_page.dart';
 import '../features/top_up/top_up_page.dart';
@@ -50,6 +51,10 @@ class _AppShellState extends State<AppShell> {
     _NavItem(
       'تحصيلات المندوبين / Hold',
       () => CollectionsPage(session: widget.session),
+    ),
+    _NavItem(
+      'مخزن الموبايلات والإكسسوارات',
+      () => InventoryPage(session: widget.session),
     ),
     if (widget.session.isAdmin)
       _NavItem(
