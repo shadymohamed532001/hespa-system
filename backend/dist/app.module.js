@@ -15,9 +15,10 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { CollectionsModule } from './collections/collections.module.js';
-import { Collection, FinancialAccount, LedgerEntry, Machine, Treasury, User, Wallet } from './database/entities/index.js';
+import { AppNotification, Collection, FinancialAccount, LedgerEntry, Machine, Treasury, User, Wallet } from './database/entities/index.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { MachinesModule } from './machines/machines.module.js';
+import { NotificationsModule } from './notifications/notifications.module.js';
 import { TreasuryModule } from './treasury/treasury.module.js';
 import { WalletsModule } from './wallets/wallets.module.js';
 let AppModule = class AppModule {
@@ -35,7 +36,16 @@ AppModule = __decorate([
                     username: config.get('DB_USER', 'hesba'),
                     password: config.get('DB_PASSWORD', 'hesba'),
                     database: config.get('DB_NAME', 'hesba'),
-                    entities: [User, FinancialAccount, Wallet, Machine, Treasury, Collection, LedgerEntry],
+                    entities: [
+                        User,
+                        FinancialAccount,
+                        Wallet,
+                        Machine,
+                        Treasury,
+                        Collection,
+                        LedgerEntry,
+                        AppNotification,
+                    ],
                     synchronize: config.get('DB_SYNC', 'true') === 'true',
                 }),
             }),
@@ -46,6 +56,7 @@ AppModule = __decorate([
             CollectionsModule,
             TreasuryModule,
             LedgerModule,
+            NotificationsModule,
         ],
         controllers: [AppController],
         providers: [

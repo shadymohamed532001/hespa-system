@@ -7,6 +7,7 @@ import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/data_card.dart';
 import '../../core/widgets/error_box.dart';
+import '../../core/widgets/notifications_bell.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
 import 'receive_collection_dialog.dart';
@@ -48,6 +49,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
     title: 'التحصيل والمعلّقات',
     subtitle: 'استلام المندوب يمكن تنفيذه فورًا أو حفظه كمعلّق',
     actions: [
+      NotificationsBell(session: widget.session),
       FilledButton(onPressed: _receive, child: const Text('استلام من مندوب')),
     ],
     child: loading

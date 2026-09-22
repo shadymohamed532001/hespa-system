@@ -9,6 +9,7 @@ import '../features/collections/collections_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/ledger/ledger_page.dart';
 import '../features/machines/machines_page.dart';
+import '../features/top_up/top_up_page.dart';
 import '../features/treasury/internal_transfer_page.dart';
 import '../features/treasury/treasury_page.dart';
 import '../features/wallets/wallets_page.dart';
@@ -43,7 +44,7 @@ class _AppShellState extends State<AppShell> {
     ),
     _NavItem('فوري والشركات', () => AccountsPage(session: widget.session)),
     if (widget.session.isAdmin)
-      _NavItem('شحن حساب / محفظة', () => AccountsPage(session: widget.session)),
+      _NavItem('شحن حساب / محفظة', () => TopUpPage(session: widget.session)),
     _NavItem('المحافظ وInstaPay', () => WalletsPage(session: widget.session)),
     _NavItem('ماكينات شحن الرصيد', () => MachinesPage(session: widget.session)),
     _NavItem(

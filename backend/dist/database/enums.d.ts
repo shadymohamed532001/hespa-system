@@ -26,3 +26,9 @@ export declare enum LedgerCategory {
     DAILY_ROLLOVER = "daily_rollover",
     REVERSAL = "reversal"
 }
+export declare enum NotificationKind {
+    DEPOSIT = "deposit",
+    WITHDRAWAL = "withdrawal",
+    TRANSFER = "transfer",
+    INFO = "info"
+}

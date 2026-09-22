@@ -31,3 +31,10 @@ export enum LedgerCategory {
   REVERSAL = 'reversal',
 }
 
+export enum NotificationKind {
+  DEPOSIT = 'deposit',
+  WITHDRAWAL = 'withdrawal',
+  TRANSFER = 'transfer',
+  INFO = 'info',
+}
+

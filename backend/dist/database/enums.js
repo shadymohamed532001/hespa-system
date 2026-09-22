@@ -31,4 +31,11 @@ export var LedgerCategory;
     LedgerCategory["DAILY_ROLLOVER"] = "daily_rollover";
     LedgerCategory["REVERSAL"] = "reversal";
 })(LedgerCategory || (LedgerCategory = {}));
+export var NotificationKind;
+(function (NotificationKind) {
+    NotificationKind["DEPOSIT"] = "deposit";
+    NotificationKind["WITHDRAWAL"] = "withdrawal";
+    NotificationKind["TRANSFER"] = "transfer";
+    NotificationKind["INFO"] = "info";
+})(NotificationKind || (NotificationKind = {}));
 //# sourceMappingURL=enums.js.map

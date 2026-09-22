@@ -15,6 +15,16 @@ abstract final class ApiEndpoints {
   static String accountTopUp(String id) => '${account(id)}/top-up';
   static String accountStatus(String id) => '${account(id)}/status';
 
+  // Notifications
+  static const String notifications = '/notifications';
+  static const String notificationsUnreadCount = '$notifications/unread-count';
+  static const String notificationsReadAll = '$notifications/read-all';
+
+  static String notificationRead(String id) => '$notifications/$id/read';
+
+  static String notificationsList({int? limit}) =>
+      limit == null ? notifications : '$notifications?limit=$limit';
+
   // Wallets
   static const String wallets = '/wallets';
 
