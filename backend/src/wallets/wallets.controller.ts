@@ -1,31 +1,39 @@
 import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
-import { Roles } from '../common/decorators/roles.decorator.js';
-import { UserRole } from '../database/enums.js';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { AppPermission } from '../database/enums.js';
+import { UsersService } from '../users/users.service.js';
 import { CreateWalletDto } from './dto/create-wallet.dto.js';
 import { TopUpWalletDto } from './dto/top-up-wallet.dto.js';
 import { WalletsService } from './wallets.service.js';
 
-type UserRequest = { user: { username: string } };
+type UserRequest = { user: { userId: string; username: string } };
 
 @Controller('wallets')
 export class WalletsController {
-  constructor(private readonly wallets: WalletsService) {}
+  constructor(
+    private readonly wallets: WalletsService,
+    private readonly users: UsersService,
+  ) {}
 
   @Get()
   findAll() {
     return this.wallets.findAll();
   }
 
-  @Roles(UserRole.ADMIN)
+  @RequirePermissions(AppPermission.MANAGE_ASSETS)
   @Post()
   create(@Body() dto: CreateWalletDto) {
     return this.wallets.create(dto);
   }
 
-  @Roles(UserRole.ADMIN)
+  @RequirePermissions(AppPermission.TOP_UP_ASSETS)
   @Post(':id/top-up')
-  topUp(@Param('id') id: string, @Body() dto: TopUpWalletDto, @Request() request: UserRequest) {
+  async topUp(
+    @Param('id') id: string,
+    @Body() dto: TopUpWalletDto,
+    @Request() request: UserRequest,
+  ) {
+    await this.users.assertAmountLimit(request.user.userId, 'maxTopUpAmount', dto.amount);
     return this.wallets.topUp(id, dto, request.user.username);
   }
 }
-

@@ -14,8 +14,7 @@ export class AuthController {
   }
 
   @Get('me')
-  me(@Request() request: { user: unknown }) {
-    return request.user;
+  me(@Request() request: { user: { userId: string } }) {
+    return this.auth.me(request.user.userId);
   }
 }
-

@@ -1,14 +1,17 @@
+import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
 type UserRequest = {
     user: {
+        userId: string;
         username: string;
     };
 };
 export declare class CollectionsController {
     private readonly collections;
-    constructor(collections: CollectionsService);
+    private readonly users;
+    constructor(collections: CollectionsService, users: UsersService);
     findAll(): Promise<import("../database/entities/collection.entity.js").Collection[]>;
     receive(dto: ReceiveCollectionDto, request: UserRequest): Promise<{
         reference: string;

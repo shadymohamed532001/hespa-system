@@ -11,8 +11,8 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 import { Body, Controller, Get, Param, ParseBoolPipe, Patch, Post, Query, Request } from '@nestjs/common';
-import { Roles } from '../common/decorators/roles.decorator.js';
-import { UserRole } from '../database/enums.js';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { AppPermission } from '../database/enums.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
 import { LoadMachineDto } from './dto/load-machine.dto.js';
 import { UseMachineDto } from './dto/use-machine.dto.js';
@@ -46,7 +46,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], MachinesController.prototype, "findAll", null);
 __decorate([
-    Roles(UserRole.ADMIN),
+    RequirePermissions(AppPermission.MANAGE_ASSETS),
     Post(),
     __param(0, Body()),
     __metadata("design:type", Function),
@@ -54,7 +54,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], MachinesController.prototype, "create", null);
 __decorate([
-    Roles(UserRole.ADMIN),
+    RequirePermissions(AppPermission.TOP_UP_ASSETS),
     Post(':id/load'),
     __param(0, Param('id')),
     __param(1, Body()),
@@ -64,6 +64,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], MachinesController.prototype, "load", null);
 __decorate([
+    RequirePermissions(AppPermission.USE_MACHINES),
     Post(':id/use'),
     __param(0, Param('id')),
     __param(1, Body()),
@@ -73,7 +74,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], MachinesController.prototype, "use", null);
 __decorate([
-    Roles(UserRole.ADMIN),
+    RequirePermissions(AppPermission.MANAGE_ASSETS),
     Patch(':id/status'),
     __param(0, Param('id')),
     __param(1, Body('active')),

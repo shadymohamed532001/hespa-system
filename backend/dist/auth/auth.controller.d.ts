@@ -5,13 +5,11 @@ export declare class AuthController {
     constructor(auth: AuthService);
     login(dto: LoginDto): Promise<{
         accessToken: string;
-        user: {
-            id: string;
-            username: string;
-            role: import("../database/enums.js").UserRole;
-        };
+        user: import("../users/users.service.js").PublicUser;
     }>;
     me(request: {
-        user: unknown;
-    }): unknown;
+        user: {
+            userId: string;
+        };
+    }): Promise<import("../users/users.service.js").PublicUser>;
 }

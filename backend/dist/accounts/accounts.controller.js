@@ -11,15 +11,18 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 import { Body, Controller, Delete, Get, Param, ParseBoolPipe, Patch, Post, Query, Request } from '@nestjs/common';
-import { Roles } from '../common/decorators/roles.decorator.js';
-import { UserRole } from '../database/enums.js';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { AppPermission } from '../database/enums.js';
+import { UsersService } from '../users/users.service.js';
 import { AccountsService } from './accounts.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 let AccountsController = class AccountsController {
     accounts;
-    constructor(accounts) {
+    users;
+    constructor(accounts, users) {
         this.accounts = accounts;
+        this.users = users;
     }
     findAll(includeInactive) {
         return this.accounts.findAll(includeInactive ?? false);
@@ -27,7 +30,8 @@ let AccountsController = class AccountsController {
     create(dto, request) {
         return this.accounts.create(dto, request.user.username);
     }
-    topUp(id, dto, request) {
+    async topUp(id, dto, request) {
+        await this.users.assertAmountLimit(request.user.userId, 'maxTopUpAmount', dto.amount);
         return this.accounts.topUp(id, dto, request.user.username);
     }
     setStatus(id, active) {
@@ -45,7 +49,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AccountsController.prototype, "findAll", null);
 __decorate([
-    Roles(UserRole.ADMIN),
+    RequirePermissions(AppPermission.MANAGE_ASSETS),
     Post(),
     __param(0, Body()),
     __param(1, Request()),
@@ -54,17 +58,17 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AccountsController.prototype, "create", null);
 __decorate([
-    Roles(UserRole.ADMIN),
+    RequirePermissions(AppPermission.TOP_UP_ASSETS),
     Post(':id/top-up'),
     __param(0, Param('id')),
     __param(1, Body()),
     __param(2, Request()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, TopUpAccountDto, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], AccountsController.prototype, "topUp", null);
 __decorate([
-    Roles(UserRole.ADMIN),
+    RequirePermissions(AppPermission.MANAGE_ASSETS),
     Patch(':id/status'),
     __param(0, Param('id')),
     __param(1, Body('active')),
@@ -73,7 +77,7 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], AccountsController.prototype, "setStatus", null);
 __decorate([
-    Roles(UserRole.ADMIN),
+    RequirePermissions(AppPermission.MANAGE_ASSETS),
     Delete(':id'),
     __param(0, Param('id')),
     __param(1, Request()),
@@ -83,7 +87,8 @@ __decorate([
 ], AccountsController.prototype, "remove", null);
 AccountsController = __decorate([
     Controller('accounts'),
-    __metadata("design:paramtypes", [AccountsService])
+    __metadata("design:paramtypes", [AccountsService,
+        UsersService])
 ], AccountsController);
 export { AccountsController };
 //# sourceMappingURL=accounts.controller.js.map

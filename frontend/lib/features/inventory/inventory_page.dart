@@ -62,7 +62,7 @@ class _InventoryPageState extends State<InventoryPage> {
       title: 'مخزن الموبايلات والإكسسوارات',
       subtitle:
           'متابعة المخزون والمبيعات — فلوس المخزن في خزنة منفصلة عن خزنة الكاش',
-      actions: widget.session.isAdmin
+      actions: widget.session.can(AppPermissions.manageInventory)
           ? [
               OutlinedButton.icon(
                 onPressed: _addProduct,
@@ -128,9 +128,12 @@ class _InventoryPageState extends State<InventoryPage> {
                 const SizedBox(height: 22),
                 _ProductsCard(
                   products: products,
-                  isAdmin: widget.session.isAdmin,
+                  canManage: widget.session.can(AppPermissions.manageInventory),
+                  canSell: widget.session.can(AppPermissions.sellInventory),
                   onSell: _sellProduct,
-                  onStockIn: widget.session.isAdmin ? _stockIn : null,
+                  onStockIn: widget.session.can(AppPermissions.manageInventory)
+                      ? _stockIn
+                      : null,
                 ),
                 const SizedBox(height: 20),
                 _SalesCard(sales: sales),
@@ -374,13 +377,15 @@ class _IsolationNotice extends StatelessWidget {
 class _ProductsCard extends StatelessWidget {
   const _ProductsCard({
     required this.products,
-    required this.isAdmin,
+    required this.canManage,
+    required this.canSell,
     required this.onSell,
     required this.onStockIn,
   });
 
   final List<dynamic> products;
-  final bool isAdmin;
+  final bool canManage;
+  final bool canSell;
   final Future<void> Function(Map<String, dynamic>) onSell;
   final Future<void> Function(Map<String, dynamic>)? onStockIn;
 
@@ -510,23 +515,24 @@ class _ProductsCard extends StatelessWidget {
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    FilledButton(
-                                      onPressed:
-                                          (e['stockQty'] as num? ?? 0) > 0
-                                          ? () => onSell(
-                                              e as Map<String, dynamic>,
-                                            )
-                                          : null,
-                                      style: FilledButton.styleFrom(
-                                        minimumSize: const Size(0, 36),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 8,
+                                    if (canSell)
+                                      FilledButton(
+                                        onPressed:
+                                            (e['stockQty'] as num? ?? 0) > 0
+                                            ? () => onSell(
+                                                e as Map<String, dynamic>,
+                                              )
+                                            : null,
+                                        style: FilledButton.styleFrom(
+                                          minimumSize: const Size(0, 36),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 8,
+                                          ),
                                         ),
+                                        child: const Text('بيع'),
                                       ),
-                                      child: const Text('بيع'),
-                                    ),
-                                    if (onStockIn != null) ...[
+                                    if (canManage && onStockIn != null) ...[
                                       const SizedBox(width: 8),
                                       OutlinedButton(
                                         onPressed: () => onStockIn!(

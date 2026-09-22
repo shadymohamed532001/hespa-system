@@ -2,6 +2,27 @@ export declare enum UserRole {
     ADMIN = "admin",
     EMPLOYEE = "employee"
 }
+export declare enum AppPermission {
+    VIEW_BALANCES = "view_balances",
+    RECEIVE_COLLECTIONS = "receive_collections",
+    MANAGE_ASSETS = "manage_assets",
+    TOP_UP_ASSETS = "top_up_assets",
+    INTERNAL_TRANSFER = "internal_transfer",
+    DAILY_ROLLOVER = "daily_rollover",
+    MANAGE_USERS = "manage_users",
+    SELL_INVENTORY = "sell_inventory",
+    MANAGE_INVENTORY = "manage_inventory",
+    USE_MACHINES = "use_machines"
+}
+export declare const ALL_PERMISSIONS: AppPermission[];
+export declare const DEFAULT_EMPLOYEE_PERMISSIONS: AppPermission[];
+export type UserLimits = {
+    maxReceiveAmount: number | null;
+    maxTopUpAmount: number | null;
+    maxSaleAmount: number | null;
+    maxTransferAmount: number | null;
+};
+export declare const DEFAULT_USER_LIMITS: UserLimits;
 export declare enum AccountType {
     FAWRY = "fawry",
     COMPANY = "company",

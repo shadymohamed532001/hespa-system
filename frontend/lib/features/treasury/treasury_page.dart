@@ -63,7 +63,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
     return PageFrame(
       title: 'الخزنة المركزية',
       subtitle: 'الرصيد الفعلي والمتاح والالتزامات',
-      actions: widget.session.isAdmin
+      actions: widget.session.can(AppPermissions.internalTransfer)
           ? [
               FilledButton(
                 onPressed: widget.onOpenTransfer,

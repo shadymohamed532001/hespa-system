@@ -35,7 +35,9 @@ class _AccountsPageState extends State<AccountsPage> {
   Future<void> load() async {
     try {
       data = await widget.session.api.list(
-        ApiEndpoints.accountsList(includeInactive: widget.session.isAdmin),
+        ApiEndpoints.accountsList(
+          includeInactive: widget.session.can(AppPermissions.manageAssets),
+        ),
       );
       error = null;
     } catch (e) {
@@ -49,20 +51,20 @@ class _AccountsPageState extends State<AccountsPage> {
     return PageFrame(
       title: 'حسابات فوري والشركات',
       subtitle: 'متابعة الرصيد والترحيل والعمولات لكل حساب',
-      actions: widget.session.isAdmin
-          ? [
-              OutlinedButton.icon(
-                onPressed: () => _accountDialog(context),
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('إضافة حساب'),
-              ),
-              FilledButton.icon(
-                onPressed: () => _chooseTopUp(context),
-                icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
-                label: const Text('شحن حساب'),
-              ),
-            ]
-          : const [],
+      actions: [
+        if (widget.session.can(AppPermissions.manageAssets))
+          OutlinedButton.icon(
+            onPressed: () => _accountDialog(context),
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('إضافة حساب'),
+          ),
+        if (widget.session.can(AppPermissions.topUpAssets))
+          FilledButton.icon(
+            onPressed: () => _chooseTopUp(context),
+            icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
+            label: const Text('شحن حساب'),
+          ),
+      ],
       child: loading
           ? const Center(
               child: Padding(
@@ -132,7 +134,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 const SizedBox(height: 22),
                 _AccountsTable(
                   rows: data,
-                  isAdmin: widget.session.isAdmin,
+                  isAdmin: widget.session.can(AppPermissions.manageAssets),
                   onManage: _manageAccount,
                 ),
               ],
@@ -190,7 +192,8 @@ class _AccountsPageState extends State<AccountsPage> {
             ),
             const SizedBox(height: 10),
             OutlinedButton(
-              onPressed: !canDelete || !widget.session.isAdmin
+              onPressed: !canDelete ||
+                      !widget.session.can(AppPermissions.manageAssets)
                   ? null
                   : () async {
                       final confirmed = await showHesbaModal<bool>(
@@ -250,10 +253,10 @@ class _AccountsPageState extends State<AccountsPage> {
           ),
         );
       case _ManageAction.delete:
-        if (!widget.session.isAdmin) {
+        if (!widget.session.can(AppPermissions.manageAssets)) {
           showAppSnack(
             context,
-            'الحذف النهائي متاح للأدمن فقط',
+            'الحذف النهائي غير مسموح لحسابك',
             error: true,
           );
           return;

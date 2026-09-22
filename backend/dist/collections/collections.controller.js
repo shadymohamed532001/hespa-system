@@ -11,21 +11,29 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { AppPermission } from '../database/enums.js';
+import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
 let CollectionsController = class CollectionsController {
     collections;
-    constructor(collections) {
+    users;
+    constructor(collections, users) {
         this.collections = collections;
+        this.users = users;
     }
     findAll() {
         return this.collections.findAll();
     }
-    receive(dto, request) {
+    async receive(dto, request) {
+        await this.users.assertAmountLimit(request.user.userId, 'maxReceiveAmount', dto.amount);
         return this.collections.receive(dto, request.user.username);
     }
-    execute(id, dto, request) {
+    async execute(id, dto, request) {
+        const hold = await this.collections.findOne(id);
+        await this.users.assertAmountLimit(request.user.userId, 'maxReceiveAmount', Number(hold.amount));
         return this.collections.execute(id, dto, request.user.username);
     }
 };
@@ -36,25 +44,28 @@ __decorate([
     __metadata("design:returntype", void 0)
 ], CollectionsController.prototype, "findAll", null);
 __decorate([
+    RequirePermissions(AppPermission.RECEIVE_COLLECTIONS),
     Post('receive'),
     __param(0, Body()),
     __param(1, Request()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [ReceiveCollectionDto, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], CollectionsController.prototype, "receive", null);
 __decorate([
+    RequirePermissions(AppPermission.RECEIVE_COLLECTIONS),
     Post(':id/execute'),
     __param(0, Param('id')),
     __param(1, Body()),
     __param(2, Request()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, ExecuteHoldDto, Object]),
-    __metadata("design:returntype", void 0)
+    __metadata("design:returntype", Promise)
 ], CollectionsController.prototype, "execute", null);
 CollectionsController = __decorate([
     Controller('collections'),
-    __metadata("design:paramtypes", [CollectionsService])
+    __metadata("design:paramtypes", [CollectionsService,
+        UsersService])
 ], CollectionsController);
 export { CollectionsController };
 //# sourceMappingURL=collections.controller.js.map

@@ -40,6 +40,15 @@ export class CollectionsService implements OnModuleInit {
     return this.collections.find({ relations: { account: true }, order: { createdAt: 'DESC' } });
   }
 
+  async findOne(id: string) {
+    const collection = await this.collections.findOne({
+      where: { id },
+      relations: { account: true },
+    });
+    if (!collection) throw new NotFoundException('التحصيل غير موجود');
+    return collection;
+  }
+
   private async nextReference(mode: ExecutionMode) {
     const count = await this.collections.count();
     return `${mode === ExecutionMode.HOLD ? 'HLD' : 'COL'}-${String(count + 1).padStart(3, '0')}`;

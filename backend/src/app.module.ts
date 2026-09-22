@@ -7,15 +7,29 @@ import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
+import { PermissionsGuard } from './common/guards/permissions.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { CollectionsModule } from './collections/collections.module.js';
-import { AppNotification, Collection, FinancialAccount, InventoryProduct, InventorySale, InventoryTreasury, LedgerEntry, Machine, Treasury, User, Wallet } from './database/entities/index.js';
+import {
+  AppNotification,
+  Collection,
+  FinancialAccount,
+  InventoryProduct,
+  InventorySale,
+  InventoryTreasury,
+  LedgerEntry,
+  Machine,
+  Treasury,
+  User,
+  Wallet,
+} from './database/entities/index.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { MachinesModule } from './machines/machines.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { TreasuryModule } from './treasury/treasury.module.js';
+import { UsersModule } from './users/users.module.js';
 import { WalletsModule } from './wallets/wallets.module.js';
 
 @Module({
@@ -47,6 +61,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
       }),
     }),
     AuthModule,
+    UsersModule,
     AccountsModule,
     WalletsModule,
     MachinesModule,
@@ -62,6 +77,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
     AppService,
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
 export class AppModule {}

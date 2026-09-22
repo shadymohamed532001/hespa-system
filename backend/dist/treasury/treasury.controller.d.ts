@@ -1,13 +1,16 @@
+import { UsersService } from '../users/users.service.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
 import { TreasuryService } from './treasury.service.js';
 type UserRequest = {
     user: {
+        userId: string;
         username: string;
     };
 };
 export declare class TreasuryController {
     private readonly treasury;
-    constructor(treasury: TreasuryService);
+    private readonly users;
+    constructor(treasury: TreasuryService, users: UsersService);
     summary(): Promise<{
         actualBalance: number;
         pendingAmount: number;

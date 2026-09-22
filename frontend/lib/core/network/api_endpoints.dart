@@ -55,6 +55,24 @@ abstract final class ApiEndpoints {
   static String ledgerList({int? limit}) =>
       limit == null ? ledger : '$ledger?limit=$limit';
 
+  // Reports
+  static const String reports = '/reports';
+
+  static String reportsSummary({
+    required DateTime from,
+    required DateTime toExclusive,
+    String entityType = 'all',
+    String? entityId,
+  }) {
+    final query = <String, String>{
+      'from': from.toUtc().toIso8601String(),
+      'to': toExclusive.toUtc().toIso8601String(),
+      'entityType': entityType,
+    };
+    if (entityId != null) query['entityId'] = entityId;
+    return Uri(path: '$reports/summary', queryParameters: query).toString();
+  }
+
   // Inventory (separate from cash treasury)
   static const String inventory = '/inventory';
   static const String inventoryProducts = '$inventory/products';
@@ -67,4 +85,11 @@ abstract final class ApiEndpoints {
 
   static String inventorySalesList({int? limit}) =>
       limit == null ? inventorySales : '$inventorySales?limit=$limit';
+
+  // Users & permissions
+  static const String users = '/users';
+  static const String usersPermissionCatalog = '$users/permission-catalog';
+
+  static String user(String id) => '$users/$id';
+  static String userStatus(String id) => '${user(id)}/status';
 }

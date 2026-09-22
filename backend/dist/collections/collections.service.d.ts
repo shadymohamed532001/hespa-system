@@ -13,6 +13,7 @@ export declare class CollectionsService implements OnModuleInit {
     constructor(collections: Repository<Collection>, treasury: Repository<Treasury>, dataSource: DataSource);
     onModuleInit(): Promise<void>;
     findAll(): Promise<Collection[]>;
+    findOne(id: string): Promise<Collection>;
     private nextReference;
     receive(dto: ReceiveCollectionDto, username: string): Promise<{
         reference: string;

@@ -10,6 +10,7 @@ import '../features/dashboard/dashboard_page.dart';
 import '../features/inventory/inventory_page.dart';
 import '../features/ledger/ledger_page.dart';
 import '../features/machines/machines_page.dart';
+import '../features/reports/reports_page.dart';
 import '../features/top_up/top_up_page.dart';
 import '../features/treasury/internal_transfer_page.dart';
 import '../features/treasury/treasury_page.dart';
@@ -44,29 +45,33 @@ class _AppShellState extends State<AppShell> {
       ),
     ),
     _NavItem('فوري والشركات', () => AccountsPage(session: widget.session)),
-    if (widget.session.isAdmin)
+    if (widget.session.can(AppPermissions.topUpAssets))
       _NavItem('شحن حساب / محفظة', () => TopUpPage(session: widget.session)),
     _NavItem('المحافظ وInstaPay', () => WalletsPage(session: widget.session)),
     _NavItem('ماكينات شحن الرصيد', () => MachinesPage(session: widget.session)),
-    _NavItem(
-      'تحصيلات المندوبين / Hold',
-      () => CollectionsPage(session: widget.session),
-    ),
+    if (widget.session.can(AppPermissions.receiveCollections))
+      _NavItem(
+        'تحصيلات المندوبين / Hold',
+        () => CollectionsPage(session: widget.session),
+      ),
     _NavItem(
       'مخزن الموبايلات والإكسسوارات',
       () => InventoryPage(session: widget.session),
     ),
-    if (widget.session.isAdmin)
+    if (widget.session.can(AppPermissions.internalTransfer))
       _NavItem(
         'تحويل داخلي',
         () => InternalTransferPage(session: widget.session),
       ),
-    _NavItem(
-      'توريد وتسوية شركة',
-      () => CollectionsPage(session: widget.session),
-    ),
+    if (widget.session.can(AppPermissions.receiveCollections))
+      _NavItem(
+        'توريد وتسوية شركة',
+        () => CollectionsPage(session: widget.session),
+      ),
     _NavItem('سجل العمليات', () => LedgerPage(session: widget.session)),
-    if (widget.session.isAdmin)
+    if (widget.session.can(AppPermissions.viewBalances))
+      _NavItem('التقارير الشاملة', () => ReportsPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.manageUsers))
       _NavItem(
         'المستخدمون والصلاحيات',
         () => AdminPage(session: widget.session),
@@ -158,10 +163,7 @@ class _Sidebar extends StatelessWidget {
                   children: [
                     Text('حِسبة', style: HesbaText.brand),
                     SizedBox(height: 5),
-                    Text(
-                      'إدارة التحصيل والمدفوعات',
-                      style: HesbaText.brandSub,
-                    ),
+                    Text('إدارة التحصيل والمدفوعات', style: HesbaText.brandSub),
                   ],
                 ),
               ),
@@ -246,10 +248,7 @@ class _UserCard extends StatelessWidget {
         children: [
           const Text('المستخدم الحالي', style: HesbaText.sideMeta),
           const SizedBox(height: 5),
-          Text(
-            '${session.username ?? '—'} — $role',
-            style: HesbaText.sideUser,
-          ),
+          Text('${session.username ?? '—'} — $role', style: HesbaText.sideUser),
           const SizedBox(height: 5),
           Text(
             session.isAdmin

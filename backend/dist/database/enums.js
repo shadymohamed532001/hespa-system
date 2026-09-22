@@ -3,6 +3,32 @@ export var UserRole;
     UserRole["ADMIN"] = "admin";
     UserRole["EMPLOYEE"] = "employee";
 })(UserRole || (UserRole = {}));
+export var AppPermission;
+(function (AppPermission) {
+    AppPermission["VIEW_BALANCES"] = "view_balances";
+    AppPermission["RECEIVE_COLLECTIONS"] = "receive_collections";
+    AppPermission["MANAGE_ASSETS"] = "manage_assets";
+    AppPermission["TOP_UP_ASSETS"] = "top_up_assets";
+    AppPermission["INTERNAL_TRANSFER"] = "internal_transfer";
+    AppPermission["DAILY_ROLLOVER"] = "daily_rollover";
+    AppPermission["MANAGE_USERS"] = "manage_users";
+    AppPermission["SELL_INVENTORY"] = "sell_inventory";
+    AppPermission["MANAGE_INVENTORY"] = "manage_inventory";
+    AppPermission["USE_MACHINES"] = "use_machines";
+})(AppPermission || (AppPermission = {}));
+export const ALL_PERMISSIONS = Object.values(AppPermission);
+export const DEFAULT_EMPLOYEE_PERMISSIONS = [
+    AppPermission.VIEW_BALANCES,
+    AppPermission.RECEIVE_COLLECTIONS,
+    AppPermission.SELL_INVENTORY,
+    AppPermission.USE_MACHINES,
+];
+export const DEFAULT_USER_LIMITS = {
+    maxReceiveAmount: null,
+    maxTopUpAmount: null,
+    maxSaleAmount: null,
+    maxTransferAmount: null,
+};
 export var AccountType;
 (function (AccountType) {
     AccountType["FAWRY"] = "fawry";

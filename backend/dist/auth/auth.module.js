@@ -10,6 +10,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from '../database/entities/user.entity.js';
+import { UsersModule } from '../users/users.module.js';
 import { AuthController } from './auth.controller.js';
 import { AuthService } from './auth.service.js';
 import { JwtStrategy } from './jwt.strategy.js';
@@ -18,6 +19,7 @@ let AuthModule = class AuthModule {
 AuthModule = __decorate([
     Module({
         imports: [
+            UsersModule,
             TypeOrmModule.forFeature([User]),
             PassportModule,
             JwtModule.registerAsync({

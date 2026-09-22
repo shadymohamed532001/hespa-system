@@ -8,12 +8,15 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, } from 'typeorm';
-import { UserRole } from '../enums.js';
+import { DEFAULT_EMPLOYEE_PERMISSIONS, DEFAULT_USER_LIMITS, UserRole, } from '../enums.js';
 let User = class User {
     id;
     username;
+    displayName;
     passwordHash;
     role;
+    permissions;
+    limits;
     active;
     createdAt;
     updatedAt;
@@ -27,6 +30,10 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "username", void 0);
 __decorate([
+    Column({ name: 'display_name', length: 120, default: '' }),
+    __metadata("design:type", String)
+], User.prototype, "displayName", void 0);
+__decorate([
     Column({ name: 'password_hash' }),
     __metadata("design:type", String)
 ], User.prototype, "passwordHash", void 0);
@@ -34,6 +41,20 @@ __decorate([
     Column({ type: 'enum', enum: UserRole }),
     __metadata("design:type", String)
 ], User.prototype, "role", void 0);
+__decorate([
+    Column({
+        type: 'jsonb',
+        default: () => `'${JSON.stringify(DEFAULT_EMPLOYEE_PERMISSIONS)}'`,
+    }),
+    __metadata("design:type", Array)
+], User.prototype, "permissions", void 0);
+__decorate([
+    Column({
+        type: 'jsonb',
+        default: () => `'${JSON.stringify(DEFAULT_USER_LIMITS)}'`,
+    }),
+    __metadata("design:type", Object)
+], User.prototype, "limits", void 0);
 __decorate([
     Column({ default: true }),
     __metadata("design:type", Boolean)

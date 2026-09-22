@@ -1,6 +1,9 @@
 import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
+import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
+import { AppPermission } from '../database/enums.js';
 import { ReportsService } from './reports.service.js';
 
+@RequirePermissions(AppPermission.VIEW_BALANCES)
 @Controller('reports')
 export class ReportsController {
   constructor(private readonly reports: ReportsService) {}

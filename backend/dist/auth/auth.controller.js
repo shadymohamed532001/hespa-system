@@ -23,7 +23,7 @@ let AuthController = class AuthController {
         return this.auth.login(dto);
     }
     me(request) {
-        return request.user;
+        return this.auth.me(request.user.userId);
     }
 };
 __decorate([
