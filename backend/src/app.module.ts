@@ -14,6 +14,7 @@ import { InventoryModule } from './inventory/inventory.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { MachinesModule } from './machines/machines.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
+import { ReportsModule } from './reports/reports.module.js';
 import { TreasuryModule } from './treasury/treasury.module.js';
 import { WalletsModule } from './wallets/wallets.module.js';
 
@@ -54,6 +55,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
     LedgerModule,
     NotificationsModule,
     InventoryModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [

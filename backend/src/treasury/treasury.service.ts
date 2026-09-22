@@ -79,6 +79,10 @@ export class TreasuryService {
         category: LedgerCategory.INTERNAL_TRANSFER,
         amount: dto.amount,
         entityType: 'internal_transfer', entityId: null,
+        sourceType: dto.fromType,
+        sourceId: dto.fromType === 'treasury' ? 'main' : dto.fromId ?? null,
+        targetType: dto.toType,
+        targetId: dto.toType === 'treasury' ? 'main' : dto.toId ?? null,
         reference: dto.reference ?? null,
         description: `تحويل داخلي من ${source.name} إلى ${target.name} — ليس مصروفًا`,
         performedBy: username,
@@ -114,4 +118,3 @@ export class TreasuryService {
     });
   }
 }
-

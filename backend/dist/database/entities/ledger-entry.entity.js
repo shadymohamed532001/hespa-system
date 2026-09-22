@@ -19,6 +19,10 @@ let LedgerEntry = class LedgerEntry {
     reference;
     description;
     performedBy;
+    sourceType;
+    sourceId;
+    targetType;
+    targetId;
     createdAt;
 };
 __decorate([
@@ -67,6 +71,22 @@ __decorate([
     Column({ name: 'performed_by', length: 80 }),
     __metadata("design:type", String)
 ], LedgerEntry.prototype, "performedBy", void 0);
+__decorate([
+    Column({ name: 'source_type', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", Object)
+], LedgerEntry.prototype, "sourceType", void 0);
+__decorate([
+    Column({ name: 'source_id', type: 'varchar', length: 80, nullable: true }),
+    __metadata("design:type", Object)
+], LedgerEntry.prototype, "sourceId", void 0);
+__decorate([
+    Column({ name: 'target_type', type: 'varchar', length: 50, nullable: true }),
+    __metadata("design:type", Object)
+], LedgerEntry.prototype, "targetType", void 0);
+__decorate([
+    Column({ name: 'target_id', type: 'varchar', length: 80, nullable: true }),
+    __metadata("design:type", Object)
+], LedgerEntry.prototype, "targetId", void 0);
 __decorate([
     CreateDateColumn({ name: 'created_at' }),
     __metadata("design:type", Date)

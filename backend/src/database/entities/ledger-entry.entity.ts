@@ -42,6 +42,18 @@ export class LedgerEntry {
   @Column({ name: 'performed_by', length: 80 })
   performedBy: string;
 
+  @Column({ name: 'source_type', type: 'varchar', length: 50, nullable: true })
+  sourceType: string | null;
+
+  @Column({ name: 'source_id', type: 'varchar', length: 80, nullable: true })
+  sourceId: string | null;
+
+  @Column({ name: 'target_type', type: 'varchar', length: 50, nullable: true })
+  targetType: string | null;
+
+  @Column({ name: 'target_id', type: 'varchar', length: 80, nullable: true })
+  targetId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
