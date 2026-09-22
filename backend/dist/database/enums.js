@@ -38,4 +38,12 @@ export var NotificationKind;
     NotificationKind["TRANSFER"] = "transfer";
     NotificationKind["INFO"] = "info";
 })(NotificationKind || (NotificationKind = {}));
+export var InventoryCategory;
+(function (InventoryCategory) {
+    InventoryCategory["MOBILE"] = "mobile";
+    InventoryCategory["ACCESSORY"] = "accessory";
+    InventoryCategory["CASE"] = "case";
+    InventoryCategory["SCREEN"] = "screen";
+    InventoryCategory["OTHER"] = "other";
+})(InventoryCategory || (InventoryCategory = {}));
 //# sourceMappingURL=enums.js.map

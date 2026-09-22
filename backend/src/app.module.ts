@@ -9,7 +9,8 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { CollectionsModule } from './collections/collections.module.js';
-import { AppNotification, Collection, FinancialAccount, LedgerEntry, Machine, Treasury, User, Wallet } from './database/entities/index.js';
+import { AppNotification, Collection, FinancialAccount, InventoryProduct, InventorySale, InventoryTreasury, LedgerEntry, Machine, Treasury, User, Wallet } from './database/entities/index.js';
+import { InventoryModule } from './inventory/inventory.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { MachinesModule } from './machines/machines.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
@@ -37,6 +38,9 @@ import { WalletsModule } from './wallets/wallets.module.js';
           Collection,
           LedgerEntry,
           AppNotification,
+          InventoryProduct,
+          InventorySale,
+          InventoryTreasury,
         ],
         synchronize: config.get('DB_SYNC', 'true') === 'true',
       }),
@@ -49,6 +53,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
     TreasuryModule,
     LedgerModule,
     NotificationsModule,
+    InventoryModule,
   ],
   controllers: [AppController],
   providers: [

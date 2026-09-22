@@ -38,3 +38,11 @@ export enum NotificationKind {
   INFO = 'info',
 }
 
+export enum InventoryCategory {
+  MOBILE = 'mobile',
+  ACCESSORY = 'accessory',
+  CASE = 'case',
+  SCREEN = 'screen',
+  OTHER = 'other',
+}
+
