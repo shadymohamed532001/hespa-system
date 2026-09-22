@@ -253,10 +253,7 @@ class _TransferFormCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'بيانات التحويل',
-                  style: HesbaText.sectionTitle,
-                ),
+                Text('بيانات التحويل', style: HesbaText.sectionTitle),
                 SizedBox(height: 2),
                 Text(
                   'انقل مبلغًا بين الخزنة وحسابات التشغيل',

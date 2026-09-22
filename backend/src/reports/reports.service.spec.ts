@@ -10,6 +10,9 @@ function repository(findResult: unknown = [], findOneResult: unknown = null) {
   return {
     find: vi.fn().mockResolvedValue(findResult),
     findOne: vi.fn().mockResolvedValue(findOneResult),
+    count: vi
+      .fn()
+      .mockResolvedValue(Array.isArray(findResult) ? findResult.length : 0),
   };
 }
 

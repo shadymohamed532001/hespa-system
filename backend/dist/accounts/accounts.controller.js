@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Body, Controller, Delete, Get, Param, ParseBoolPipe, Patch, Post, Query, Request } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseBoolPipe, Patch, Post, Query, Request, } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';

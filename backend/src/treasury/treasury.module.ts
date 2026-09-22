@@ -10,9 +10,17 @@ import { TreasuryController } from './treasury.controller.js';
 import { TreasuryService } from './treasury.service.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Treasury, Collection, FinancialAccount, Wallet, Machine, LedgerEntry])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Treasury,
+      Collection,
+      FinancialAccount,
+      Wallet,
+      Machine,
+      LedgerEntry,
+    ]),
+  ],
   controllers: [TreasuryController],
   providers: [TreasuryService],
 })
 export class TreasuryModule {}
-

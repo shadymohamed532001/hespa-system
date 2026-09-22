@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
@@ -36,8 +36,18 @@ let AccountsService = class AccountsService {
         if (await this.accounts.count())
             return;
         await this.accounts.save([
-            this.accounts.create({ name: 'حساب فوري 01', type: AccountType.FAWRY, openingBalance: 82400, balance: 82400 }),
-            this.accounts.create({ name: 'حساب شركة 01', type: AccountType.COMPANY, openingBalance: 36500, balance: 36500 }),
+            this.accounts.create({
+                name: 'حساب فوري 01',
+                type: AccountType.FAWRY,
+                openingBalance: 82400,
+                balance: 82400,
+            }),
+            this.accounts.create({
+                name: 'حساب شركة 01',
+                type: AccountType.COMPANY,
+                openingBalance: 36500,
+                balance: 36500,
+            }),
         ]);
     }
     findAll(includeInactive = false) {
@@ -47,7 +57,8 @@ let AccountsService = class AccountsService {
         });
     }
     async create(dto, username) {
-        if (dto.type === AccountType.FAWRY && dto.openingBalance > FAWRY_MAX_BALANCE) {
+        if (dto.type === AccountType.FAWRY &&
+            dto.openingBalance > FAWRY_MAX_BALANCE) {
             throw new BadRequestException('الرصيد الافتتاحي يتجاوز الحد الأقصى لحساب فوري');
         }
         return this.dataSource.transaction(async (manager) => {
@@ -75,10 +86,14 @@ let AccountsService = class AccountsService {
     async topUp(id, dto, username) {
         return this.dataSource.transaction(async (manager) => {
             const repo = manager.getRepository(FinancialAccount);
-            const account = await repo.findOne({ where: { id, active: true }, lock: { mode: 'pessimistic_write' } });
+            const account = await repo.findOne({
+                where: { id, active: true },
+                lock: { mode: 'pessimistic_write' },
+            });
             if (!account)
                 throw new NotFoundException('الحساب غير موجود أو موقوف');
-            if (account.type === AccountType.FAWRY && account.balance + dto.amount > FAWRY_MAX_BALANCE) {
+            if (account.type === AccountType.FAWRY &&
+                account.balance + dto.amount > FAWRY_MAX_BALANCE) {
                 throw new BadRequestException({
                     message: 'سيتم تجاوز الحد الأقصى لحساب فوري',
                     limit: FAWRY_MAX_BALANCE,
@@ -114,7 +129,9 @@ let AccountsService = class AccountsService {
         const history = await this.ledger.count({
             where: { entityType: 'account', entityId: id },
         });
-        if (account.balance !== 0 || account.commissionBalance !== 0 || history > 0) {
+        if (account.balance !== 0 ||
+            account.commissionBalance !== 0 ||
+            history > 0) {
             throw new BadRequestException('لا يمكن الحذف النهائي إلا إذا كان الرصيد والعمولة صفرًا ولا توجد أي حركات مرتبطة بالحساب');
         }
         const name = account.name;

@@ -1,4 +1,11 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { decimalTransformer } from '../decimal.transformer.js';
 import { CollectionStatus, ExecutionMode } from '../enums.js';
 import { FinancialAccount } from './financial-account.entity.js';
@@ -17,7 +24,12 @@ export class Collection {
   @Column({ name: 'company_name', length: 150 })
   companyName: string;
 
-  @Column({ type: 'numeric', precision: 16, scale: 2, transformer: decimalTransformer })
+  @Column({
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    transformer: decimalTransformer,
+  })
   amount: number;
 
   @Column({ type: 'enum', enum: ExecutionMode })
@@ -36,10 +48,15 @@ export class Collection {
   @JoinColumn({ name: 'account_id' })
   account: FinancialAccount | null;
 
-  @Column({ type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   commission: number;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
-

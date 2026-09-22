@@ -33,7 +33,9 @@ export type PublicUser = {
 
 @Injectable()
 export class UsersService implements OnModuleInit {
-  constructor(@InjectRepository(User) private readonly users: Repository<User>) {}
+  constructor(
+    @InjectRepository(User) private readonly users: Repository<User>,
+  ) {}
 
   async onModuleInit() {
     // Backfill columns for users created before permissions existed.
@@ -72,7 +74,7 @@ export class UsersService implements OnModuleInit {
       displayName: user.displayName || user.username,
       role: user.role,
       permissions,
-      limits: { ...DEFAULT_USER_LIMITS, ...(user.limits ?? {}) },
+      limits: { ...DEFAULT_USER_LIMITS, ...user.limits },
       active: user.active,
       createdAt: user.createdAt,
     };
@@ -123,7 +125,9 @@ export class UsersService implements OnModuleInit {
     const user = await this.findById(id);
     let revokeSessions = false;
     if (user.role === UserRole.ADMIN && user.id !== actorId) {
-      throw new ForbiddenException('لا يمكن تعديل حساب الأدمن الأساسي بهذه الطريقة');
+      throw new ForbiddenException(
+        'لا يمكن تعديل حساب الأدمن الأساسي بهذه الطريقة',
+      );
     }
     if (dto.displayName != null) user.displayName = dto.displayName.trim();
     if (dto.password) {
@@ -142,7 +146,10 @@ export class UsersService implements OnModuleInit {
       revokeSessions = true;
     }
     if (dto.limits) {
-      user.limits = this.mergeLimits(user.limits ?? DEFAULT_USER_LIMITS, dto.limits);
+      user.limits = this.mergeLimits(
+        user.limits ?? DEFAULT_USER_LIMITS,
+        dto.limits,
+      );
       revokeSessions = true;
     }
     if (dto.active != null) {
@@ -177,7 +184,7 @@ export class UsersService implements OnModuleInit {
   ) {
     const user = await this.findActiveById(userId);
     if (user.role === UserRole.ADMIN) return;
-    const limits = { ...DEFAULT_USER_LIMITS, ...(user.limits ?? {}) };
+    const limits = { ...DEFAULT_USER_LIMITS, ...user.limits };
     const cap = limits[key];
     if (cap == null) return;
     if (Number(amount) > Number(cap)) {

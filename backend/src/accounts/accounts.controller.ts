@@ -1,4 +1,15 @@
-import { Body, Controller, Delete, Get, Param, ParseBoolPipe, Patch, Post, Query, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseBoolPipe,
+  Patch,
+  Post,
+  Query,
+  Request,
+} from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
@@ -18,7 +29,10 @@ export class AccountsController {
   ) {}
 
   @Get()
-  findAll(@Query('includeInactive', new ParseBoolPipe({ optional: true })) includeInactive?: boolean) {
+  findAll(
+    @Query('includeInactive', new ParseBoolPipe({ optional: true }))
+    includeInactive?: boolean,
+  ) {
     return this.accounts.findAll(includeInactive ?? false);
   }
 
@@ -37,7 +51,11 @@ export class AccountsController {
     @Body() dto: TopUpAccountDto,
     @Request() request: UserRequest,
   ) {
-    await this.users.assertAmountLimit(request.user.userId, 'maxTopUpAmount', dto.amount);
+    await this.users.assertAmountLimit(
+      request.user.userId,
+      'maxTopUpAmount',
+      dto.amount,
+    );
     return this.accounts.topUp(id, dto, request.user.username);
   }
 

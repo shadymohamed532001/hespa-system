@@ -142,7 +142,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   Widget build(BuildContext context) {
     return HesbaModalCard(
       title: 'استلام كاش من مندوب',
-      subtitle: 'اختر تنفيذ العملية فورًا أو الاحتفاظ بها كمعلّق للتنفيذ لاحقًا.',
+      subtitle:
+          'اختر تنفيذ العملية فورًا أو الاحتفاظ بها كمعلّق للتنفيذ لاحقًا.',
       actions: HesbaModalActions(
         primaryLabel: _isImmediate ? 'استلام وتنفيذ الآن' : 'تسجيل كمعلّق',
         primaryEnabled: !_saving,
@@ -169,10 +170,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     SizedBox(width: width, child: _modeField()),
                     SizedBox(
                       width: width,
-                      child: _textField(
-                        label: 'المندوب *',
-                        controller: _agent,
-                      ),
+                      child: _textField(label: 'المندوب *', controller: _agent),
                     ),
                     SizedBox(
                       width: width,

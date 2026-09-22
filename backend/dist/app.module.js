@@ -9,6 +9,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Schema1790087699416 } from './database/migrations/1790087699416-Schema.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -68,6 +69,9 @@ AppModule = __decorate([
                     ],
                     synchronize: config.get('NODE_ENV', 'development') !== 'production' &&
                         config.get('DB_SYNC', 'true') === 'true',
+                    migrations: [Schema1790087699416],
+                    migrationsTableName: 'schema_migrations',
+                    migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',
                 }),
             }),
             AuthModule,

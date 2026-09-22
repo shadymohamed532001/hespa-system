@@ -33,7 +33,10 @@ export class IdempotencyInterceptor implements NestInterceptor {
     private readonly records: Repository<IdempotencyRecord>,
   ) {}
 
-  async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
+  async intercept(
+    context: ExecutionContext,
+    next: CallHandler,
+  ): Promise<Observable<unknown>> {
     const required = this.reflector.getAllAndOverride<boolean>(IDEMPOTENT_KEY, [
       context.getHandler(),
       context.getClass(),
@@ -54,7 +57,13 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     const path = request.originalUrl.split('?')[0];
     const requestHash = createHash('sha256')
-      .update(JSON.stringify({ method: request.method, path, body: request.body ?? null }))
+      .update(
+        JSON.stringify({
+          method: request.method,
+          path,
+          body: request.body ?? null,
+        }),
+      )
       .digest('hex');
 
     const record = this.records.create({
@@ -68,7 +77,7 @@ export class IdempotencyInterceptor implements NestInterceptor {
     });
 
     try {
-      await this.records.insert(record);
+      await this.records.save(record);
     } catch (error) {
       if (!this.isUniqueViolation(error)) throw error;
       const existing = await this.records.findOne({ where: { userId, key } });
@@ -91,7 +100,15 @@ export class IdempotencyInterceptor implements NestInterceptor {
             status: IdempotencyStatus.COMPLETED,
             response,
           }),
-        ).pipe(mergeMap(() => of(response))),
+        ).pipe(
+          mergeMap(() => of(response)),
+          catchError((error: unknown) => {
+            // The protected operation has already succeeded. Keep the record in
+            // PENDING rather than deleting it and risking a duplicate retry.
+            console.error('Failed to complete idempotency record', error);
+            return of(response);
+          }),
+        ),
       ),
       catchError((error: unknown) =>
         from(this.records.delete(record.id)).pipe(
@@ -103,7 +120,12 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
   private isUniqueViolation(error: unknown) {
     if (!error || typeof error !== 'object') return false;
-    const candidate = error as { code?: string; driverError?: { code?: string } };
-    return candidate.code === '23505' || candidate.driverError?.code === '23505';
+    const candidate = error as {
+      code?: string;
+      driverError?: { code?: string };
+    };
+    return (
+      candidate.code === '23505' || candidate.driverError?.code === '23505'
+    );
   }
 }

@@ -5,11 +5,19 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserRole } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 
-type JwtPayload = { sub: string; username: string; role: UserRole; ver: number };
+type JwtPayload = {
+  sub: string;
+  username: string;
+  role: UserRole;
+  ver: number;
+};
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(config: ConfigService, private readonly users: UsersService) {
+  constructor(
+    config: ConfigService,
+    private readonly users: UsersService,
+  ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,

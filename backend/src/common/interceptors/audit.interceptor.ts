@@ -32,9 +32,12 @@ const REDACTED_KEYS = new Set([
 
 function sanitize(value: unknown, depth = 0): unknown {
   if (depth > 4) return '[truncated]';
-  if (Array.isArray(value)) return value.slice(0, 50).map((item) => sanitize(item, depth + 1));
+  if (Array.isArray(value))
+    return value.slice(0, 50).map((item) => sanitize(item, depth + 1));
   if (!value || typeof value !== 'object') {
-    return typeof value === 'string' && value.length > 500 ? `${value.slice(0, 500)}…` : value;
+    return typeof value === 'string' && value.length > 500
+      ? `${value.slice(0, 500)}…`
+      : value;
   }
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, item]) => [
@@ -56,7 +59,9 @@ export class AuditInterceptor implements NestInterceptor {
     if (!['POST', 'PATCH', 'PUT', 'DELETE'].includes(request.method)) {
       return next.handle();
     }
-    const response = context.switchToHttp().getResponse<{ statusCode: number }>();
+    const response = context
+      .switchToHttp()
+      .getResponse<{ statusCode: number }>();
     const started = Date.now();
 
     return next.handle().pipe(
@@ -65,7 +70,8 @@ export class AuditInterceptor implements NestInterceptor {
           void this.record(request, response.statusCode, true, started);
         },
         error: (error: unknown) => {
-          const statusCode = error instanceof HttpException ? error.getStatus() : 500;
+          const statusCode =
+            error instanceof HttpException ? error.getStatus() : 500;
           void this.record(request, statusCode, false, started);
         },
       }),
@@ -89,7 +95,9 @@ export class AuditInterceptor implements NestInterceptor {
           statusCode,
           success,
           ipAddress: request.ip?.slice(0, 80) ?? null,
-          userAgent: (Array.isArray(rawAgent) ? rawAgent[0] : rawAgent)?.slice(0, 500) ?? null,
+          userAgent:
+            (Array.isArray(rawAgent) ? rawAgent[0] : rawAgent)?.slice(0, 500) ??
+            null,
           details: {
             durationMs: Date.now() - started,
             body: sanitize(request.body),

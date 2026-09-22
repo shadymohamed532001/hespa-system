@@ -33,11 +33,15 @@ export class IdempotencyRecord {
   @Column({ name: 'request_hash', length: 64 })
   requestHash: string;
 
-  @Column({ type: 'enum', enum: IdempotencyStatus, default: IdempotencyStatus.PENDING })
+  @Column({
+    type: 'enum',
+    enum: IdempotencyStatus,
+    default: IdempotencyStatus.PENDING,
+  })
   status: IdempotencyStatus;
 
   @Column({ type: 'jsonb', nullable: true })
-  response: unknown | null;
+  response: unknown;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

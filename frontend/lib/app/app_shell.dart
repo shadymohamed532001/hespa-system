@@ -21,11 +21,7 @@ import '../features/treasury/treasury_page.dart';
 import '../features/wallets/wallets_page.dart';
 
 class AppShell extends StatefulWidget {
-  const AppShell({
-    super.key,
-    required this.session,
-    required this.settings,
-  });
+  const AppShell({super.key, required this.session, required this.settings});
 
   final SessionController session;
   final AppSettings settings;
@@ -38,48 +34,39 @@ class _AppShellState extends State<AppShell> {
   int selected = 0;
 
   List<_NavItem> _items(AppStrings t) => [
-        _NavItem(
-          t.dashboard,
-          () => DashboardPage(
-            session: widget.session,
-            onOpenCollections: () => _selectLabel(t.collections),
-            onOpenLedger: () => _selectLabel(t.ledger),
-          ),
-        ),
-        _NavItem(
-          t.treasury,
-          () => TreasuryPage(
-            session: widget.session,
-            onOpenTransfer: () => _selectLabel(t.transfer),
-          ),
-        ),
-        _NavItem(t.accounts, () => AccountsPage(session: widget.session)),
-        if (widget.session.can(AppPermissions.topUpAssets))
-          _NavItem(t.topUp, () => TopUpPage(session: widget.session)),
-        _NavItem(t.wallets, () => WalletsPage(session: widget.session)),
-        _NavItem(t.machines, () => MachinesPage(session: widget.session)),
-        if (widget.session.can(AppPermissions.receiveCollections))
-          _NavItem(
-            t.collections,
-            () => CollectionsPage(session: widget.session),
-          ),
-        _NavItem(t.inventory, () => InventoryPage(session: widget.session)),
-        if (widget.session.can(AppPermissions.internalTransfer))
-          _NavItem(
-            t.transfer,
-            () => InternalTransferPage(session: widget.session),
-          ),
-        if (widget.session.can(AppPermissions.receiveCollections))
-          _NavItem(
-            t.settlement,
-            () => CollectionsPage(session: widget.session),
-          ),
-        _NavItem(t.ledger, () => LedgerPage(session: widget.session)),
-        if (widget.session.can(AppPermissions.viewBalances))
-          _NavItem(t.reports, () => ReportsPage(session: widget.session)),
-        if (widget.session.can(AppPermissions.manageUsers))
-          _NavItem(t.users, () => AdminPage(session: widget.session)),
-      ];
+    _NavItem(
+      t.dashboard,
+      () => DashboardPage(
+        session: widget.session,
+        onOpenCollections: () => _selectLabel(t.collections),
+        onOpenLedger: () => _selectLabel(t.ledger),
+      ),
+    ),
+    _NavItem(
+      t.treasury,
+      () => TreasuryPage(
+        session: widget.session,
+        onOpenTransfer: () => _selectLabel(t.transfer),
+      ),
+    ),
+    _NavItem(t.accounts, () => AccountsPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.topUpAssets))
+      _NavItem(t.topUp, () => TopUpPage(session: widget.session)),
+    _NavItem(t.wallets, () => WalletsPage(session: widget.session)),
+    _NavItem(t.machines, () => MachinesPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.receiveCollections))
+      _NavItem(t.collections, () => CollectionsPage(session: widget.session)),
+    _NavItem(t.inventory, () => InventoryPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.internalTransfer))
+      _NavItem(t.transfer, () => InternalTransferPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.receiveCollections))
+      _NavItem(t.settlement, () => CollectionsPage(session: widget.session)),
+    _NavItem(t.ledger, () => LedgerPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.viewBalances))
+      _NavItem(t.reports, () => ReportsPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.manageUsers))
+      _NavItem(t.users, () => AdminPage(session: widget.session)),
+  ];
 
   void _selectPage(int index) {
     final items = _items(AppStrings.of(widget.settings.locale));
@@ -375,10 +362,7 @@ class _ContextBar extends StatelessWidget {
                       : Icons.dark_mode_outlined,
                 ),
                 const SizedBox(width: 8),
-                NotificationsBell(
-                  session: session,
-                  strings: strings,
-                ),
+                NotificationsBell(session: session, strings: strings),
               ],
             ),
           ),

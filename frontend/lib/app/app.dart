@@ -61,9 +61,7 @@ class _HesbaAppState extends State<HesbaApp> {
             );
           },
           home: !session.ready || !settings.ready
-              ? const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),
-                )
+              ? const Scaffold(body: Center(child: CircularProgressIndicator()))
               : session.signedIn
               ? AppShell(session: session, settings: settings)
               : LoginPage(session: session),

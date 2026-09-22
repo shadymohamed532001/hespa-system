@@ -37,7 +37,11 @@ export class WalletsController {
     @Body() dto: TopUpWalletDto,
     @Request() request: UserRequest,
   ) {
-    await this.users.assertAmountLimit(request.user.userId, 'maxTopUpAmount', dto.amount);
+    await this.users.assertAmountLimit(
+      request.user.userId,
+      'maxTopUpAmount',
+      dto.amount,
+    );
     return this.wallets.topUp(id, dto, request.user.username);
   }
 }

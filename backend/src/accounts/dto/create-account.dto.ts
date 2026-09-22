@@ -1,4 +1,12 @@
-import { IsEnum, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { AccountType } from '../../database/enums.js';
 
 export class CreateAccountDto {

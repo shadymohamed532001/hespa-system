@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
@@ -19,9 +23,16 @@ abstract final class AppPermissions {
 }
 
 class SessionController extends ChangeNotifier {
-  SessionController(this.api);
+  SessionController(this.api) {
+    api.onUnauthorized = () => unawaited(logout());
+  }
 
   final ApiClient api;
+  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
+    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
+  );
+  static const _tokenKey = 'access_token';
+  static const _loggedOutKey = 'auth_logged_out';
   bool ready = false;
   bool busy = false;
   String? token;
@@ -49,7 +60,24 @@ class SessionController extends ChangeNotifier {
 
   Future<void> restore() async {
     final prefs = await SharedPreferences.getInstance();
-    token = prefs.getString('token');
+    final explicitlyLoggedOut = prefs.getBool(_loggedOutKey) ?? false;
+    try {
+      if (explicitlyLoggedOut) {
+        await _secureStorage.delete(key: _tokenKey);
+      } else {
+        token = await _secureStorage.read(key: _tokenKey);
+        final legacyToken = prefs.getString('token');
+        if (token == null && legacyToken != null) {
+          await _secureStorage.write(key: _tokenKey, value: legacyToken);
+          token = legacyToken;
+        }
+      }
+    } catch (_) {
+      // Never keep the splash screen or restore an uncertain session when the
+      // platform keychain is unavailable.
+      token = null;
+    }
+    await prefs.remove('token');
     userId = prefs.getString('userId');
     username = prefs.getString('username');
     displayName = prefs.getString('displayName');
@@ -61,8 +89,8 @@ class SessionController extends ChangeNotifier {
     if (token != null) {
       try {
         await refreshProfile();
-      } catch (_) {
-        // Keep restored session; profile refresh can fail offline.
+      } on DioException catch (error) {
+        if (error.response?.statusCode == 401) await logout();
       }
     }
   }
@@ -79,6 +107,12 @@ class SessionController extends ChangeNotifier {
       await _applyUser(currentUser);
       return true;
     } catch (e) {
+      try {
+        await logout();
+      } catch (_) {
+        // The logout marker is written before keychain deletion, so an old
+        // token will still not be restored on the next launch.
+      }
       error = ApiClient.errorMessage(e);
       return false;
     } finally {
@@ -108,7 +142,11 @@ class SessionController extends ChangeNotifier {
       (currentUser['limits'] as Map?) ?? const {},
     );
     final prefs = await SharedPreferences.getInstance();
-    if (token != null) await prefs.setString('token', token!);
+    if (token != null) {
+      await _secureStorage.write(key: _tokenKey, value: token);
+      await prefs.remove(_loggedOutKey);
+    }
+    await prefs.remove('token');
     if (userId != null) await prefs.setString('userId', userId!);
     if (username != null) await prefs.setString('username', username!);
     if (displayName != null) {
@@ -127,8 +165,25 @@ class SessionController extends ChangeNotifier {
     permissions = const [];
     limits = const {};
     api.setToken(null);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
     notifyListeners();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_loggedOutKey, true);
+    try {
+      await _secureStorage.delete(key: _tokenKey);
+    } catch (_) {
+      // The persistent logout marker prevents restoration until a later
+      // successful login even if the platform keychain is temporarily down.
+    } finally {
+      for (final key in [
+        'token',
+        'userId',
+        'username',
+        'displayName',
+        'role',
+        'permissions',
+      ]) {
+        await prefs.remove(key);
+      }
+    }
   }
 }

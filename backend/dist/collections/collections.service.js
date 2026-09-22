@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
@@ -18,7 +18,7 @@ import { Collection } from '../database/entities/collection.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
-import { CollectionStatus, ExecutionMode, LedgerCategory } from '../database/enums.js';
+import { CollectionStatus, ExecutionMode, LedgerCategory, } from '../database/enums.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 let CollectionsService = class CollectionsService {
     collections;
@@ -56,7 +56,10 @@ let CollectionsService = class CollectionsService {
         });
     }
     findAll() {
-        return this.collections.find({ relations: { account: true }, order: { createdAt: 'DESC' } });
+        return this.collections.find({
+            relations: { account: true },
+            order: { createdAt: 'DESC' },
+        });
     }
     async findOne(id) {
         const collection = await this.collections.findOne({
@@ -78,7 +81,10 @@ let CollectionsService = class CollectionsService {
         const reference = await this.nextReference(dto.executionMode);
         return this.dataSource.transaction(async (manager) => {
             const treasuryRepo = manager.getRepository(Treasury);
-            const treasury = await treasuryRepo.findOne({ where: { id: 'main' }, lock: { mode: 'pessimistic_write' } });
+            const treasury = await treasuryRepo.findOne({
+                where: { id: 'main' },
+                lock: { mode: 'pessimistic_write' },
+            });
             if (!treasury)
                 throw new NotFoundException('الخزنة غير مهيأة');
             treasury.balance += dto.amount;
@@ -86,7 +92,8 @@ let CollectionsService = class CollectionsService {
             let account = null;
             if (dto.executionMode === ExecutionMode.IMMEDIATE) {
                 account = await manager.getRepository(FinancialAccount).findOne({
-                    where: { id: dto.accountId, active: true }, lock: { mode: 'pessimistic_write' },
+                    where: { id: dto.accountId, active: true },
+                    lock: { mode: 'pessimistic_write' },
                 });
                 if (!account)
                     throw new NotFoundException('الحساب المستخدم غير موجود أو موقوف');
@@ -102,7 +109,9 @@ let CollectionsService = class CollectionsService {
                 companyName: dto.companyName,
                 amount: dto.amount,
                 executionMode: dto.executionMode,
-                status: dto.executionMode === ExecutionMode.IMMEDIATE ? CollectionStatus.DONE : CollectionStatus.PENDING,
+                status: dto.executionMode === ExecutionMode.IMMEDIATE
+                    ? CollectionStatus.DONE
+                    : CollectionStatus.PENDING,
                 receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : new Date(),
                 executedAt: dto.executionMode === ExecutionMode.IMMEDIATE ? new Date() : null,
                 account,
@@ -112,7 +121,9 @@ let CollectionsService = class CollectionsService {
             await ledger.save({
                 category: LedgerCategory.CASH_RECEIPT,
                 amount: dto.amount,
-                entityType: 'collection', entityId: collection.id, reference,
+                entityType: 'collection',
+                entityId: collection.id,
+                reference,
                 description: `استلام كاش من ${dto.agentName} لصالح ${dto.companyName}`,
                 performedBy: username,
             });
@@ -120,7 +131,9 @@ let CollectionsService = class CollectionsService {
                 await ledger.save({
                     category: LedgerCategory.COMPANY_EXECUTION,
                     amount: -dto.amount,
-                    entityType: 'account', entityId: account.id, reference,
+                    entityType: 'account',
+                    entityId: account.id,
+                    reference,
                     description: `تنفيذ فوري لصالح ${dto.companyName}`,
                     performedBy: username,
                 });
@@ -128,7 +141,9 @@ let CollectionsService = class CollectionsService {
                     await ledger.save({
                         category: LedgerCategory.COMMISSION,
                         amount: dto.commission,
-                        entityType: 'account', entityId: account.id, reference,
+                        entityType: 'account',
+                        entityId: account.id,
+                        reference,
                         description: `عمولة تنفيذ لصالح ${dto.companyName}`,
                         performedBy: username,
                     });
@@ -140,13 +155,17 @@ let CollectionsService = class CollectionsService {
     async execute(id, dto, username) {
         return this.dataSource.transaction(async (manager) => {
             const collectionRepo = manager.getRepository(Collection);
-            const collection = await collectionRepo.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+            const collection = await collectionRepo.findOne({
+                where: { id },
+                lock: { mode: 'pessimistic_write' },
+            });
             if (!collection)
                 throw new NotFoundException('المعلّق غير موجود');
             if (collection.status !== CollectionStatus.PENDING)
                 throw new BadRequestException('العملية منفذة بالفعل');
             const account = await manager.getRepository(FinancialAccount).findOne({
-                where: { id: dto.accountId, active: true }, lock: { mode: 'pessimistic_write' },
+                where: { id: dto.accountId, active: true },
+                lock: { mode: 'pessimistic_write' },
             });
             if (!account)
                 throw new NotFoundException('الحساب المستخدم غير موجود أو موقوف');
@@ -163,7 +182,9 @@ let CollectionsService = class CollectionsService {
             await manager.getRepository(LedgerEntry).save({
                 category: LedgerCategory.COMPANY_EXECUTION,
                 amount: -collection.amount,
-                entityType: 'account', entityId: account.id, reference: collection.reference,
+                entityType: 'account',
+                entityId: account.id,
+                reference: collection.reference,
                 description: `تنفيذ المعلّق لصالح ${collection.companyName}`,
                 performedBy: username,
             });
@@ -171,7 +192,9 @@ let CollectionsService = class CollectionsService {
                 await manager.getRepository(LedgerEntry).save({
                     category: LedgerCategory.COMMISSION,
                     amount: dto.commission,
-                    entityType: 'account', entityId: account.id, reference: collection.reference,
+                    entityType: 'account',
+                    entityId: account.id,
+                    reference: collection.reference,
                     description: `عمولة تنفيذ المعلّق لصالح ${collection.companyName}`,
                     performedBy: username,
                 });

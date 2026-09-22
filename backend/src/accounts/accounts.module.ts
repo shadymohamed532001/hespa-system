@@ -12,4 +12,3 @@ import { AccountsService } from './accounts.service.js';
   exports: [AccountsService],
 })
 export class AccountsModule {}
-

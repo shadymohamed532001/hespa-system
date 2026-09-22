@@ -22,16 +22,43 @@ export class FinancialAccount {
   @Column({ default: true })
   active: boolean;
 
-  @Column({ name: 'opening_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    name: 'opening_balance',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   openingBalance: number;
 
-  @Column({ name: 'today_top_up', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    name: 'today_top_up',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   todayTopUp: number;
 
-  @Column({ type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   balance: number;
 
-  @Column({ name: 'commission_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    name: 'commission_balance',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   commissionBalance: number;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -40,4 +67,3 @@ export class FinancialAccount {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-

@@ -119,7 +119,8 @@ class _InventoryPageState extends State<InventoryPage> {
                         MetricCard(
                           label: 'مبيعات اليوم',
                           value: money(summary['todaySalesAmount']),
-                          note: '${summary['todaySalesCount'] ?? 0} عملية اليوم',
+                          note:
+                              '${summary['todaySalesCount'] ?? 0} عملية اليوم',
                         ),
                       ],
                     );
@@ -322,14 +323,12 @@ class _InventoryPageState extends State<InventoryPage> {
     );
     if (ok != true) return;
     try {
-      final response = await widget.session.api.post(
-        ApiEndpoints.inventorySell('${product['id']}'),
-        {
-          'quantity': int.tryParse(qty.text) ?? 0,
-          'unitPrice': num.tryParse(price.text) ?? 0,
-          if (note.text.trim().isNotEmpty) 'note': note.text.trim(),
-        },
-      );
+      final response = await widget.session.api
+          .post(ApiEndpoints.inventorySell('${product['id']}'), {
+            'quantity': int.tryParse(qty.text) ?? 0,
+            'unitPrice': num.tryParse(price.text) ?? 0,
+            if (note.text.trim().isNotEmpty) 'note': note.text.trim(),
+          });
       await load();
       if (!mounted) return;
       final message = response is Map && response['message'] != null

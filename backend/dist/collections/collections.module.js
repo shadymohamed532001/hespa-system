@@ -16,7 +16,14 @@ let CollectionsModule = class CollectionsModule {
 };
 CollectionsModule = __decorate([
     Module({
-        imports: [TypeOrmModule.forFeature([Collection, FinancialAccount, LedgerEntry, Treasury])],
+        imports: [
+            TypeOrmModule.forFeature([
+                Collection,
+                FinancialAccount,
+                LedgerEntry,
+                Treasury,
+            ]),
+        ],
         controllers: [CollectionsController],
         providers: [CollectionsService],
     })

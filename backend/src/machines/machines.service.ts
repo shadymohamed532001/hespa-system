@@ -34,7 +34,8 @@ export class MachinesService implements OnModuleInit {
 
   private withRemaining(machine: Machine) {
     return Object.assign({}, machine, {
-      remainingBalance: Number(machine.loadedBalance) - Number(machine.usedBalance),
+      remainingBalance:
+        Number(machine.loadedBalance) - Number(machine.usedBalance),
     });
   }
 
@@ -89,8 +90,10 @@ export class MachinesService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!machine) throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
-      machine.loadedBalance = Number(machine.loadedBalance) + Number(dto.amount);
+      if (!machine)
+        throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
+      machine.loadedBalance =
+        Number(machine.loadedBalance) + Number(dto.amount);
       await repo.save(machine);
       await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.TOP_UP,
@@ -112,7 +115,8 @@ export class MachinesService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!machine) throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
+      if (!machine)
+        throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
       const remaining =
         Number(machine.loadedBalance) - Number(machine.usedBalance);
       if (remaining < Number(dto.amount)) {

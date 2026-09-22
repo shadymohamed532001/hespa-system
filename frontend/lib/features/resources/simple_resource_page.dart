@@ -57,7 +57,8 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
   Widget build(BuildContext context) => PageFrame(
     title: widget.title,
     subtitle: widget.subtitle,
-    actions: widget.session.can(AppPermissions.topUpAssets) &&
+    actions:
+        widget.session.can(AppPermissions.topUpAssets) &&
             widget.adminTopUpPath != null
         ? [
             FilledButton.icon(

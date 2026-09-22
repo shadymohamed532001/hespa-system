@@ -269,10 +269,7 @@ class _MachinesTable extends StatelessWidget {
                     DataRow(
                       cells: [
                         DataCell(
-                          Text(
-                            '${e['name']}',
-                            style: HesbaText.tableEmphasis,
-                          ),
+                          Text('${e['name']}', style: HesbaText.tableEmphasis),
                         ),
                         DataCell(
                           Text(
@@ -300,9 +297,7 @@ class _MachinesTable extends StatelessWidget {
                             style: HesbaText.tableCell,
                           ),
                         ),
-                        DataCell(
-                          SoftBadge.status(active: e['active'] == true),
-                        ),
+                        DataCell(SoftBadge.status(active: e['active'] == true)),
                       ],
                     ),
                 ],

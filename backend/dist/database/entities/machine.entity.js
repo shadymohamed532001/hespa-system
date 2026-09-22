@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn, } from 'typeorm';
 import { decimalTransformer } from '../decimal.transformer.js';
 let Machine = class Machine {
     id;
@@ -32,15 +32,36 @@ __decorate([
     __metadata("design:type", Boolean)
 ], Machine.prototype, "active", void 0);
 __decorate([
-    Column({ name: 'loaded_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        name: 'loaded_balance',
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], Machine.prototype, "loadedBalance", void 0);
 __decorate([
-    Column({ name: 'used_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        name: 'used_balance',
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], Machine.prototype, "usedBalance", void 0);
 __decorate([
-    Column({ name: 'commission_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        name: 'commission_balance',
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], Machine.prototype, "commissionBalance", void 0);
 __decorate([

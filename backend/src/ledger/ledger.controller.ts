@@ -8,7 +8,10 @@ import { AppPermission } from '../database/enums.js';
 @Controller('ledger')
 @RequirePermissions(AppPermission.VIEW_BALANCES)
 export class LedgerController {
-  constructor(@InjectRepository(LedgerEntry) private readonly ledger: Repository<LedgerEntry>) {}
+  constructor(
+    @InjectRepository(LedgerEntry)
+    private readonly ledger: Repository<LedgerEntry>,
+  ) {}
 
   @Get()
   findAll(@Query('limit') limit?: string) {

@@ -1,4 +1,10 @@
-import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import {
+  IsNumber,
+  IsOptional,
+  IsString,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class LoadMachineDto {
   @IsNumber({ maxDecimalPlaces: 2 })

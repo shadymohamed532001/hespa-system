@@ -99,10 +99,7 @@ class _AdminPageState extends State<AdminPage> {
       });
       await load();
       if (mounted) {
-        showAppSnack(
-          context,
-          active ? 'تم تعطيل الحساب' : 'تم تفعيل الحساب',
-        );
+        showAppSnack(context, active ? 'تم تعطيل الحساب' : 'تم تفعيل الحساب');
       }
     } catch (e) {
       if (mounted) {
@@ -146,9 +143,7 @@ class _AdminPageState extends State<AdminPage> {
       text: _limitText(limits['maxTransferAmount']),
     );
 
-    final catalogItems = catalog.isNotEmpty
-        ? catalog
-        : _fallbackCatalog;
+    final catalogItems = catalog.isNotEmpty ? catalog : _fallbackCatalog;
 
     final ok = await showHesbaModal<bool>(
       context: context,
@@ -188,9 +183,7 @@ class _AdminPageState extends State<AdminPage> {
               ),
               const SizedBox(height: 16),
               HesbaModalField(
-                label: isEdit
-                    ? 'كلمة مرور جديدة (اختياري)'
-                    : 'كلمة المرور *',
+                label: isEdit ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور *',
                 child: TextField(
                   controller: password,
                   obscureText: true,
@@ -514,8 +507,7 @@ class _UsersCard extends StatelessWidget {
     void Function([Map<String, dynamic>?]) onManage,
     void Function(Map<String, dynamic>) onToggleActive,
   ) {
-    final perms =
-        (user['permissions'] as List<dynamic>? ?? const []).length;
+    final perms = (user['permissions'] as List<dynamic>? ?? const []).length;
     final isAdmin = user['role'] == 'admin';
     return DataRow(
       cells: [
@@ -532,9 +524,7 @@ class _UsersCard extends StatelessWidget {
             ],
           ),
         ),
-        DataCell(
-          Text(isAdmin ? 'أدمن' : 'موظف', style: HesbaText.tableCell),
-        ),
+        DataCell(Text(isAdmin ? 'أدمن' : 'موظف', style: HesbaText.tableCell)),
         DataCell(SoftBadge.status(active: user['active'] == true)),
         DataCell(
           Text(
@@ -553,9 +543,7 @@ class _UsersCard extends StatelessWidget {
               if (!isAdmin)
                 TextButton(
                   onPressed: () => onToggleActive(user),
-                  child: Text(
-                    user['active'] == true ? 'تعطيل' : 'تفعيل',
-                  ),
+                  child: Text(user['active'] == true ? 'تعطيل' : 'تفعيل'),
                 ),
             ],
           ),
@@ -581,7 +569,10 @@ class _PermissionMatrixCard extends StatelessWidget {
           children: [
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 22),
-              child: Text('مصفوفة الصلاحيات الافتراضية', style: HesbaText.sectionTitle),
+              child: Text(
+                'مصفوفة الصلاحيات الافتراضية',
+                style: HesbaText.sectionTitle,
+              ),
             ),
             const SizedBox(height: 6),
             const Padding(
@@ -625,9 +616,7 @@ class _PermissionMatrixCard extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const DataCell(
-                              SoftBadge.permission(allowed: true),
-                            ),
+                            const DataCell(SoftBadge.permission(allowed: true)),
                             DataCell(
                               SoftBadge.permission(
                                 allowed: _defaultEmployeeKeys.contains(

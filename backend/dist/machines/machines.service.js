@@ -86,7 +86,8 @@ let MachinesService = class MachinesService {
             });
             if (!machine)
                 throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
-            machine.loadedBalance = Number(machine.loadedBalance) + Number(dto.amount);
+            machine.loadedBalance =
+                Number(machine.loadedBalance) + Number(dto.amount);
             await repo.save(machine);
             await manager.getRepository(LedgerEntry).save({
                 category: LedgerCategory.TOP_UP,

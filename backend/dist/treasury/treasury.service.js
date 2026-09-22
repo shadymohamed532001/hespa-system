@@ -49,9 +49,7 @@ let TreasuryService = class TreasuryService {
     }
     async asset(manager, type, id) {
         if (type === 'treasury') {
-            const item = await manager
-                .getRepository(Treasury)
-                .findOne({
+            const item = await manager.getRepository(Treasury).findOne({
                 where: { id: 'main' },
                 lock: { mode: 'pessimistic_write' },
             });
@@ -70,9 +68,7 @@ let TreasuryService = class TreasuryService {
         if (!id)
             throw new BadRequestException('معرّف الأصل مطلوب');
         if (type === 'account') {
-            const item = await manager
-                .getRepository(FinancialAccount)
-                .findOne({
+            const item = await manager.getRepository(FinancialAccount).findOne({
                 where: { id, active: true },
                 lock: { mode: 'pessimistic_write' },
             });
@@ -89,9 +85,7 @@ let TreasuryService = class TreasuryService {
             };
         }
         if (type === 'wallet') {
-            const item = await manager
-                .getRepository(Wallet)
-                .findOne({
+            const item = await manager.getRepository(Wallet).findOne({
                 where: { id, active: true },
                 lock: { mode: 'pessimistic_write' },
             });
@@ -108,9 +102,7 @@ let TreasuryService = class TreasuryService {
             };
         }
         if (type === 'machine') {
-            const item = await manager
-                .getRepository(Machine)
-                .findOne({
+            const item = await manager.getRepository(Machine).findOne({
                 where: { id, active: true },
                 lock: { mode: 'pessimistic_write' },
             });

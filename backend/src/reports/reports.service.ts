@@ -74,8 +74,12 @@ export class ReportsService {
   async summary(scope: ReportScope) {
     const inclusiveEnd = new Date(scope.end.getTime() - 1);
     const [ledgerCount, salesCount] = await Promise.all([
-      this.ledger.count({ where: { createdAt: Between(scope.start, inclusiveEnd) } }),
-      this.sales.count({ where: { createdAt: Between(scope.start, inclusiveEnd) } }),
+      this.ledger.count({
+        where: { createdAt: Between(scope.start, inclusiveEnd) },
+      }),
+      this.sales.count({
+        where: { createdAt: Between(scope.start, inclusiveEnd) },
+      }),
     ]);
     if (ledgerCount + salesCount > 20_000) {
       throw new PayloadTooLargeException(

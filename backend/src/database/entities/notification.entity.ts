@@ -30,7 +30,12 @@ export class AppNotification {
   })
   amount: number | null;
 
-  @Column({ name: 'ledger_entry_id', type: 'uuid', nullable: true, unique: true })
+  @Column({
+    name: 'ledger_entry_id',
+    type: 'uuid',
+    nullable: true,
+    unique: true,
+  })
   ledgerEntryId: string | null;
 
   @Column({ name: 'is_read', default: false })

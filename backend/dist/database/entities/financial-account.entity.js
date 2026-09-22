@@ -39,19 +39,46 @@ __decorate([
     __metadata("design:type", Boolean)
 ], FinancialAccount.prototype, "active", void 0);
 __decorate([
-    Column({ name: 'opening_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        name: 'opening_balance',
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], FinancialAccount.prototype, "openingBalance", void 0);
 __decorate([
-    Column({ name: 'today_top_up', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        name: 'today_top_up',
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], FinancialAccount.prototype, "todayTopUp", void 0);
 __decorate([
-    Column({ type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], FinancialAccount.prototype, "balance", void 0);
 __decorate([
-    Column({ name: 'commission_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        name: 'commission_balance',
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], FinancialAccount.prototype, "commissionBalance", void 0);
 __decorate([

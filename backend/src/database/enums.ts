@@ -86,4 +86,3 @@ export enum InventoryCategory {
   SCREEN = 'screen',
   OTHER = 'other',
 }
-

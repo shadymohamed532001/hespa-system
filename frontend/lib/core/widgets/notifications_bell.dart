@@ -12,11 +12,7 @@ import '../utils/money_formatter.dart';
 import 'header_icon_button.dart';
 
 class NotificationsBell extends StatefulWidget {
-  const NotificationsBell({
-    super.key,
-    required this.session,
-    this.strings,
-  });
+  const NotificationsBell({super.key, required this.session, this.strings});
 
   final SessionController session;
   final AppStrings? strings;
@@ -318,8 +314,7 @@ class _NotificationTile extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final ink = isDark ? const Color(0xFFE6EEF2) : HesbaColors.ink;
     final muted = isDark ? const Color(0xFF9AADB8) : HesbaColors.muted;
-    final unreadBg =
-        isDark ? const Color(0xFF1A3540) : const Color(0xFFF3FAF8);
+    final unreadBg = isDark ? const Color(0xFF1A3540) : const Color(0xFFF3FAF8);
 
     return InkWell(
       onTap: onTap,
@@ -356,11 +351,7 @@ class _NotificationTile extends StatelessWidget {
                     '${item['body']}',
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: muted,
-                      fontSize: 12,
-                      height: 1.45,
-                    ),
+                    style: TextStyle(color: muted, fontSize: 12, height: 1.45),
                   ),
                   const SizedBox(height: 6),
                   Row(
@@ -379,10 +370,7 @@ class _NotificationTile extends StatelessWidget {
                       if (createdAt != null)
                         Text(
                           DateFormat('d MMM, h:mm a', locale).format(createdAt),
-                          style: TextStyle(
-                            color: muted,
-                            fontSize: 11,
-                          ),
+                          style: TextStyle(color: muted, fontSize: 11),
                         ),
                     ],
                   ),
@@ -406,16 +394,16 @@ class _NotificationTile extends StatelessWidget {
   }
 
   static IconData _kindIcon(String kind) => switch (kind) {
-        'deposit' => Icons.south_west_rounded,
-        'withdrawal' => Icons.north_east_rounded,
-        'transfer' => Icons.swap_horiz_rounded,
-        _ => Icons.info_outline_rounded,
-      };
+    'deposit' => Icons.south_west_rounded,
+    'withdrawal' => Icons.north_east_rounded,
+    'transfer' => Icons.swap_horiz_rounded,
+    _ => Icons.info_outline_rounded,
+  };
 
   static Color _kindColor(String kind) => switch (kind) {
-        'deposit' => HesbaColors.teal,
-        'withdrawal' => HesbaColors.red,
-        'transfer' => const Color(0xFF50657D),
-        _ => HesbaColors.navy,
-      };
+    'deposit' => HesbaColors.teal,
+    'withdrawal' => HesbaColors.red,
+    'transfer' => const Color(0xFF50657D),
+    _ => HesbaColors.navy,
+  };
 }

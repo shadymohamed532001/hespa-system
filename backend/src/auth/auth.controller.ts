@@ -9,7 +9,9 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 15 * 60_000, blockDuration: 15 * 60_000 } })
+  @Throttle({
+    default: { limit: 5, ttl: 15 * 60_000, blockDuration: 15 * 60_000 },
+  })
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);

@@ -63,10 +63,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
             )
           : error != null
           ? ErrorBox(message: error!, retry: load)
-          : _CollectionsTable(
-              rows: data,
-              onExecute: (row) => _execute(row),
-            ),
+          : _CollectionsTable(rows: data, onExecute: (row) => _execute(row)),
     );
   }
 
@@ -181,7 +178,9 @@ class _CollectionsTable extends StatelessWidget {
                 dataRowMinHeight: 58,
                 dataRowMaxHeight: 64,
                 columns: const [
-                  DataColumn(label: Text('الرقم', style: HesbaText.tableHeader)),
+                  DataColumn(
+                    label: Text('الرقم', style: HesbaText.tableHeader),
+                  ),
                   DataColumn(
                     label: Text('المندوب', style: HesbaText.tableHeader),
                   ),
@@ -204,7 +203,10 @@ class _CollectionsTable extends StatelessWidget {
                     label: Text('وقت التنفيذ', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('الحساب المستخدم', style: HesbaText.tableHeader),
+                    label: Text(
+                      'الحساب المستخدم',
+                      style: HesbaText.tableHeader,
+                    ),
                   ),
                   DataColumn(
                     label: Text('العمولة', style: HesbaText.tableHeader),

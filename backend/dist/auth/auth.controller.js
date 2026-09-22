@@ -29,7 +29,9 @@ let AuthController = class AuthController {
 };
 __decorate([
     Public(),
-    Throttle({ default: { limit: 5, ttl: 15 * 60_000, blockDuration: 15 * 60_000 } }),
+    Throttle({
+        default: { limit: 5, ttl: 15 * 60_000, blockDuration: 15 * 60_000 },
+    }),
     Post('login'),
     __param(0, Body()),
     __metadata("design:type", Function),

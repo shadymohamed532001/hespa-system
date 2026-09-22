@@ -260,8 +260,7 @@ class _TopUpTarget {
   final num opening;
   final num balance;
 
-  String get label =>
-      '$name — مرحل ${money(opening)} — حالي ${money(balance)}';
+  String get label => '$name — مرحل ${money(opening)} — حالي ${money(balance)}';
 }
 
 class _RolloverNotice extends StatelessWidget {
@@ -340,10 +339,7 @@ class _TopUpFormCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'بيانات الشحن',
-                  style: HesbaText.sectionTitle,
-                ),
+                Text('بيانات الشحن', style: HesbaText.sectionTitle),
                 SizedBox(height: 2),
                 Text(
                   'اختر الحساب أو المحفظة وأضف الرصيد مباشرة',
@@ -429,9 +425,7 @@ class _TopUpFormCard extends StatelessWidget {
                                 items: const [
                                   DropdownMenuItem(
                                     value: 'direct',
-                                    child: Text(
-                                      'شحن مباشر من خارج النظام',
-                                    ),
+                                    child: Text('شحن مباشر من خارج النظام'),
                                   ),
                                   DropdownMenuItem(
                                     value: 'settlement',
@@ -452,7 +446,9 @@ class _TopUpFormCard extends StatelessWidget {
                                 controller: date,
                                 enabled: false,
                                 decoration: const InputDecoration(
-                                  suffixIcon: Icon(Icons.calendar_today_outlined),
+                                  suffixIcon: Icon(
+                                    Icons.calendar_today_outlined,
+                                  ),
                                 ),
                               ),
                             ),
@@ -476,7 +472,8 @@ class _TopUpFormCard extends StatelessWidget {
                                 controller: note,
                                 enabled: !saving,
                                 decoration: const InputDecoration(
-                                  hintText: 'اختياري — سبب الشحن أو تفاصيل إضافية',
+                                  hintText:
+                                      'اختياري — سبب الشحن أو تفاصيل إضافية',
                                 ),
                               ),
                             ),
@@ -487,7 +484,9 @@ class _TopUpFormCard extends StatelessWidget {
                       Align(
                         alignment: AlignmentDirectional.centerStart,
                         child: FilledButton(
-                          onPressed: saving || targets.isEmpty ? null : onSubmit,
+                          onPressed: saving || targets.isEmpty
+                              ? null
+                              : onSubmit,
                           child: saving
                               ? const SizedBox(
                                   width: 18,
@@ -527,10 +526,7 @@ class _DailyBalanceFormula extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Text(
-            'معادلة الرصيد اليومية',
-            style: HesbaText.sectionTitle,
-          ),
+          const Text('معادلة الرصيد اليومية', style: HesbaText.sectionTitle),
           const SizedBox(height: 14),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),

@@ -19,7 +19,13 @@ __decorate([
     __metadata("design:type", String)
 ], Treasury.prototype, "id", void 0);
 __decorate([
-    Column({ type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer }),
+    Column({
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        default: 0,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], Treasury.prototype, "balance", void 0);
 __decorate([

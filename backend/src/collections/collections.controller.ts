@@ -25,7 +25,10 @@ export class CollectionsController {
   @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)
   @Idempotent()
   @Post('receive')
-  async receive(@Body() dto: ReceiveCollectionDto, @Request() request: UserRequest) {
+  async receive(
+    @Body() dto: ReceiveCollectionDto,
+    @Request() request: UserRequest,
+  ) {
     await this.users.assertAmountLimit(
       request.user.userId,
       'maxReceiveAmount',

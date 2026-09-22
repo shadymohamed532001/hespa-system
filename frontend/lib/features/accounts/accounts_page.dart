@@ -192,8 +192,8 @@ class _AccountsPageState extends State<AccountsPage> {
             ),
             const SizedBox(height: 10),
             OutlinedButton(
-              onPressed: !canDelete ||
-                      !widget.session.can(AppPermissions.manageAssets)
+              onPressed:
+                  !canDelete || !widget.session.can(AppPermissions.manageAssets)
                   ? null
                   : () async {
                       final confirmed = await showHesbaModal<bool>(
@@ -206,10 +206,8 @@ class _AccountsPageState extends State<AccountsPage> {
                           child: HesbaModalActions(
                             primaryLabel: 'تأكيد الحذف',
                             danger: true,
-                            onPrimary: () =>
-                                Navigator.pop(confirmCtx, true),
-                            onCancel: () =>
-                                Navigator.pop(confirmCtx, false),
+                            onPrimary: () => Navigator.pop(confirmCtx, true),
+                            onCancel: () => Navigator.pop(confirmCtx, false),
                           ),
                         ),
                       );
@@ -226,9 +224,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       : HesbaColors.border,
                 ),
               ),
-              child: Text(
-                canDelete ? 'حذف نهائي' : 'الحذف النهائي غير متاح',
-              ),
+              child: Text(canDelete ? 'حذف نهائي' : 'الحذف النهائي غير متاح'),
             ),
           ],
         ),
@@ -254,11 +250,7 @@ class _AccountsPageState extends State<AccountsPage> {
         );
       case _ManageAction.delete:
         if (!widget.session.can(AppPermissions.manageAssets)) {
-          showAppSnack(
-            context,
-            'الحذف النهائي غير مسموح لحسابك',
-            error: true,
-          );
+          showAppSnack(context, 'الحذف النهائي غير مسموح لحسابك', error: true);
           return;
         }
         try {
@@ -313,10 +305,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   items: const [
                     DropdownMenuItem(value: 'fawry', child: Text('فوري')),
                     DropdownMenuItem(value: 'company', child: Text('شركة')),
-                    DropdownMenuItem(
-                      value: 'operating',
-                      child: Text('تشغيلي'),
-                    ),
+                    DropdownMenuItem(value: 'operating', child: Text('تشغيلي')),
                   ],
                   onChanged: (v) => setLocal(() => type = v!),
                 ),
@@ -488,7 +477,10 @@ class _AccountsTable extends StatelessWidget {
                           ),
                         ),
                         DataCell(
-                          Text(money(e['balance']), style: HesbaText.tableEmphasis),
+                          Text(
+                            money(e['balance']),
+                            style: HesbaText.tableEmphasis,
+                          ),
                         ),
                         DataCell(
                           Text(
@@ -509,9 +501,7 @@ class _AccountsTable extends StatelessWidget {
                             ),
                           ),
                         ),
-                        DataCell(
-                          SoftBadge.status(active: e['active'] == true),
-                        ),
+                        DataCell(SoftBadge.status(active: e['active'] == true)),
                         DataCell(
                           isAdmin
                               ? OutlinedButton(

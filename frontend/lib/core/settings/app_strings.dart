@@ -38,24 +38,19 @@ class AppStrings {
   String get inventory =>
       _ar ? 'مخزن الموبايلات والإكسسوارات' : 'Mobiles & accessories store';
   String get transfer => _ar ? 'تحويل داخلي' : 'Internal transfer';
-  String get settlement =>
-      _ar ? 'توريد وتسوية شركة' : 'Company settlement';
+  String get settlement => _ar ? 'توريد وتسوية شركة' : 'Company settlement';
   String get ledger => _ar ? 'سجل العمليات' : 'Ledger';
   String get reports => _ar ? 'التقارير الشاملة' : 'Reports';
   String get users => _ar ? 'المستخدمون والصلاحيات' : 'Users & permissions';
 
   String get languageTooltip =>
       _ar ? 'التبديل إلى الإنجليزية' : 'Switch to Arabic';
-  String get themeTooltip =>
-      _ar ? 'الوضع الداكن' : 'Dark mode';
-  String get themeTooltipLight =>
-      _ar ? 'الوضع الفاتح' : 'Light mode';
-  String get notificationsTooltip =>
-      _ar ? 'الإشعارات' : 'Notifications';
+  String get themeTooltip => _ar ? 'الوضع الداكن' : 'Dark mode';
+  String get themeTooltipLight => _ar ? 'الوضع الفاتح' : 'Light mode';
+  String get notificationsTooltip => _ar ? 'الإشعارات' : 'Notifications';
 
   String get notificationsTitle => _ar ? 'الإشعارات' : 'Notifications';
-  String get markAllRead =>
-      _ar ? 'تعيين الكل كمقروء' : 'Mark all as read';
+  String get markAllRead => _ar ? 'تعيين الكل كمقروء' : 'Mark all as read';
   String get noNotifications =>
       _ar ? 'لا توجد إشعارات بعد' : 'No notifications yet';
 }

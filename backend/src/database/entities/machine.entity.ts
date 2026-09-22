@@ -1,4 +1,10 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  UpdateDateColumn,
+} from 'typeorm';
 import { decimalTransformer } from '../decimal.transformer.js';
 
 @Entity('machines')
@@ -12,13 +18,34 @@ export class Machine {
   @Column({ default: true })
   active: boolean;
 
-  @Column({ name: 'loaded_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    name: 'loaded_balance',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   loadedBalance: number;
 
-  @Column({ name: 'used_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    name: 'used_balance',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   usedBalance: number;
 
-  @Column({ name: 'commission_balance', type: 'numeric', precision: 16, scale: 2, default: 0, transformer: decimalTransformer })
+  @Column({
+    name: 'commission_balance',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
   commissionBalance: number;
 
   @CreateDateColumn({ name: 'created_at' })
@@ -27,4 +54,3 @@ export class Machine {
   @UpdateDateColumn({ name: 'updated_at' })
   updatedAt: Date;
 }
-

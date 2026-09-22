@@ -214,15 +214,9 @@ class _TreasuryMovements extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'حركات الخزنة',
-                  style: HesbaText.sectionTitle,
-                ),
+                Text('حركات الخزنة', style: HesbaText.sectionTitle),
                 SizedBox(height: 2),
-                Text(
-                  'مع توضيح نوع وأثر كل حركة',
-                  style: HesbaText.panelSub,
-                ),
+                Text('مع توضيح نوع وأثر كل حركة', style: HesbaText.panelSub),
               ],
             ),
           ),

@@ -577,10 +577,7 @@ class _PanelHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(
-                  title,
-                  style: HesbaText.sectionTitle,
-                ),
+                Text(title, style: HesbaText.sectionTitle),
                 const SizedBox(height: 2),
                 Text(
                   subtitle,

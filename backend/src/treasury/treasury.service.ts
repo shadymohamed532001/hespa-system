@@ -54,12 +54,10 @@ export class TreasuryService {
     id?: string,
   ): Promise<TransferAsset> {
     if (type === 'treasury') {
-      const item = await manager
-        .getRepository(Treasury)
-        .findOne({
-          where: { id: 'main' },
-          lock: { mode: 'pessimistic_write' },
-        });
+      const item = await manager.getRepository(Treasury).findOne({
+        where: { id: 'main' },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!item) throw new NotFoundException('الخزنة غير موجودة');
       return {
         key: 'treasury:main',
@@ -73,12 +71,10 @@ export class TreasuryService {
     }
     if (!id) throw new BadRequestException('معرّف الأصل مطلوب');
     if (type === 'account') {
-      const item = await manager
-        .getRepository(FinancialAccount)
-        .findOne({
-          where: { id, active: true },
-          lock: { mode: 'pessimistic_write' },
-        });
+      const item = await manager.getRepository(FinancialAccount).findOne({
+        where: { id, active: true },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!item) throw new NotFoundException('الحساب غير موجود أو موقوف');
       return {
         key: `account:${id}`,
@@ -91,12 +87,10 @@ export class TreasuryService {
       };
     }
     if (type === 'wallet') {
-      const item = await manager
-        .getRepository(Wallet)
-        .findOne({
-          where: { id, active: true },
-          lock: { mode: 'pessimistic_write' },
-        });
+      const item = await manager.getRepository(Wallet).findOne({
+        where: { id, active: true },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!item) throw new NotFoundException('المحفظة غير موجودة أو موقوفة');
       return {
         key: `wallet:${id}`,
@@ -109,12 +103,10 @@ export class TreasuryService {
       };
     }
     if (type === 'machine') {
-      const item = await manager
-        .getRepository(Machine)
-        .findOne({
-          where: { id, active: true },
-          lock: { mode: 'pessimistic_write' },
-        });
+      const item = await manager.getRepository(Machine).findOne({
+        where: { id, active: true },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!item) throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
       const balance = item.loadedBalance - item.usedBalance;
       return {

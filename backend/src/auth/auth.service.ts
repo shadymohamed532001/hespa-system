@@ -1,4 +1,8 @@
-import { Injectable, OnModuleInit, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -24,13 +28,20 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const production = this.config.get('NODE_ENV', 'development') === 'production';
+    const production =
+      this.config.get('NODE_ENV', 'development') === 'production';
     const seedDemo =
-      this.config.get('SEED_DEMO_DATA', production ? 'false' : 'true') === 'true';
+      this.config.get('SEED_DEMO_DATA', production ? 'false' : 'true') ===
+      'true';
 
     if (seedDemo) {
       await this.ensureDemoUser('demo', 'demo', UserRole.ADMIN, 'مدير النظام');
-      await this.ensureDemoUser('shix', 'shix', UserRole.EMPLOYEE, 'موظف المحل');
+      await this.ensureDemoUser(
+        'shix',
+        'shix',
+        UserRole.EMPLOYEE,
+        'موظف المحل',
+      );
       return;
     }
 
@@ -44,7 +55,9 @@ export class AuthService implements OnModuleInit {
       { username: 'shix', password: 'shix' },
     ];
     for (const credential of demoCredentials) {
-      const user = await this.users.findOne({ where: { username: credential.username } });
+      const user = await this.users.findOne({
+        where: { username: credential.username },
+      });
       if (!user || !user.active) continue;
       if (await compare(credential.password, user.passwordHash)) {
         user.active = false;
@@ -55,15 +68,39 @@ export class AuthService implements OnModuleInit {
   }
 
   private async ensureProductionAdmin() {
-    if (await this.users.exists({ where: { role: UserRole.ADMIN, active: true } })) return;
+    if (
+      await this.users.exists({ where: { role: UserRole.ADMIN, active: true } })
+    )
+      return;
 
-    const username = this.config.get<string>('BOOTSTRAP_ADMIN_USERNAME')?.trim().toLowerCase();
+    const username = this.config
+      .get<string>('BOOTSTRAP_ADMIN_USERNAME')
+      ?.trim()
+      .toLowerCase();
     const password = this.config.get<string>('BOOTSTRAP_ADMIN_PASSWORD');
-    if (!username || !password || password.length < 10 || password.length > 128) {
+    if (
+      !username ||
+      !password ||
+      password.length < 10 ||
+      password.length > 128
+    ) {
       throw new Error(
         'No active admin exists. Set BOOTSTRAP_ADMIN_USERNAME and a 10+ character BOOTSTRAP_ADMIN_PASSWORD for the first production start.',
       );
     }
+
+    const existing = await this.users.findOne({ where: { username } });
+    if (existing) {
+      existing.displayName = existing.displayName || 'مدير النظام';
+      existing.passwordHash = await hash(password, 12);
+      existing.role = UserRole.ADMIN;
+      existing.permissions = [...ALL_PERMISSIONS];
+      existing.active = true;
+      existing.tokenVersion = Number(existing.tokenVersion ?? 0) + 1;
+      await this.users.save(existing);
+      return;
+    }
+
     await this.users.save(
       this.users.create({
         username,

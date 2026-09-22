@@ -8,4 +8,3 @@ import { LedgerController } from './ledger.controller.js';
   controllers: [LedgerController],
 })
 export class LedgerModule {}
-

@@ -24,7 +24,10 @@ export class TreasuryController {
   @RequirePermissions(AppPermission.INTERNAL_TRANSFER)
   @Idempotent()
   @Post('transfer')
-  async transfer(@Body() dto: InternalTransferDto, @Request() request: UserRequest) {
+  async transfer(
+    @Body() dto: InternalTransferDto,
+    @Request() request: UserRequest,
+  ) {
     await this.users.assertAmountLimit(
       request.user.userId,
       'maxTransferAmount',

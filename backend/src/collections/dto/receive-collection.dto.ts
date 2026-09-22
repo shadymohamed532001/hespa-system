@@ -1,4 +1,14 @@
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { ExecutionMode } from '../../database/enums.js';
 
 export class ReceiveCollectionDto {

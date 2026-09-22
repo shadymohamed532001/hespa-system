@@ -71,14 +71,8 @@ class HesbaModalCard extends StatelessWidget {
             ],
             const SizedBox(height: 20),
             child,
-            if (actions != null) ...[
-              const SizedBox(height: 24),
-              actions!,
-            ],
-            if (footer != null) ...[
-              const SizedBox(height: 14),
-              footer!,
-            ],
+            if (actions != null) ...[const SizedBox(height: 24), actions!],
+            if (footer != null) ...[const SizedBox(height: 14), footer!],
           ],
         ),
       ),
@@ -152,9 +146,7 @@ class HesbaModalActions extends StatelessWidget {
         FilledButton(
           onPressed: primaryEnabled ? onPrimary : null,
           style: danger
-              ? FilledButton.styleFrom(
-                  backgroundColor: HesbaColors.red,
-                )
+              ? FilledButton.styleFrom(backgroundColor: HesbaColors.red)
               : null,
           child: Text(primaryLabel),
         ),

@@ -38,9 +38,7 @@ class HeaderIconButton extends StatelessWidget {
           child: SizedBox(
             width: 44,
             height: 44,
-            child: Center(
-              child: child ?? Icon(icon, color: fg, size: 22),
-            ),
+            child: Center(child: child ?? Icon(icon, color: fg, size: 22)),
           ),
         ),
       ),

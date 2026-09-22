@@ -1,4 +1,11 @@
-import { IsEnum, IsNumber, IsString, MaxLength, Min, MinLength } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsString,
+  MaxLength,
+  Min,
+  MinLength,
+} from 'class-validator';
 import { InventoryCategory } from '../../database/enums.js';
 
 export class CreateInventoryProductDto {

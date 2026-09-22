@@ -37,7 +37,8 @@ export class InventoryService implements OnModuleInit {
       );
     }
 
-    if (!shouldSeedDemoData(this.config) || (await this.products.count())) return;
+    if (!shouldSeedDemoData(this.config) || (await this.products.count()))
+      return;
 
     await this.products.save([
       this.products.create({
@@ -194,7 +195,10 @@ export class InventoryService implements OnModuleInit {
   async treasurySummary() {
     const box = await this.treasury.findOne({ where: { id: 'inventory' } });
     const products = await this.products.find({ where: { active: true } });
-    const sales = await this.sales.find({ order: { createdAt: 'DESC' }, take: 200 });
+    const sales = await this.sales.find({
+      order: { createdAt: 'DESC' },
+      take: 200,
+    });
 
     const stockUnits = products.reduce((sum, p) => sum + p.stockQty, 0);
     const soldUnits = products.reduce((sum, p) => sum + p.soldQty, 0);

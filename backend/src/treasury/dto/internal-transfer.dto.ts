@@ -1,4 +1,13 @@
-import { IsIn, IsNumber, IsOptional, IsString, IsUUID, MaxLength, Min, ValidateIf } from 'class-validator';
+import {
+  IsIn,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min,
+  ValidateIf,
+} from 'class-validator';
 
 const assetTypes = ['treasury', 'account', 'wallet', 'machine'] as const;
 

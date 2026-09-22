@@ -52,4 +52,4 @@
 - `backend/`: REST API مبني بـNestJS.
 - `docker-compose.yml`: قاعدة PostgreSQL محلية.
 
-`DB_SYNC=true` مناسب للتطوير الأولي فقط. قبل التشغيل الفعلي يجب استخدام migrations وتغيير الأسرار وكلمات المرور.
+`DB_SYNC=true` مناسب للتطوير المحلي فقط. خطوات التشغيل الآمن على السيرفر، الـmigrations، HTTPS والنسخ الاحتياطي موجودة في [DEPLOYMENT.md](./DEPLOYMENT.md).

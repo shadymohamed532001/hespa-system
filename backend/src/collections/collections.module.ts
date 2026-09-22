@@ -8,9 +8,15 @@ import { CollectionsController } from './collections.controller.js';
 import { CollectionsService } from './collections.service.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Collection, FinancialAccount, LedgerEntry, Treasury])],
+  imports: [
+    TypeOrmModule.forFeature([
+      Collection,
+      FinancialAccount,
+      LedgerEntry,
+      Treasury,
+    ]),
+  ],
   controllers: [CollectionsController],
   providers: [CollectionsService],
 })
 export class CollectionsModule {}
-

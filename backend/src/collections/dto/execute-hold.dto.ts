@@ -8,4 +8,3 @@ export class ExecuteHoldDto {
   @Min(0)
   commission = 0;
 }
-

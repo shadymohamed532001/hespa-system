@@ -77,13 +77,19 @@ export function mapLedgerCategory(category: LedgerCategory): {
     case LedgerCategory.TOP_UP:
       return { kind: NotificationKind.DEPOSIT, title: 'إيداع — شحن رصيد' };
     case LedgerCategory.CASH_RECEIPT:
-      return { kind: NotificationKind.DEPOSIT, title: 'إيداع — استلام من مندوب' };
+      return {
+        kind: NotificationKind.DEPOSIT,
+        title: 'إيداع — استلام من مندوب',
+      };
     case LedgerCategory.COMMISSION:
       return { kind: NotificationKind.DEPOSIT, title: 'إيداع — عمولة' };
     case LedgerCategory.OPENING_BALANCE:
       return { kind: NotificationKind.DEPOSIT, title: 'إيداع — رصيد افتتاحي' };
     case LedgerCategory.MACHINE_USAGE:
-      return { kind: NotificationKind.WITHDRAWAL, title: 'سحب — استخدام ماكينة' };
+      return {
+        kind: NotificationKind.WITHDRAWAL,
+        title: 'سحب — استخدام ماكينة',
+      };
     case LedgerCategory.COMPANY_EXECUTION:
       return { kind: NotificationKind.WITHDRAWAL, title: 'سحب — تنفيذ توريد' };
     case LedgerCategory.REVERSAL:

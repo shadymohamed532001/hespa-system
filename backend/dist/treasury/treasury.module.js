@@ -18,7 +18,16 @@ let TreasuryModule = class TreasuryModule {
 };
 TreasuryModule = __decorate([
     Module({
-        imports: [TypeOrmModule.forFeature([Treasury, Collection, FinancialAccount, Wallet, Machine, LedgerEntry])],
+        imports: [
+            TypeOrmModule.forFeature([
+                Treasury,
+                Collection,
+                FinancialAccount,
+                Wallet,
+                Machine,
+                LedgerEntry,
+            ]),
+        ],
         controllers: [TreasuryController],
         providers: [TreasuryService],
     })

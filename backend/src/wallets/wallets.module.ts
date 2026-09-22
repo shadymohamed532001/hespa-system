@@ -11,4 +11,3 @@ import { WalletsService } from './wallets.service.js';
   providers: [WalletsService],
 })
 export class WalletsModule {}
-

@@ -1,4 +1,6 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 
 import 'api_endpoints.dart';
 
@@ -6,12 +8,7 @@ class ApiClient {
   ApiClient({String? baseUrl})
     : dio = Dio(
         BaseOptions(
-          baseUrl:
-              baseUrl ??
-              const String.fromEnvironment(
-                'API_BASE_URL',
-                defaultValue: 'http://localhost:3000/api',
-              ),
+          baseUrl: _resolveBaseUrl(baseUrl),
           connectTimeout: const Duration(seconds: 8),
           receiveTimeout: const Duration(seconds: 12),
           headers: {
@@ -19,9 +16,23 @@ class ApiClient {
             'Accept': 'application/json',
           },
         ),
-      );
+      ) {
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (error, handler) {
+          if (error.response?.statusCode == 401 &&
+              error.requestOptions.path != ApiEndpoints.login) {
+            onUnauthorized?.call();
+          }
+          handler.next(error);
+        },
+      ),
+    );
+  }
 
   final Dio dio;
+  void Function()? onUnauthorized;
+  static const _uuid = Uuid();
 
   // =========================
   // Authentication Token
@@ -76,6 +87,7 @@ class ApiClient {
     final response = await dio.post<dynamic>(
       path,
       data: data ?? <String, dynamic>{},
+      options: _mutationOptions(),
     );
 
     return response.data;
@@ -86,7 +98,11 @@ class ApiClient {
   // =========================
 
   Future<dynamic> patch(String path, Map<String, dynamic> data) async {
-    final response = await dio.patch<dynamic>(path, data: data);
+    final response = await dio.patch<dynamic>(
+      path,
+      data: data,
+      options: _mutationOptions(),
+    );
 
     return response.data;
   }
@@ -96,10 +112,16 @@ class ApiClient {
   // =========================
 
   Future<dynamic> delete(String path) async {
-    final response = await dio.delete<dynamic>(path);
+    final response = await dio.delete<dynamic>(
+      path,
+      options: _mutationOptions(),
+    );
 
     return response.data;
   }
+
+  Options _mutationOptions() =>
+      Options(headers: <String, String>{'Idempotency-Key': _uuid.v4()});
 
   // =========================
   // Error Handling
@@ -150,4 +172,21 @@ class ApiClient {
 
     return 'حدث خطأ غير متوقع';
   }
+}
+
+String _resolveBaseUrl(String? override) {
+  final value =
+      override ??
+      const String.fromEnvironment(
+        'API_BASE_URL',
+        defaultValue: 'http://localhost:3000/api',
+      );
+  final uri = Uri.tryParse(value);
+  const loopbackHosts = {'localhost', '127.0.0.1', '::1'};
+  if (kReleaseMode &&
+      (uri == null ||
+          (uri.scheme != 'https' && !loopbackHosts.contains(uri.host)))) {
+    throw StateError('API_BASE_URL must use HTTPS in release builds');
+  }
+  return value;
 }
