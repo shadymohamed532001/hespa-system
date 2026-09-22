@@ -1,0 +1,9 @@
+.DS_Store
+.idea/
+.vscode/
+backend/node_modules/
+backend/dist/
+backend/.env
+frontend/.dart_tool/
+frontend/build/
+frontend/.flutter-plugins*
