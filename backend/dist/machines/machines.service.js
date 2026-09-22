@@ -33,8 +33,7 @@ let MachinesService = class MachinesService {
             where: includeInactive ? {} : { active: true },
             order: { createdAt: 'ASC' },
         });
-        return machines.map((machine) => ({
-            ...machine,
+        return machines.map((machine) => Object.assign({}, machine, {
             remainingBalance: machine.loadedBalance - machine.usedBalance,
         }));
     }
@@ -56,7 +55,9 @@ let MachinesService = class MachinesService {
                 description: `شحن رصيد الماكينة ${machine.name}`,
                 performedBy: username,
             });
-            return { ...machine, remainingBalance: machine.loadedBalance - machine.usedBalance };
+            return Object.assign({}, machine, {
+                remainingBalance: machine.loadedBalance - machine.usedBalance,
+            });
         });
     }
     async use(id, dto, username) {
@@ -78,7 +79,9 @@ let MachinesService = class MachinesService {
                 description: `عملية شحن من ${machine.name} وعمولتها ${dto.commission}`,
                 performedBy: username,
             });
-            return { ...machine, remainingBalance: machine.loadedBalance - machine.usedBalance };
+            return Object.assign({}, machine, {
+                remainingBalance: machine.loadedBalance - machine.usedBalance,
+            });
         });
     }
     async setActive(id, active) {

@@ -9,39 +9,15 @@ export declare class MachinesService implements OnModuleInit {
     private readonly dataSource;
     constructor(machines: Repository<Machine>, dataSource: DataSource);
     onModuleInit(): Promise<void>;
-    findAll(includeInactive?: boolean): Promise<{
+    findAll(includeInactive?: boolean): Promise<(Machine & {
         remainingBalance: number;
-        id: string;
-        name: string;
-        active: boolean;
-        loadedBalance: number;
-        usedBalance: number;
-        commissionBalance: number;
-        createdAt: Date;
-        updatedAt: Date;
-    }[]>;
+    })[]>;
     create(dto: CreateMachineDto): Promise<Machine>;
-    load(id: string, dto: LoadMachineDto, username: string): Promise<{
+    load(id: string, dto: LoadMachineDto, username: string): Promise<Machine & {
         remainingBalance: number;
-        id: string;
-        name: string;
-        active: boolean;
-        loadedBalance: number;
-        usedBalance: number;
-        commissionBalance: number;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
-    use(id: string, dto: UseMachineDto, username: string): Promise<{
+    use(id: string, dto: UseMachineDto, username: string): Promise<Machine & {
         remainingBalance: number;
-        id: string;
-        name: string;
-        active: boolean;
-        loadedBalance: number;
-        usedBalance: number;
-        commissionBalance: number;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     setActive(id: string, active: boolean): Promise<Machine>;
 }

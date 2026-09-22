@@ -329,7 +329,9 @@ class _AccountsPageState extends State<AccountsPage> {
 
   Future<void> load() async {
     try {
-      data = await widget.session.api.list('/accounts?includeInactive=true');
+      data = await widget.session.api.list(
+        widget.session.isAdmin ? '/accounts?includeInactive=true' : '/accounts',
+      );
       error = null;
     } catch (e) {
       error = ApiClient.errorMessage(e);
@@ -430,16 +432,32 @@ class _AccountsPageState extends State<AccountsPage> {
                           )
                         : 'بدون حد محدد',
                     money(e['commissionBalance']),
-                    _StatusButton(
-                      active: e['active'] == true,
-                      enabled: widget.session.isAdmin,
-                      onChanged: (value) async {
-                        await widget.session.api.patch(
-                          '/accounts/${e['id']}/status',
-                          {'active': value},
-                        );
-                        await load();
-                      },
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _StatusButton(
+                          active: e['active'] == true,
+                          enabled: widget.session.isAdmin,
+                          onChanged: (value) async {
+                            await widget.session.api.patch(
+                              '/accounts/${e['id']}/status',
+                              {'active': value},
+                            );
+                            await load();
+                          },
+                        ),
+                        if (widget.session.isAdmin)
+                          IconButton(
+                            tooltip: 'حذف الحساب نهائيًا',
+                            onPressed: () => _deleteAccount(
+                              e as Map<String, dynamic>,
+                            ),
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Color(0xFFB42318),
+                            ),
+                          ),
+                      ],
                     ),
                   ];
                 }).toList(),
@@ -590,6 +608,33 @@ class _AccountsPageState extends State<AccountsPage> {
       if (mounted) _snack(context, 'تم حفظ العملية بنجاح');
     } catch (e) {
       if (mounted) _snack(context, ApiClient.errorMessage(e), error: true);
+    }
+  }
+
+  Future<void> _deleteAccount(Map<String, dynamic> account) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('حذف الحساب'),
+        content: Text(
+          'هل تريد حذف ${account['name']}؟ الحساب الذي له رصيد أو سجل حركات لا يُحذف، ويمكن إيقافه بدلًا من ذلك.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('حذف'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await _action(
+        () => widget.session.api.delete('/accounts/${account['id']}'),
+      );
     }
   }
 }

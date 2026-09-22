@@ -10,39 +10,15 @@ type UserRequest = {
 export declare class MachinesController {
     private readonly machines;
     constructor(machines: MachinesService);
-    findAll(includeInactive?: boolean): Promise<{
+    findAll(includeInactive?: boolean): Promise<(import("../database/entities/machine.entity.js").Machine & {
         remainingBalance: number;
-        id: string;
-        name: string;
-        active: boolean;
-        loadedBalance: number;
-        usedBalance: number;
-        commissionBalance: number;
-        createdAt: Date;
-        updatedAt: Date;
-    }[]>;
+    })[]>;
     create(dto: CreateMachineDto): Promise<import("../database/entities/machine.entity.js").Machine>;
-    load(id: string, dto: LoadMachineDto, request: UserRequest): Promise<{
+    load(id: string, dto: LoadMachineDto, request: UserRequest): Promise<import("../database/entities/machine.entity.js").Machine & {
         remainingBalance: number;
-        id: string;
-        name: string;
-        active: boolean;
-        loadedBalance: number;
-        usedBalance: number;
-        commissionBalance: number;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
-    use(id: string, dto: UseMachineDto, request: UserRequest): Promise<{
+    use(id: string, dto: UseMachineDto, request: UserRequest): Promise<import("../database/entities/machine.entity.js").Machine & {
         remainingBalance: number;
-        id: string;
-        name: string;
-        active: boolean;
-        loadedBalance: number;
-        usedBalance: number;
-        commissionBalance: number;
-        createdAt: Date;
-        updatedAt: Date;
     }>;
     setStatus(id: string, active: boolean): Promise<import("../database/entities/machine.entity.js").Machine>;
 }

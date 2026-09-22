@@ -10,16 +10,30 @@ export class LedgerEntry {
   @Column({ type: 'enum', enum: LedgerCategory })
   category: LedgerCategory;
 
-  @Column({ type: 'numeric', precision: 16, scale: 2, transformer: decimalTransformer })
+  @Column({
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    transformer: decimalTransformer,
+  })
   amount: number;
 
   @Column({ name: 'entity_type', length: 50 })
   entityType: string;
 
-  @Column({ name: 'entity_id', length: 80, nullable: true })
+  @Column({
+    name: 'entity_id',
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
   entityId: string | null;
 
-  @Column({ length: 80, nullable: true })
+  @Column({
+    type: 'varchar',
+    length: 80,
+    nullable: true,
+  })
   reference: string | null;
 
   @Column({ type: 'text' })
@@ -31,4 +45,3 @@ export class LedgerEntry {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
-

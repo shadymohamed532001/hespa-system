@@ -30,7 +30,12 @@ __decorate([
     __metadata("design:type", String)
 ], LedgerEntry.prototype, "category", void 0);
 __decorate([
-    Column({ type: 'numeric', precision: 16, scale: 2, transformer: decimalTransformer }),
+    Column({
+        type: 'numeric',
+        precision: 16,
+        scale: 2,
+        transformer: decimalTransformer,
+    }),
     __metadata("design:type", Number)
 ], LedgerEntry.prototype, "amount", void 0);
 __decorate([
@@ -38,11 +43,20 @@ __decorate([
     __metadata("design:type", String)
 ], LedgerEntry.prototype, "entityType", void 0);
 __decorate([
-    Column({ name: 'entity_id', length: 80, nullable: true }),
+    Column({
+        name: 'entity_id',
+        type: 'varchar',
+        length: 80,
+        nullable: true,
+    }),
     __metadata("design:type", Object)
 ], LedgerEntry.prototype, "entityId", void 0);
 __decorate([
-    Column({ length: 80, nullable: true }),
+    Column({
+        type: 'varchar',
+        length: 80,
+        nullable: true,
+    }),
     __metadata("design:type", Object)
 ], LedgerEntry.prototype, "reference", void 0);
 __decorate([
