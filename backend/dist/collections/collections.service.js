@@ -106,6 +106,15 @@ let CollectionsService = class CollectionsService {
                     description: `تنفيذ فوري لصالح ${dto.companyName}`,
                     performedBy: username,
                 });
+                if (dto.commission > 0) {
+                    await ledger.save({
+                        category: LedgerCategory.COMMISSION,
+                        amount: dto.commission,
+                        entityType: 'account', entityId: account.id, reference,
+                        description: `عمولة تنفيذ لصالح ${dto.companyName}`,
+                        performedBy: username,
+                    });
+                }
             }
             return collection;
         });
@@ -140,6 +149,15 @@ let CollectionsService = class CollectionsService {
                 description: `تنفيذ المعلّق لصالح ${collection.companyName}`,
                 performedBy: username,
             });
+            if (dto.commission > 0) {
+                await manager.getRepository(LedgerEntry).save({
+                    category: LedgerCategory.COMMISSION,
+                    amount: dto.commission,
+                    entityType: 'account', entityId: account.id, reference: collection.reference,
+                    description: `عمولة تنفيذ المعلّق لصالح ${collection.companyName}`,
+                    performedBy: username,
+                });
+            }
             return collection;
         });
     }

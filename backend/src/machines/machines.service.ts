@@ -25,10 +25,11 @@ export class MachinesService implements OnModuleInit {
       where: includeInactive ? {} : { active: true },
       order: { createdAt: 'ASC' },
     });
-    return machines.map((machine) => ({
-      ...machine,
-      remainingBalance: machine.loadedBalance - machine.usedBalance,
-    }));
+    return machines.map((machine) =>
+      Object.assign({}, machine, {
+        remainingBalance: machine.loadedBalance - machine.usedBalance,
+      }),
+    );
   }
 
   create(dto: CreateMachineDto) {
@@ -49,7 +50,9 @@ export class MachinesService implements OnModuleInit {
         description: `شحن رصيد الماكينة ${machine.name}`,
         performedBy: username,
       });
-      return { ...machine, remainingBalance: machine.loadedBalance - machine.usedBalance };
+      return Object.assign({}, machine, {
+        remainingBalance: machine.loadedBalance - machine.usedBalance,
+      });
     });
   }
 
@@ -71,7 +74,9 @@ export class MachinesService implements OnModuleInit {
         description: `عملية شحن من ${machine.name} وعمولتها ${dto.commission}`,
         performedBy: username,
       });
-      return { ...machine, remainingBalance: machine.loadedBalance - machine.usedBalance };
+      return Object.assign({}, machine, {
+        remainingBalance: machine.loadedBalance - machine.usedBalance,
+      });
     });
   }
 
