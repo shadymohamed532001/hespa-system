@@ -9,15 +9,20 @@ export declare class MachinesService implements OnModuleInit {
     private readonly dataSource;
     constructor(machines: Repository<Machine>, dataSource: DataSource);
     onModuleInit(): Promise<void>;
+    private withRemaining;
     findAll(includeInactive?: boolean): Promise<(Machine & {
         remainingBalance: number;
     })[]>;
-    create(dto: CreateMachineDto): Promise<Machine>;
+    create(dto: CreateMachineDto, username: string): Promise<Machine & {
+        remainingBalance: number;
+    }>;
     load(id: string, dto: LoadMachineDto, username: string): Promise<Machine & {
         remainingBalance: number;
     }>;
     use(id: string, dto: UseMachineDto, username: string): Promise<Machine & {
         remainingBalance: number;
     }>;
-    setActive(id: string, active: boolean): Promise<Machine>;
+    setActive(id: string, active: boolean): Promise<Machine & {
+        remainingBalance: number;
+    }>;
 }

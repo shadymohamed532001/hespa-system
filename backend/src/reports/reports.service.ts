@@ -19,7 +19,8 @@ type ReportScope = {
   entityId?: string;
 };
 
-type FlowKind = 'deposit' | 'withdrawal' | 'commission' | 'transfer' | 'neutral';
+type FlowKind =
+  'deposit' | 'withdrawal' | 'commission' | 'transfer' | 'neutral';
 
 type ReportOperation = {
   id: string;
@@ -53,12 +54,18 @@ const round = (value: number) => Number(value.toFixed(2));
 @Injectable()
 export class ReportsService {
   constructor(
-    @InjectRepository(LedgerEntry) private readonly ledger: Repository<LedgerEntry>,
-    @InjectRepository(InventorySale) private readonly sales: Repository<InventorySale>,
-    @InjectRepository(InventoryProduct) private readonly products: Repository<InventoryProduct>,
-    @InjectRepository(InventoryTreasury) private readonly inventoryTreasury: Repository<InventoryTreasury>,
-    @InjectRepository(Collection) private readonly collections: Repository<Collection>,
-    @InjectRepository(FinancialAccount) private readonly accounts: Repository<FinancialAccount>,
+    @InjectRepository(LedgerEntry)
+    private readonly ledger: Repository<LedgerEntry>,
+    @InjectRepository(InventorySale)
+    private readonly sales: Repository<InventorySale>,
+    @InjectRepository(InventoryProduct)
+    private readonly products: Repository<InventoryProduct>,
+    @InjectRepository(InventoryTreasury)
+    private readonly inventoryTreasury: Repository<InventoryTreasury>,
+    @InjectRepository(Collection)
+    private readonly collections: Repository<Collection>,
+    @InjectRepository(FinancialAccount)
+    private readonly accounts: Repository<FinancialAccount>,
     @InjectRepository(Wallet) private readonly wallets: Repository<Wallet>,
     @InjectRepository(Machine) private readonly machines: Repository<Machine>,
     @InjectRepository(Treasury) private readonly treasury: Repository<Treasury>,
@@ -66,29 +73,38 @@ export class ReportsService {
 
   async summary(scope: ReportScope) {
     const inclusiveEnd = new Date(scope.end.getTime() - 1);
-    const [ledger, sales, collections, accounts, wallets, machines, treasury, inventoryBox, products] =
-      await Promise.all([
-        this.ledger.find({
-          where: { createdAt: Between(scope.start, inclusiveEnd) },
-          order: { createdAt: 'DESC' },
-        }),
-        this.sales.find({
-          where: { createdAt: Between(scope.start, inclusiveEnd) },
-          relations: { product: true },
-          order: { createdAt: 'DESC' },
-        }),
-        this.collections.find({
-          where: { receivedAt: Between(scope.start, inclusiveEnd) },
-          relations: { account: true },
-          order: { receivedAt: 'DESC' },
-        }),
-        this.accounts.find({ order: { createdAt: 'ASC' } }),
-        this.wallets.find({ order: { createdAt: 'ASC' } }),
-        this.machines.find({ order: { createdAt: 'ASC' } }),
-        this.treasury.findOne({ where: { id: 'main' } }),
-        this.inventoryTreasury.findOne({ where: { id: 'inventory' } }),
-        this.products.find({ order: { createdAt: 'ASC' } }),
-      ]);
+    const [
+      ledger,
+      sales,
+      collections,
+      accounts,
+      wallets,
+      machines,
+      treasury,
+      inventoryBox,
+      products,
+    ] = await Promise.all([
+      this.ledger.find({
+        where: { createdAt: Between(scope.start, inclusiveEnd) },
+        order: { createdAt: 'DESC' },
+      }),
+      this.sales.find({
+        where: { createdAt: Between(scope.start, inclusiveEnd) },
+        relations: { product: true },
+        order: { createdAt: 'DESC' },
+      }),
+      this.collections.find({
+        where: { receivedAt: Between(scope.start, inclusiveEnd) },
+        relations: { account: true },
+        order: { receivedAt: 'DESC' },
+      }),
+      this.accounts.find({ order: { createdAt: 'ASC' } }),
+      this.wallets.find({ order: { createdAt: 'ASC' } }),
+      this.machines.find({ order: { createdAt: 'ASC' } }),
+      this.treasury.findOne({ where: { id: 'main' } }),
+      this.inventoryTreasury.findOne({ where: { id: 'inventory' } }),
+      this.products.find({ order: { createdAt: 'ASC' } }),
+    ]);
 
     const names = new Map<string, string>();
     names.set('treasury:main', 'الخزنة المركزية');
@@ -120,9 +136,21 @@ export class ReportsService {
       });
     };
 
-    addChannel('treasury', 'main', 'الخزنة المركزية', 'cash', Number(treasury?.balance ?? 0));
+    addChannel(
+      'treasury',
+      'main',
+      'الخزنة المركزية',
+      'cash',
+      Number(treasury?.balance ?? 0),
+    );
     for (const item of accounts) {
-      addChannel('account', item.id, item.name, item.type, Number(item.balance));
+      addChannel(
+        'account',
+        item.id,
+        item.name,
+        item.type,
+        Number(item.balance),
+      );
     }
     for (const item of wallets) {
       addChannel('wallet', item.id, item.name, item.type, Number(item.balance));
@@ -153,7 +181,11 @@ export class ReportsService {
     const channelFor = (type: string, id: string | null) =>
       id ? channels.get(`${type}:${id}`) : undefined;
 
-    const applyFlow = (channel: ChannelRow | undefined, kind: FlowKind, amount: number) => {
+    const applyFlow = (
+      channel: ChannelRow | undefined,
+      kind: FlowKind,
+      amount: number,
+    ) => {
       if (!channel) return;
       const value = Math.abs(Number(amount));
       if (kind === 'deposit') channel.deposits += value;
@@ -172,11 +204,20 @@ export class ReportsService {
         const targetMatch = Boolean(
           entry.targetType && matchesScope(entry.targetType, entry.targetId),
         );
-        const visible = scope.entityType === 'all' || sourceMatch || targetMatch;
+        const visible =
+          scope.entityType === 'all' || sourceMatch || targetMatch;
         if (!visible) continue;
 
-        applyFlow(channelFor(entry.sourceType ?? '', entry.sourceId), 'withdrawal', entry.amount);
-        applyFlow(channelFor(entry.targetType ?? '', entry.targetId), 'deposit', entry.amount);
+        applyFlow(
+          channelFor(entry.sourceType ?? '', entry.sourceId),
+          'withdrawal',
+          entry.amount,
+        );
+        applyFlow(
+          channelFor(entry.targetType ?? '', entry.targetId),
+          'deposit',
+          entry.amount,
+        );
 
         const scopedKind: FlowKind =
           scope.entityType === 'all'
@@ -214,14 +255,16 @@ export class ReportsService {
         amount: Math.abs(Number(entry.amount)),
         entityType: location.type,
         entityId: location.id,
-        entityName: names.get(`${location.type}:${location.id}`) ?? entry.entityType,
+        entityName:
+          names.get(`${location.type}:${location.id}`) ?? entry.entityType,
         description: entry.description,
         reference: entry.reference,
         performedBy: entry.performedBy,
       });
     }
 
-    const includeSales = scope.entityType === 'all' || scope.entityType === 'inventory';
+    const includeSales =
+      scope.entityType === 'all' || scope.entityType === 'inventory';
     if (includeSales) {
       const inventoryChannel = channels.get('inventory:inventory');
       for (const sale of sales) {
@@ -259,7 +302,8 @@ export class ReportsService {
       scope.entityType === 'all'
         ? operations.reduce(
             (sum, row) =>
-              sum + (row.kind === 'deposit' || row.kind === 'sale' ? row.amount : 0),
+              sum +
+              (row.kind === 'deposit' || row.kind === 'sale' ? row.amount : 0),
             0,
           )
         : visibleChannels.reduce((sum, row) => sum + row.deposits, 0),
@@ -283,7 +327,8 @@ export class ReportsService {
 
     const scopedSales = includeSales ? sales : [];
     const scopedCollections = collections.filter((item) => {
-      if (scope.entityType === 'all' || scope.entityType === 'treasury') return true;
+      if (scope.entityType === 'all' || scope.entityType === 'treasury')
+        return true;
       return (
         scope.entityType === 'account' &&
         (!scope.entityId || item.account?.id === scope.entityId)
@@ -292,7 +337,8 @@ export class ReportsService {
 
     const daily = this.dailyRows(scope.start, scope.end, operations);
     const stockValue = products.reduce(
-      (sum, product) => sum + Number(product.stockQty) * Number(product.defaultPrice),
+      (sum, product) =>
+        sum + Number(product.stockQty) * Number(product.defaultPrice),
       0,
     );
 
@@ -300,7 +346,9 @@ export class ReportsService {
       period: {
         from: scope.start.toISOString(),
         toExclusive: scope.end.toISOString(),
-        days: Math.ceil((scope.end.getTime() - scope.start.getTime()) / 86_400_000),
+        days: Math.ceil(
+          (scope.end.getTime() - scope.start.getTime()) / 86_400_000,
+        ),
       },
       scope: { entityType: scope.entityType, entityId: scope.entityId ?? null },
       summary: {
@@ -309,18 +357,25 @@ export class ReportsService {
         net: round(deposits - withdrawals),
         commissions,
         operationCount: operations.length,
-        salesAmount: round(scopedSales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)),
+        salesAmount: round(
+          scopedSales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0),
+        ),
         salesCount: scopedSales.length,
         soldUnits: scopedSales.reduce((sum, sale) => sum + sale.quantity, 0),
         collectionsAmount: round(
           scopedCollections.reduce((sum, item) => sum + Number(item.amount), 0),
         ),
         collectionsCount: scopedCollections.length,
-        pendingCollectionsCount: scopedCollections.filter((item) => item.status === 'pending').length,
+        pendingCollectionsCount: scopedCollections.filter(
+          (item) => item.status === 'pending',
+        ).length,
       },
       inventory: {
         currentBalance: round(Number(inventoryBox?.balance ?? 0)),
-        stockUnits: products.reduce((sum, product) => sum + product.stockQty, 0),
+        stockUnits: products.reduce(
+          (sum, product) => sum + product.stockQty,
+          0,
+        ),
         stockValue: round(stockValue),
       },
       channels: visibleChannels,
@@ -339,7 +394,8 @@ export class ReportsService {
 
   private flowKind(entry: LedgerEntry): FlowKind {
     if (entry.category === LedgerCategory.COMMISSION) return 'commission';
-    if (entry.category === LedgerCategory.COMPANY_EXECUTION) return 'withdrawal';
+    if (entry.category === LedgerCategory.COMPANY_EXECUTION)
+      return 'withdrawal';
     if (entry.category === LedgerCategory.MACHINE_USAGE) return 'withdrawal';
     if (entry.category === LedgerCategory.REVERSAL) {
       return Number(entry.amount) >= 0 ? 'deposit' : 'withdrawal';
@@ -355,11 +411,18 @@ export class ReportsService {
   }
 
   private transferName(entry: LedgerEntry, names: Map<string, string>) {
-    if (!entry.sourceType || !entry.sourceId || !entry.targetType || !entry.targetId) {
+    if (
+      !entry.sourceType ||
+      !entry.sourceId ||
+      !entry.targetType ||
+      !entry.targetId
+    ) {
       return 'تحويل داخلي (بيانات الأطراف غير متاحة)';
     }
-    const source = names.get(`${entry.sourceType}:${entry.sourceId}`) ?? entry.sourceType;
-    const target = names.get(`${entry.targetType}:${entry.targetId}`) ?? entry.targetType;
+    const source =
+      names.get(`${entry.sourceType}:${entry.sourceId}`) ?? entry.sourceType;
+    const target =
+      names.get(`${entry.targetType}:${entry.targetId}`) ?? entry.targetType;
     return `${source} ← ${target}`;
   }
 

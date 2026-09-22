@@ -13,13 +13,17 @@ export declare class MachinesController {
     findAll(includeInactive?: boolean): Promise<(import("../database/entities/machine.entity.js").Machine & {
         remainingBalance: number;
     })[]>;
-    create(dto: CreateMachineDto): Promise<import("../database/entities/machine.entity.js").Machine>;
+    create(dto: CreateMachineDto, request: UserRequest): Promise<import("../database/entities/machine.entity.js").Machine & {
+        remainingBalance: number;
+    }>;
     load(id: string, dto: LoadMachineDto, request: UserRequest): Promise<import("../database/entities/machine.entity.js").Machine & {
         remainingBalance: number;
     }>;
     use(id: string, dto: UseMachineDto, request: UserRequest): Promise<import("../database/entities/machine.entity.js").Machine & {
         remainingBalance: number;
     }>;
-    setStatus(id: string, active: boolean): Promise<import("../database/entities/machine.entity.js").Machine>;
+    setStatus(id: string, active: boolean): Promise<import("../database/entities/machine.entity.js").Machine & {
+        remainingBalance: number;
+    }>;
 }
 export {};

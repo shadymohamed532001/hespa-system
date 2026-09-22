@@ -7,10 +7,10 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsNumber, IsString, MaxLength, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 export class CreateMachineDto {
     name;
-    openingBalance;
+    openingBalance = 0;
 }
 __decorate([
     IsString(),
@@ -18,8 +18,9 @@ __decorate([
     __metadata("design:type", String)
 ], CreateMachineDto.prototype, "name", void 0);
 __decorate([
+    IsOptional(),
     IsNumber({ maxDecimalPlaces: 2 }),
     Min(0),
-    __metadata("design:type", Number)
+    __metadata("design:type", Object)
 ], CreateMachineDto.prototype, "openingBalance", void 0);
 //# sourceMappingURL=create-machine.dto.js.map

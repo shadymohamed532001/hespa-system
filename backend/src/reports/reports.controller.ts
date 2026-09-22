@@ -25,18 +25,32 @@ export class ReportsController {
       throw new BadRequestException('صيغة الفترة غير صحيحة');
     }
     if (end <= start) {
-      throw new BadRequestException('تاريخ النهاية يجب أن يكون بعد تاريخ البداية');
+      throw new BadRequestException(
+        'تاريخ النهاية يجب أن يكون بعد تاريخ البداية',
+      );
     }
     if (end.getTime() - start.getTime() > 366 * 24 * 60 * 60 * 1000) {
       throw new BadRequestException('أقصى فترة للتقرير هي سنة واحدة');
     }
 
-    const allowedTypes = ['all', 'treasury', 'account', 'wallet', 'machine', 'inventory'];
+    const allowedTypes = [
+      'all',
+      'treasury',
+      'account',
+      'wallet',
+      'machine',
+      'inventory',
+    ];
     const scopeType = entityType || 'all';
     if (!allowedTypes.includes(scopeType)) {
       throw new BadRequestException('نوع القسم غير مدعوم');
     }
 
-    return this.reports.summary({ start, end, entityType: scopeType, entityId });
+    return this.reports.summary({
+      start,
+      end,
+      entityType: scopeType,
+      entityId,
+    });
   }
 }

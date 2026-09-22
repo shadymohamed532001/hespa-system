@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Body, Controller, Get, Param, ParseBoolPipe, Patch, Post, Query, Request } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseBoolPipe, Patch, Post, Query, Request, } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
@@ -25,8 +25,8 @@ let MachinesController = class MachinesController {
     findAll(includeInactive) {
         return this.machines.findAll(includeInactive ?? false);
     }
-    create(dto) {
-        return this.machines.create(dto);
+    create(dto, request) {
+        return this.machines.create(dto, request.user.username);
     }
     load(id, dto, request) {
         return this.machines.load(id, dto, request.user.username);
@@ -49,8 +49,9 @@ __decorate([
     RequirePermissions(AppPermission.MANAGE_ASSETS),
     Post(),
     __param(0, Body()),
+    __param(1, Request()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [CreateMachineDto]),
+    __metadata("design:paramtypes", [CreateMachineDto, Object]),
     __metadata("design:returntype", void 0)
 ], MachinesController.prototype, "create", null);
 __decorate([
