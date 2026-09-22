@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
+import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
@@ -146,161 +147,87 @@ class _AccountsPageState extends State<AccountsPage> {
     final canDelete = balance == 0 && commission == 0;
     final typeLabel = _accountType('${account['type']}');
 
-    final result = await showDialog<_ManageAction>(
+    final result = await showHesbaModal<_ManageAction>(
       context: context,
-      barrierColor: const Color(0x990B2430),
-      builder: (ctx) => Dialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 560),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(28, 26, 28, 22),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'إدارة ${account['name']}',
-                  style: HesbaText.modalTitle,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '$typeLabel · الرصيد الحالي ${money(balance)}',
-                  style: HesbaText.bodyMuted,
-                ),
-                const SizedBox(height: 18),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 18,
-                    vertical: 16,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEEF4F7),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text.rich(
-                    TextSpan(
-                      children: [
-                        TextSpan(
-                          text: active ? 'الحساب نشط. ' : 'الحساب موقوف. ',
-                          style: const TextStyle(
-                            color: HesbaColors.ink,
-                            fontWeight: FontWeight.w400,
-                          ),
-                        ),
-                        TextSpan(
-                          text: active
-                              ? 'إيقافه يخفيه من التشغيل (الشحن والتحويلات) مع الإبقاء على السجل والرصيد ظاهرين في الإجماليات.'
-                              : 'إعادة تفعيله ترجعه للظهور في التشغيل اليومي (الشحن والتحويلات).',
-                        ),
-                      ],
-                    ),
-                    style: const TextStyle(
-                      color: Color(0xFF425C6B),
-                      fontSize: 13,
-                      height: 1.55,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 22),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
+      builder: (ctx) => HesbaModalCard(
+        title: 'إدارة ${account['name']}',
+        subtitle: '$typeLabel · الرصيد الحالي ${money(balance)}',
+        footer: const Text(
+          'لا يمكن الحذف النهائي إلا إذا كان الرصيد والعمولة صفرًا ولا توجد أي حركات مرتبطة بالحساب.',
+          textAlign: TextAlign.center,
+          style: HesbaText.caption,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HesbaModalCallout(
+              child: Text.rich(
+                TextSpan(
                   children: [
-                    FilledButton(
-                      onPressed: () => Navigator.pop(
-                        ctx,
-                        active
-                            ? _ManageAction.deactivate
-                            : _ManageAction.activate,
-                      ),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
-                        ),
-                      ),
-                      child: Text(
-                        active
-                            ? 'إيقاف وإخفاء الحساب'
-                            : 'إعادة تفعيل الحساب',
-                      ),
+                    TextSpan(
+                      text: active ? 'الحساب نشط. ' : 'الحساب موقوف. ',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    OutlinedButton(
-                      onPressed: !canDelete || !widget.session.isAdmin
-                          ? null
-                          : () async {
-                              final confirmed = await showDialog<bool>(
-                                context: ctx,
-                                builder: (confirmCtx) => AlertDialog(
-                                  title: const Text('تأكيد الحذف النهائي'),
-                                  content: Text(
-                                    'هل أنت متأكد من الحذف النهائي لـ «${account['name']}»؟\n\nهذا الإجراء لا يمكن التراجع عنه، ومتاح للأدمن فقط عندما يكون الرصيد والعمولة صفرًا بدون أي حركات.',
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () =>
-                                          Navigator.pop(confirmCtx, false),
-                                      child: const Text('إلغاء'),
-                                    ),
-                                    FilledButton(
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: const Color(0xFFB95050),
-                                      ),
-                                      onPressed: () =>
-                                          Navigator.pop(confirmCtx, true),
-                                      child: const Text('تأكيد الحذف'),
-                                    ),
-                                  ],
-                                ),
-                              );
-                              if (confirmed == true && ctx.mounted) {
-                                Navigator.pop(ctx, _ManageAction.delete);
-                              }
-                            },
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFB95050),
-                        disabledForegroundColor: const Color(0xFFD4A0A0),
-                        side: BorderSide(
-                          color: canDelete
-                              ? const Color(0xFFE2B6B6)
-                              : HesbaColors.border,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 14,
-                        ),
-                      ),
-                      child: Text(
-                        canDelete
-                            ? 'حذف نهائي'
-                            : 'الحذف النهائي غير متاح',
-                      ),
-                    ),
-                    OutlinedButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: HesbaColors.ink,
-                        side: const BorderSide(color: HesbaColors.border),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 18,
-                          vertical: 14,
-                        ),
-                      ),
-                      child: const Text('إلغاء'),
+                    TextSpan(
+                      text: active
+                          ? 'إيقافه يخفيه من التشغيل (الشحن والتحويلات) مع الإبقاء على السجل والرصيد ظاهرين في الإجماليات.'
+                          : 'إعادة تفعيله ترجعه للظهور في التشغيل اليومي (الشحن والتحويلات).',
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
-                const Text(
-                  'لا يمكن الحذف النهائي إلا إذا كان الرصيد والعمولة صفرًا ولا توجد أي حركات مرتبطة بالحساب.',
-                  textAlign: TextAlign.center,
-                  style: HesbaText.caption,
-                ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 22),
+            HesbaModalActions(
+              primaryLabel: active
+                  ? 'إيقاف وإخفاء الحساب'
+                  : 'إعادة تفعيل الحساب',
+              onPrimary: () => Navigator.pop(
+                ctx,
+                active ? _ManageAction.deactivate : _ManageAction.activate,
+              ),
+              onCancel: () => Navigator.pop(ctx),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: !canDelete || !widget.session.isAdmin
+                  ? null
+                  : () async {
+                      final confirmed = await showHesbaModal<bool>(
+                        context: ctx,
+                        maxWidth: 460,
+                        builder: (confirmCtx) => HesbaModalCard(
+                          title: 'تأكيد الحذف النهائي',
+                          subtitle:
+                              'هل أنت متأكد من الحذف النهائي لـ «${account['name']}»؟ هذا الإجراء لا يمكن التراجع عنه.',
+                          child: HesbaModalActions(
+                            primaryLabel: 'تأكيد الحذف',
+                            danger: true,
+                            onPrimary: () =>
+                                Navigator.pop(confirmCtx, true),
+                            onCancel: () =>
+                                Navigator.pop(confirmCtx, false),
+                          ),
+                        ),
+                      );
+                      if (confirmed == true && ctx.mounted) {
+                        Navigator.pop(ctx, _ManageAction.delete);
+                      }
+                    },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: HesbaColors.red,
+                disabledForegroundColor: const Color(0xFFD4A0A0),
+                side: BorderSide(
+                  color: canDelete
+                      ? const Color(0xFFE2B6B6)
+                      : HesbaColors.border,
+                ),
+              ),
+              child: Text(
+                canDelete ? 'حذف نهائي' : 'الحذف النهائي غير متاح',
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -353,52 +280,55 @@ class _AccountsPageState extends State<AccountsPage> {
     final name = TextEditingController();
     final opening = TextEditingController(text: '0');
     var type = 'fawry';
-    final ok = await showDialog<bool>(
+    final ok = await showHesbaModal<bool>(
       context: context,
+      maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('إضافة حساب جديد'),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: 'إضافة حساب جديد',
+          subtitle: 'أدخل بيانات الحساب ثم احفظه في النظام.',
+          actions: HesbaModalActions(
+            primaryLabel: 'إضافة',
+            onPrimary: () => Navigator.pop(ctx, true),
+            onCancel: () => Navigator.pop(ctx, false),
+          ),
+          child: Column(
+            children: [
+              HesbaModalField(
+                label: 'اسم الحساب *',
+                child: TextField(
                   controller: name,
-                  decoration: const InputDecoration(labelText: 'اسم الحساب'),
+                  decoration: const InputDecoration(),
                 ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'النوع *',
+                child: DropdownButtonFormField<String>(
                   initialValue: type,
-                  decoration: const InputDecoration(labelText: 'النوع'),
+                  decoration: const InputDecoration(),
                   items: const [
                     DropdownMenuItem(value: 'fawry', child: Text('فوري')),
                     DropdownMenuItem(value: 'company', child: Text('شركة')),
-                    DropdownMenuItem(value: 'operating', child: Text('تشغيلي')),
+                    DropdownMenuItem(
+                      value: 'operating',
+                      child: Text('تشغيلي'),
+                    ),
                   ],
                   onChanged: (v) => setLocal(() => type = v!),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'الرصيد الافتتاحي *',
+                child: TextField(
                   controller: opening,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'الرصيد الافتتاحي',
-                  ),
+                  decoration: const InputDecoration(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('إضافة'),
-            ),
-          ],
         ),
       ),
     );
@@ -422,19 +352,26 @@ class _AccountsPageState extends State<AccountsPage> {
     var id = '${active.first['id']}';
     final amount = TextEditingController();
     final reference = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showHesbaModal<bool>(
       context: context,
+      maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('شحن حساب'),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: 'شحن الحساب',
+          subtitle: 'أضف رصيدًا مباشرًا للحساب المحدد.',
+          actions: HesbaModalActions(
+            primaryLabel: 'إضافة الرصيد',
+            onPrimary: () => Navigator.pop(ctx, true),
+            onCancel: () => Navigator.pop(ctx, false),
+          ),
+          child: Column(
+            children: [
+              HesbaModalField(
+                label: 'الحساب *',
+                child: DropdownButtonFormField<String>(
                   initialValue: id,
-                  decoration: const InputDecoration(labelText: 'الحساب'),
+                  isExpanded: true,
+                  decoration: const InputDecoration(),
                   items: [
                     for (final e in active)
                       DropdownMenuItem(
@@ -444,32 +381,26 @@ class _AccountsPageState extends State<AccountsPage> {
                   ],
                   onChanged: (v) => setLocal(() => id = v!),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'مبلغ الشحن *',
+                child: TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'مبلغ الشحن'),
+                  decoration: const InputDecoration(),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'رقم المرجع (اختياري)',
+                child: TextField(
                   controller: reference,
-                  decoration: const InputDecoration(
-                    labelText: 'رقم المرجع (اختياري)',
-                  ),
+                  decoration: const InputDecoration(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('إضافة الرصيد'),
-            ),
-          ],
         ),
       ),
     );

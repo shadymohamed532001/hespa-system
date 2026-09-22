@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
+import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
@@ -143,24 +144,33 @@ class _InventoryPageState extends State<InventoryPage> {
     final stock = TextEditingController(text: '0');
     final price = TextEditingController(text: '0');
     var category = 'accessory';
-    final ok = await showDialog<bool>(
+    final ok = await showHesbaModal<bool>(
       context: context,
+      maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: const Text('إضافة صنف للمخزن'),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: 'إضافة صنف للمخزن',
+          subtitle: 'موبايل، إكسسوار، جراب، شاشة أو غيرها.',
+          actions: HesbaModalActions(
+            primaryLabel: 'إضافة',
+            onPrimary: () => Navigator.pop(ctx, true),
+            onCancel: () => Navigator.pop(ctx, false),
+          ),
+          child: Column(
+            children: [
+              HesbaModalField(
+                label: 'اسم الصنف *',
+                child: TextField(
                   controller: name,
-                  decoration: const InputDecoration(labelText: 'اسم الصنف'),
+                  decoration: const InputDecoration(),
                 ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'النوع *',
+                child: DropdownButtonFormField<String>(
                   initialValue: category,
-                  decoration: const InputDecoration(labelText: 'النوع'),
+                  decoration: const InputDecoration(),
                   items: const [
                     DropdownMenuItem(value: 'mobile', child: Text('موبايل')),
                     DropdownMenuItem(
@@ -173,35 +183,27 @@ class _InventoryPageState extends State<InventoryPage> {
                   ],
                   onChanged: (v) => setLocal(() => category = v!),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'الكمية الافتتاحية *',
+                child: TextField(
                   controller: stock,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'الكمية الافتتاحية',
-                  ),
+                  decoration: const InputDecoration(),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'سعر البيع الافتراضي *',
+                child: TextField(
                   controller: price,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    labelText: 'سعر البيع الافتراضي',
-                  ),
+                  decoration: const InputDecoration(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('إضافة'),
-            ),
-          ],
         ),
       ),
     );
@@ -224,28 +226,25 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Future<void> _stockIn(Map<String, dynamic> product) async {
     final qty = TextEditingController(text: '1');
-    final ok = await showDialog<bool>(
+    final ok = await showHesbaModal<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('توريد مخزون — ${product['name']}'),
-        content: SizedBox(
-          width: 420,
+      maxWidth: 460,
+      builder: (ctx) => HesbaModalCard(
+        title: 'توريد مخزون — ${product['name']}',
+        subtitle: 'أضف كمية جديدة إلى المخزن.',
+        actions: HesbaModalActions(
+          primaryLabel: 'تأكيد التوريد',
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
+        ),
+        child: HesbaModalField(
+          label: 'الكمية المضافة *',
           child: TextField(
             controller: qty,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'الكمية المضافة'),
+            decoration: const InputDecoration(),
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('تأكيد التوريد'),
-          ),
-        ],
       ),
     );
     if (ok != true) return;
@@ -269,59 +268,53 @@ class _InventoryPageState extends State<InventoryPage> {
       text: '${product['defaultPrice'] ?? 0}',
     );
     final note = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showHesbaModal<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('بيع — ${product['name']}'),
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'المتاح في المخزن: ${product['stockQty'] ?? 0}',
-                style: HesbaText.bodyMuted,
-              ),
-              const SizedBox(height: 14),
-              TextField(
+      maxWidth: 520,
+      builder: (ctx) => HesbaModalCard(
+        title: 'بيع — ${product['name']}',
+        subtitle: 'المتاح في المخزن: ${product['stockQty'] ?? 0}',
+        actions: HesbaModalActions(
+          primaryLabel: 'تأكيد البيع',
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
+        ),
+        footer: const Text(
+          'المبلغ يدخل خزنة المخزن فقط، ولا يُضاف لخزنة الكاش.',
+          textAlign: TextAlign.center,
+          style: HesbaText.caption,
+        ),
+        child: Column(
+          children: [
+            HesbaModalField(
+              label: 'الكمية المباعة *',
+              child: TextField(
                 controller: qty,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'الكمية المباعة'),
+                decoration: const InputDecoration(),
               ),
-              const SizedBox(height: 14),
-              TextField(
+            ),
+            const SizedBox(height: 18),
+            HesbaModalField(
+              label: 'سعر القطعة *',
+              child: TextField(
                 controller: price,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: const InputDecoration(labelText: 'سعر القطعة'),
+                decoration: const InputDecoration(),
               ),
-              const SizedBox(height: 14),
-              TextField(
+            ),
+            const SizedBox(height: 18),
+            HesbaModalField(
+              label: 'ملاحظة (اختياري)',
+              child: TextField(
                 controller: note,
-                decoration: const InputDecoration(
-                  labelText: 'ملاحظة (اختياري)',
-                ),
+                decoration: const InputDecoration(),
               ),
-              const SizedBox(height: 12),
-              Text(
-                'المبلغ يدخل خزنة المخزن فقط، ولا يُضاف لخزنة الكاش.',
-                style: HesbaText.caption,
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('تأكيد البيع'),
-          ),
-        ],
       ),
     );
     if (ok != true) return;

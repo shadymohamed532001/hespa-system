@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
+import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
 
@@ -169,23 +170,20 @@ class _TopUpPageState extends State<TopUpPage> {
   }
 
   Future<void> _simulateNewDay() async {
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showHesbaModal<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('محاكاة بدء يوم جديد'),
-        content: const Text(
-          'سيتم ترحيل الأرصدة الحالية كرصيد افتتاحي وتصفير عدّادات الشحن اليومية. هل تريد المتابعة؟',
+      maxWidth: 480,
+      builder: (ctx) => HesbaModalCard(
+        title: 'محاكاة بدء يوم جديد',
+        actions: HesbaModalActions(
+          primaryLabel: 'تأكيد',
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('تأكيد'),
-          ),
-        ],
+        child: const Text(
+          'سيتم ترحيل الأرصدة الحالية كرصيد افتتاحي وتصفير عدّادات الشحن اليومية. هل تريد المتابعة؟',
+          style: HesbaText.bodyMuted,
+        ),
       ),
     );
     if (confirmed != true) return;

@@ -4,15 +4,15 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
+import '../../core/widgets/hesba_modal.dart';
 import '../auth/session_controller.dart';
 
 Future<bool> showReceiveCollectionDialog({
   required BuildContext context,
   required SessionController session,
 }) async {
-  return await showDialog<bool>(
+  return await showHesbaModal<bool>(
         context: context,
-        barrierColor: const Color(0x990B2430),
         builder: (_) => _ReceiveCollectionDialog(session: session),
       ) ??
       false;
@@ -140,182 +140,140 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      elevation: 0,
-      insetPadding: const EdgeInsets.all(22),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          maxWidth: 590,
-          maxHeight: media.size.height - 44,
-        ),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x520A1F2A),
-                blurRadius: 80,
-                offset: Offset(0, 25),
-              ),
-            ],
-          ),
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(27),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Text(
-                    'استلام كاش من مندوب',
-                    style: TextStyle(
-                      color: HesbaColors.ink,
-                      fontSize: 23,
-                      height: 1.35,
-                      fontWeight: FontWeight.w400,
+    return HesbaModalCard(
+      title: 'استلام كاش من مندوب',
+      subtitle: 'اختر تنفيذ العملية فورًا أو الاحتفاظ بها كمعلّق للتنفيذ لاحقًا.',
+      actions: HesbaModalActions(
+        primaryLabel: _isImmediate ? 'استلام وتنفيذ الآن' : 'تسجيل كمعلّق',
+        primaryEnabled: !_saving,
+        cancelEnabled: !_saving,
+        onPrimary: _submit,
+        onCancel: () => Navigator.of(context).pop(false),
+      ),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final twoColumns = constraints.maxWidth >= 520;
+                final width = twoColumns
+                    ? (constraints.maxWidth - 24) / 2
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: 24,
+                  runSpacing: 20,
+                  children: [
+                    SizedBox(width: width, child: _modeField()),
+                    SizedBox(
+                      width: width,
+                      child: _textField(
+                        label: 'المندوب *',
+                        controller: _agent,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 4),
-                  const Text(
-                    'اختر تنفيذ العملية فورًا أو الاحتفاظ بها كمعلّق للتنفيذ لاحقًا.',
-                    style: TextStyle(
-                      color: HesbaColors.muted,
-                      fontSize: 14,
-                      height: 1.55,
+                    SizedBox(
+                      width: width,
+                      child: _textField(
+                        label: 'الشركة *',
+                        controller: _company,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      final twoColumns = constraints.maxWidth >= 520;
-                      final width = twoColumns
-                          ? (constraints.maxWidth - 24) / 2
-                          : constraints.maxWidth;
-                      return Wrap(
-                        spacing: 24,
-                        runSpacing: 20,
-                        children: [
-                          SizedBox(width: width, child: _modeField()),
-                          SizedBox(
-                            width: width,
-                            child: _textField(
-                              label: 'المندوب *',
-                              controller: _agent,
-                            ),
-                          ),
-                          SizedBox(
-                            width: width,
-                            child: _textField(
-                              label: 'الشركة *',
-                              controller: _company,
-                            ),
-                          ),
-                          SizedBox(
-                            width: width,
-                            child: _textField(
-                              label: 'المبلغ *',
-                              controller: _amount,
-                              numeric: true,
-                              validator: (value) {
-                                final number = num.tryParse(
-                                  value?.trim() ?? '',
-                                );
-                                return number == null || number <= 0
-                                    ? 'أدخل مبلغًا صحيحًا'
-                                    : null;
-                              },
-                            ),
-                          ),
-                          SizedBox(width: width, child: _timeField()),
-                          if (twoColumns) SizedBox(width: width),
-                          if (_isImmediate)
-                            SizedBox(width: width, child: _accountField()),
-                          if (_isImmediate)
-                            SizedBox(
-                              width: width,
-                              child: _textField(
-                                label: 'العمولة',
-                                controller: _commission,
-                                numeric: true,
-                                validator: (value) {
-                                  final number = num.tryParse(
-                                    value?.trim().isEmpty ?? true
-                                        ? '0'
-                                        : value!.trim(),
-                                  );
-                                  return number == null || number < 0
-                                      ? 'أدخل عمولة صحيحة'
-                                      : null;
-                                },
-                              ),
-                            ),
-                        ],
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 18),
-                  _WorkflowCallout(immediate: _isImmediate),
-                  if (_error != null) ...[
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 11,
+                    SizedBox(
+                      width: width,
+                      child: _textField(
+                        label: 'المبلغ *',
+                        controller: _amount,
+                        numeric: true,
+                        validator: (value) {
+                          final number = num.tryParse(value?.trim() ?? '');
+                          return number == null || number <= 0
+                              ? 'أدخل مبلغًا صحيحًا'
+                              : null;
+                        },
                       ),
-                      decoration: BoxDecoration(
-                        color: HesbaColors.redLight,
-                        borderRadius: BorderRadius.circular(9),
+                    ),
+                    SizedBox(width: width, child: _timeField()),
+                    if (twoColumns) SizedBox(width: width),
+                    if (_isImmediate)
+                      SizedBox(width: width, child: _accountField()),
+                    if (_isImmediate)
+                      SizedBox(
+                        width: width,
+                        child: _textField(
+                          label: 'العمولة',
+                          controller: _commission,
+                          numeric: true,
+                          validator: (value) {
+                            final number = num.tryParse(
+                              value?.trim().isEmpty ?? true
+                                  ? '0'
+                                  : value!.trim(),
+                            );
+                            return number == null || number < 0
+                                ? 'أدخل عمولة صحيحة'
+                                : null;
+                          },
+                        ),
                       ),
-                      child: Text(
-                        _error!,
-                        style: const TextStyle(color: HesbaColors.red),
-                      ),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 18),
+            HesbaModalCallout(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: _isImmediate ? 'تنفيذ فوري: ' : 'معلّق: ',
+                      style: const TextStyle(fontWeight: FontWeight.w400),
+                    ),
+                    TextSpan(
+                      text: _isImmediate
+                          ? 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.'
+                          : 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.',
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  Wrap(
-                    spacing: 10,
-                    runSpacing: 10,
-                    children: [
-                      FilledButton(
-                        onPressed: _saving ? null : _submit,
-                        child: _saving
-                            ? const SizedBox.square(
-                                dimension: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                _isImmediate
-                                    ? 'استلام وتنفيذ الآن'
-                                    : 'تسجيل كمعلّق',
-                              ),
-                      ),
-                      OutlinedButton(
-                        onPressed: _saving
-                            ? null
-                            : () => Navigator.of(context).pop(false),
-                        child: const Text('إلغاء'),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             ),
-          ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 11,
+                ),
+                decoration: BoxDecoration(
+                  color: HesbaColors.redLight,
+                  borderRadius: BorderRadius.circular(9),
+                ),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: HesbaColors.red),
+                ),
+              ),
+            ],
+            if (_saving) ...[
+              const SizedBox(height: 12),
+              const Center(
+                child: SizedBox.square(
+                  dimension: 22,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
   }
 
   Widget _modeField() {
-    return _LabeledField(
+    return HesbaModalField(
       label: 'طريقة التنفيذ *',
       child: DropdownButtonFormField<String>(
         initialValue: _mode,
@@ -342,7 +300,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   Widget _accountField() {
-    return _LabeledField(
+    return HesbaModalField(
       label: 'الحساب المستخدم في التنفيذ *',
       child: DropdownButtonFormField<String>(
         key: ValueKey(_accountId),
@@ -373,7 +331,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     bool numeric = false,
     String? Function(String?)? validator,
   }) {
-    return _LabeledField(
+    return HesbaModalField(
       label: label,
       child: TextFormField(
         controller: controller,
@@ -394,7 +352,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   Widget _timeField() {
-    return _LabeledField(
+    return HesbaModalField(
       label: 'وقت الاستلام *',
       child: InkWell(
         onTap: _saving ? null : _pickTime,
@@ -424,68 +382,5 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     final minute = time.minute.toString().padLeft(2, '0');
     final period = time.period == DayPeriod.am ? 'AM' : 'PM';
     return '${hour.toString().padLeft(2, '0')}:$minute $period';
-  }
-}
-
-class _LabeledField extends StatelessWidget {
-  const _LabeledField({required this.label, required this.child});
-
-  final String label;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: HesbaColors.ink,
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
-        const SizedBox(height: 7),
-        child,
-      ],
-    );
-  }
-}
-
-class _WorkflowCallout extends StatelessWidget {
-  const _WorkflowCallout({required this.immediate});
-
-  final bool immediate;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
-      decoration: BoxDecoration(
-        color: const Color(0xFFEEF4F7),
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: immediate ? 'تنفيذ فوري: ' : 'معلّق: ',
-              style: const TextStyle(fontWeight: FontWeight.w400),
-            ),
-            TextSpan(
-              text: immediate
-                  ? 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.'
-                  : 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.',
-            ),
-          ],
-        ),
-        style: const TextStyle(
-          color: Color(0xFF425C6B),
-          fontSize: 13,
-          height: 1.55,
-        ),
-      ),
-    );
   }
 }

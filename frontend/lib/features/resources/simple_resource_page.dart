@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
-import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/data_card.dart';
 import '../../core/widgets/error_box.dart';
+import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
@@ -113,66 +113,58 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
 
   Future<void> _topUp() async {
     if (data.isEmpty) return;
-    String id = data.first['id'];
+    var id = '${data.first['id']}';
     final amount = TextEditingController();
     final reference = TextEditingController();
-    final ok = await showDialog<bool>(
+    final ok = await showHesbaModal<bool>(
       context: context,
+      maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text(widget.topUpLabel!),
-          content: SizedBox(
-            width: 460,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: widget.topUpLabel!,
+          subtitle: widget.topUpNote,
+          actions: HesbaModalActions(
+            primaryLabel: 'تأكيد',
+            onPrimary: () => Navigator.pop(ctx, true),
+            onCancel: () => Navigator.pop(ctx, false),
+          ),
+          child: Column(
+            children: [
+              HesbaModalField(
+                label: 'اختر الحساب *',
+                child: DropdownButtonFormField<String>(
                   initialValue: id,
-                  decoration: const InputDecoration(labelText: 'اختر الحساب'),
-                  items: data
-                      .map<DropdownMenuItem<String>>(
-                        (e) => DropdownMenuItem(
-                          value: e['id'],
-                          child: Text('${e['name']}'),
-                        ),
-                      )
-                      .toList(),
+                  isExpanded: true,
+                  decoration: const InputDecoration(),
+                  items: [
+                    for (final e in data)
+                      DropdownMenuItem(
+                        value: '${e['id']}',
+                        child: Text('${e['name']}'),
+                      ),
+                  ],
                   onChanged: (v) => setLocal(() => id = v!),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'المبلغ *',
+                child: TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'المبلغ'),
+                  decoration: const InputDecoration(),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'رقم المرجع (اختياري)',
+                child: TextField(
                   controller: reference,
-                  decoration: const InputDecoration(
-                    labelText: 'رقم المرجع (اختياري)',
-                  ),
+                  decoration: const InputDecoration(),
                 ),
-                if (widget.topUpNote != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 14),
-                    child: Text(
-                      widget.topUpNote!,
-                      style: const TextStyle(color: HesbaColors.muted),
-                    ),
-                  ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('تأكيد'),
-            ),
-          ],
         ),
       ),
     );

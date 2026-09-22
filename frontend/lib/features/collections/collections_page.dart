@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
+import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/notifications_bell.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
@@ -86,26 +87,27 @@ class _CollectionsPageState extends State<CollectionsPage> {
     if (accounts.isEmpty) return;
     var accountId = '${accounts.first['id']}';
     final commission = TextEditingController(text: '0');
-    final ok = await showDialog<bool>(
+    final ok = await showHesbaModal<bool>(
       context: context,
+      maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          title: Text('تنفيذ المعلّق ${collection['reference']}'),
-          content: SizedBox(
-            width: 480,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '${collection['companyName']} · ${collection['agentName']} · ${money(collection['amount'])}',
-                  style: HesbaText.bodyMuted,
-                ),
-                const SizedBox(height: 18),
-                DropdownButtonFormField<String>(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: 'تنفيذ المعلّق ${collection['reference']}',
+          subtitle:
+              '${collection['companyName']} · ${collection['agentName']} · ${money(collection['amount'])}',
+          actions: HesbaModalActions(
+            primaryLabel: 'تأكيد التنفيذ',
+            onPrimary: () => Navigator.pop(ctx, true),
+            onCancel: () => Navigator.pop(ctx, false),
+          ),
+          child: Column(
+            children: [
+              HesbaModalField(
+                label: 'الحساب المستخدم *',
+                child: DropdownButtonFormField<String>(
                   initialValue: accountId,
-                  decoration: const InputDecoration(
-                    labelText: 'الحساب المستخدم',
-                  ),
+                  isExpanded: true,
+                  decoration: const InputDecoration(),
                   items: [
                     for (final e in accounts)
                       DropdownMenuItem(
@@ -115,25 +117,18 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   ],
                   onChanged: (v) => setLocal(() => accountId = v!),
                 ),
-                const SizedBox(height: 14),
-                TextField(
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'العمولة',
+                child: TextField(
                   controller: commission,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'العمولة'),
+                  decoration: const InputDecoration(),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('تأكيد التنفيذ'),
-            ),
-          ],
         ),
       ),
     );
