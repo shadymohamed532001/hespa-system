@@ -1,4 +1,4 @@
-import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class SellProductDto {
   @IsInt()
@@ -11,5 +11,6 @@ export class SellProductDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   note?: string;
 }

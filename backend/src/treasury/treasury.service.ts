@@ -158,9 +158,34 @@ export class TreasuryService {
   }
 
   async rollover(username: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const accounts = await manager.getRepository(FinancialAccount).find();
-      const wallets = await manager.getRepository(Wallet).find();
+    return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
+      const day = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Africa/Cairo',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(new Date());
+      const reference = `ROLLOVER-${day}`;
+      const alreadyDone = await manager.getRepository(LedgerEntry).exists({
+        where: {
+          category: LedgerCategory.DAILY_ROLLOVER,
+          reference,
+        },
+      });
+      if (alreadyDone) {
+        return { rolledOver: false, alreadyRolledOver: true, day };
+      }
+
+      const accounts = await manager
+        .getRepository(FinancialAccount)
+        .createQueryBuilder('account')
+        .setLock('pessimistic_write')
+        .getMany();
+      const wallets = await manager
+        .getRepository(Wallet)
+        .createQueryBuilder('wallet')
+        .setLock('pessimistic_write')
+        .getMany();
       for (const account of accounts) {
         account.openingBalance = account.balance;
         account.todayTopUp = 0;
@@ -178,7 +203,7 @@ export class TreasuryService {
         amount: 0,
         entityType: 'system',
         entityId: null,
-        reference: null,
+        reference,
         description:
           'ترحيل أرصدة نهاية اليوم إلى اليوم التالي وتصفير العدادات اليومية',
         performedBy: username,

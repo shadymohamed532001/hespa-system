@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 export class CreateWalletDto {
     name;
     type;
@@ -15,10 +15,12 @@ export class CreateWalletDto {
 }
 __decorate([
     IsString(),
+    MinLength(2),
+    MaxLength(150),
     __metadata("design:type", String)
 ], CreateWalletDto.prototype, "name", void 0);
 __decorate([
-    IsString(),
+    IsIn(['wallet', 'instapay']),
     __metadata("design:type", String)
 ], CreateWalletDto.prototype, "type", void 0);
 __decorate([

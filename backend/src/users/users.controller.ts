@@ -39,6 +39,7 @@ export class UsersController {
   }
 
   @RequirePermissions(AppPermission.MANAGE_USERS)
+  @Idempotent()
   @Patch(':id')
   update(
     @Param('id') id: string,
@@ -49,6 +50,7 @@ export class UsersController {
   }
 
   @RequirePermissions(AppPermission.MANAGE_USERS)
+  @Idempotent()
   @Patch(':id/status')
   setStatus(
     @Param('id') id: string,

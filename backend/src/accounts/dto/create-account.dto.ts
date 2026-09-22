@@ -1,8 +1,10 @@
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 import { AccountType } from '../../database/enums.js';
 
 export class CreateAccountDto {
   @IsString()
+  @MinLength(2)
+  @MaxLength(150)
   name: string;
 
   @IsEnum(AccountType)
@@ -13,4 +15,3 @@ export class CreateAccountDto {
   @Min(0)
   openingBalance = 0;
 }
-

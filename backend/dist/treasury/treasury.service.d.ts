@@ -20,7 +20,15 @@ export declare class TreasuryService {
     }>;
     rollover(username: string): Promise<{
         rolledOver: boolean;
+        alreadyRolledOver: boolean;
+        day: string;
+        accounts?: undefined;
+        wallets?: undefined;
+    } | {
+        rolledOver: boolean;
         accounts: number;
         wallets: number;
+        alreadyRolledOver?: undefined;
+        day?: undefined;
     }>;
 }

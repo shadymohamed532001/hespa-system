@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 import { AccountType } from '../../database/enums.js';
 export class CreateAccountDto {
     name;
@@ -16,6 +16,8 @@ export class CreateAccountDto {
 }
 __decorate([
     IsString(),
+    MinLength(2),
+    MaxLength(150),
     __metadata("design:type", String)
 ], CreateAccountDto.prototype, "name", void 0);
 __decorate([

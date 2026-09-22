@@ -1,4 +1,4 @@
-import { IsInt, IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class StockInDto {
   @IsInt()
@@ -7,5 +7,6 @@ export class StockInDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(200)
   note?: string;
 }

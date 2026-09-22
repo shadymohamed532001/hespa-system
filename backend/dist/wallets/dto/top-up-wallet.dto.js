@@ -7,7 +7,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 export class TopUpWalletDto {
     amount;
     reference;
@@ -20,6 +20,7 @@ __decorate([
 __decorate([
     IsOptional(),
     IsString(),
+    MaxLength(80),
     __metadata("design:type", String)
 ], TopUpWalletDto.prototype, "reference", void 0);
 //# sourceMappingURL=top-up-wallet.dto.js.map

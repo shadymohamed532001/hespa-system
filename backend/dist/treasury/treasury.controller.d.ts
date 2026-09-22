@@ -23,8 +23,16 @@ export declare class TreasuryController {
     }>;
     rollover(request: UserRequest): Promise<{
         rolledOver: boolean;
+        alreadyRolledOver: boolean;
+        day: string;
+        accounts?: undefined;
+        wallets?: undefined;
+    } | {
+        rolledOver: boolean;
         accounts: number;
         wallets: number;
+        alreadyRolledOver?: undefined;
+        day?: undefined;
     }>;
 }
 export {};

@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class TopUpAccountDto {
   @IsNumber({ maxDecimalPlaces: 2 })
@@ -7,6 +7,6 @@ export class TopUpAccountDto {
 
   @IsOptional()
   @IsString()
+  @MaxLength(80)
   reference?: string;
 }
-

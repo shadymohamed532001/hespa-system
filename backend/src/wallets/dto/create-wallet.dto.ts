@@ -1,10 +1,12 @@
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator';
+import { IsIn, IsNumber, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateWalletDto {
   @IsString()
+  @MinLength(2)
+  @MaxLength(150)
   name: string;
 
-  @IsString()
+  @IsIn(['wallet', 'instapay'])
   type: string;
 
   @IsOptional()
@@ -12,4 +14,3 @@ export class CreateWalletDto {
   @Min(0)
   openingBalance = 0;
 }
-
