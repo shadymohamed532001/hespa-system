@@ -26,6 +26,7 @@ export const DEFAULT_EMPLOYEE_PERMISSIONS: AppPermission[] = [
   AppPermission.VIEW_BALANCES,
   AppPermission.RECEIVE_COLLECTIONS,
   AppPermission.SELL_INVENTORY,
+  AppPermission.MANAGE_INVENTORY,
   AppPermission.USE_MACHINES,
   AppPermission.USE_WALLETS,
 ];

@@ -32,7 +32,16 @@ class _InventoryPageState extends State<InventoryPage> {
   @override
   void initState() {
     super.initState();
-    load();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    try {
+      await widget.session.refreshProfile();
+    } catch (_) {
+      // Still load inventory data even if profile refresh fails.
+    }
+    await load();
   }
 
   Future<void> load() async {
@@ -143,6 +152,9 @@ class _InventoryPageState extends State<InventoryPage> {
                   canSell: widget.session.can(AppPermissions.sellInventory),
                   showProfits: widget.session.isAdmin,
                   onSell: _sellProduct,
+                  onAdd: widget.session.can(AppPermissions.manageInventory)
+                      ? _addProduct
+                      : null,
                   onStockIn: widget.session.can(AppPermissions.manageInventory)
                       ? _stockIn
                       : null,
@@ -496,6 +508,7 @@ class _ProductsCard extends StatelessWidget {
     required this.canSell,
     required this.showProfits,
     required this.onSell,
+    required this.onAdd,
     required this.onStockIn,
   });
 
@@ -504,6 +517,7 @@ class _ProductsCard extends StatelessWidget {
   final bool canSell;
   final bool showProfits;
   final Future<void> Function(Map<String, dynamic>) onSell;
+  final Future<void> Function()? onAdd;
   final Future<void> Function(Map<String, dynamic>)? onStockIn;
 
   @override
@@ -537,12 +551,24 @@ class _ProductsCard extends StatelessWidget {
           ),
           const Divider(height: 1, color: Color(0xFFE9EEF2)),
           if (products.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(36),
-              child: Text(
-                'لا توجد أصناف بعد',
-                textAlign: TextAlign.center,
-                style: HesbaText.bodyMuted,
+            Padding(
+              padding: const EdgeInsets.all(36),
+              child: Column(
+                children: [
+                  const Text(
+                    'لا توجد أصناف بعد',
+                    textAlign: TextAlign.center,
+                    style: HesbaText.bodyMuted,
+                  ),
+                  if (canManage && onAdd != null) ...[
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: onAdd,
+                      icon: const Icon(Icons.add, size: 18),
+                      label: Text(tr(ar: 'إضافة صنف', en: 'Add item')),
+                    ),
+                  ],
+                ],
               ),
             )
           else

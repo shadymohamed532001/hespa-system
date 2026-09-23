@@ -762,6 +762,7 @@ const _defaultEmployeeKeys = {
   AppPermissions.viewBalances,
   AppPermissions.receiveCollections,
   AppPermissions.sellInventory,
+  AppPermissions.manageInventory,
   AppPermissions.useMachines,
   AppPermissions.useWallets,
 };
