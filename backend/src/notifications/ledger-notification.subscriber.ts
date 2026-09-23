@@ -7,7 +7,7 @@ import {
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AppNotification } from '../database/entities/notification.entity.js';
-import { mapLedgerCategory } from './notifications.service.js';
+import { notificationContent } from './notifications.service.js';
 
 @Injectable()
 @EventSubscriber()
@@ -34,12 +34,12 @@ export class LedgerNotificationSubscriber
     });
     if (existing) return;
 
-    const mapped = mapLedgerCategory(entry.category);
+    const mapped = notificationContent(entry);
     await repo.save(
       repo.create({
         kind: mapped.kind,
         title: mapped.title,
-        body: entry.description,
+        body: mapped.body,
         amount: entry.amount > 0 ? entry.amount : null,
         ledgerEntryId: entry.id,
         isRead: false,

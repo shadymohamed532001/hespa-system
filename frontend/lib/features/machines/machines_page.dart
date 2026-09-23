@@ -73,8 +73,179 @@ class _MachinesPageState extends State<MachinesPage> {
             )
           : error != null
           ? ErrorBox(message: error!, retry: load)
-          : _MachinesTable(rows: data),
+          : _MachinesTable(
+              rows: data,
+              canManage: widget.session.can(AppPermissions.manageAssets),
+              onManage: _manageMachine,
+            ),
     );
+  }
+
+  Future<void> _manageMachine(Map<String, dynamic> machine) async {
+    final active = machine['active'] == true;
+    final loaded = num.tryParse('${machine['loadedBalance']}') ?? 0;
+    final used = num.tryParse('${machine['usedBalance']}') ?? 0;
+    final remaining = num.tryParse('${machine['remainingBalance']}') ?? 0;
+    final commission = num.tryParse('${machine['commissionBalance']}') ?? 0;
+    final canDelete = loaded == 0 && used == 0 && commission == 0;
+
+    final result = await showHesbaModal<_MachineAction>(
+      context: context,
+      builder: (ctx) => HesbaModalCard(
+        title: 'إدارة ${machine['name']}',
+        subtitle: 'المتبقي ${money(remaining)} · العمولات ${money(commission)}',
+        footer: const Text(
+          'الحذف النهائي متاح فقط عندما تكون كل الأرصدة صفرًا ولا توجد أي حركات مرتبطة بالماكينة.',
+          textAlign: TextAlign.center,
+          style: HesbaText.caption,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => Navigator.pop(ctx, _MachineAction.rename),
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('تعديل اسم الماكينة'),
+            ),
+            const SizedBox(height: 12),
+            FilledButton.tonalIcon(
+              onPressed: () => Navigator.pop(
+                ctx,
+                active ? _MachineAction.deactivate : _MachineAction.activate,
+              ),
+              icon: Icon(
+                active ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                size: 18,
+              ),
+              label: Text(
+                active ? 'إيقاف وإخفاء الماكينة' : 'إعادة تفعيل الماكينة',
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: !canDelete
+                  ? null
+                  : () async {
+                      final confirmed = await showHesbaModal<bool>(
+                        context: ctx,
+                        maxWidth: 460,
+                        builder: (confirmCtx) => HesbaModalCard(
+                          title: 'تأكيد الحذف النهائي',
+                          subtitle:
+                              'هل أنت متأكد من حذف «${machine['name']}» نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه.',
+                          child: HesbaModalActions(
+                            primaryLabel: 'تأكيد الحذف',
+                            danger: true,
+                            onPrimary: () => Navigator.pop(confirmCtx, true),
+                            onCancel: () => Navigator.pop(confirmCtx, false),
+                          ),
+                        ),
+                      );
+                      if (confirmed == true && ctx.mounted) {
+                        Navigator.pop(ctx, _MachineAction.delete);
+                      }
+                    },
+              icon: const Icon(Icons.delete_outline, size: 18),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: HesbaColors.red,
+                disabledForegroundColor: const Color(0xFFD4A0A0),
+                side: BorderSide(
+                  color: canDelete
+                      ? const Color(0xFFE2B6B6)
+                      : HesbaColors.border,
+                ),
+              ),
+              label: Text(canDelete ? 'حذف نهائي' : 'الحذف النهائي غير متاح'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == null || !mounted) return;
+    switch (result) {
+      case _MachineAction.rename:
+        await _renameMachine(machine);
+      case _MachineAction.activate:
+        await _machineAction(
+          () => widget.session.api.patch(
+            ApiEndpoints.machineStatus('${machine['id']}'),
+            {'active': true},
+          ),
+          'تم تفعيل الماكينة بنجاح',
+        );
+      case _MachineAction.deactivate:
+        await _machineAction(
+          () => widget.session.api.patch(
+            ApiEndpoints.machineStatus('${machine['id']}'),
+            {'active': false},
+          ),
+          'تم إيقاف الماكينة بنجاح',
+        );
+      case _MachineAction.delete:
+        await _machineAction(
+          () => widget.session.api.delete(
+            ApiEndpoints.machine('${machine['id']}'),
+          ),
+          'تم حذف الماكينة نهائيًا',
+        );
+    }
+  }
+
+  Future<void> _renameMachine(Map<String, dynamic> machine) async {
+    final name = TextEditingController(text: '${machine['name']}');
+    final ok = await showHesbaModal<bool>(
+      context: context,
+      maxWidth: 520,
+      builder: (ctx) => HesbaModalCard(
+        title: 'تعديل اسم الماكينة',
+        subtitle: 'سيظهر الاسم الجديد في شاشة الماكينات والعمليات القادمة.',
+        actions: HesbaModalActions(
+          primaryLabel: 'حفظ التعديل',
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
+        ),
+        child: HesbaModalField(
+          label: 'اسم الماكينة *',
+          child: TextField(
+            controller: name,
+            autofocus: true,
+            decoration: const InputDecoration(),
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final newName = name.text.trim();
+    if (newName.isEmpty) {
+      if (mounted) showAppSnack(context, 'اسم الماكينة مطلوب', error: true);
+      return;
+    }
+    await _machineAction(
+      () => widget.session.api.patch(ApiEndpoints.machine('${machine['id']}'), {
+        'name': newName,
+      }),
+      'تم تعديل اسم الماكينة بنجاح',
+    );
+  }
+
+  Future<void> _machineAction(
+    Future<dynamic> Function() operation,
+    String successMessage,
+  ) async {
+    try {
+      final response = await operation();
+      await load();
+      if (!mounted) return;
+      final message = response is Map && response['message'] != null
+          ? '${response['message']}'
+          : successMessage;
+      showAppSnack(context, message);
+    } catch (e) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(e), error: true);
+      }
+    }
   }
 
   Future<void> _addMachine() async {
@@ -216,9 +387,15 @@ class _MachinesPageState extends State<MachinesPage> {
 }
 
 class _MachinesTable extends StatelessWidget {
-  const _MachinesTable({required this.rows});
+  const _MachinesTable({
+    required this.rows,
+    required this.canManage,
+    required this.onManage,
+  });
 
   final List<dynamic> rows;
+  final bool canManage;
+  final Future<void> Function(Map<String, dynamic> machine) onManage;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +440,9 @@ class _MachinesTable extends StatelessWidget {
                   DataColumn(
                     label: Text('الحالة', style: HesbaText.tableHeader),
                   ),
+                  DataColumn(
+                    label: Text('إدارة', style: HesbaText.tableHeader),
+                  ),
                 ],
                 rows: [
                   for (final e in rows)
@@ -298,6 +478,29 @@ class _MachinesTable extends StatelessWidget {
                           ),
                         ),
                         DataCell(SoftBadge.status(active: e['active'] == true)),
+                        DataCell(
+                          canManage
+                              ? OutlinedButton(
+                                  onPressed: () =>
+                                      onManage(e as Map<String, dynamic>),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: HesbaColors.ink,
+                                    side: const BorderSide(
+                                      color: HesbaColors.border,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 10,
+                                    ),
+                                    minimumSize: const Size(0, 36),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  child: const Text('إدارة'),
+                                )
+                              : const Text('—'),
+                        ),
                       ],
                     ),
                 ],
@@ -309,3 +512,5 @@ class _MachinesTable extends StatelessWidget {
     );
   }
 }
+
+enum _MachineAction { rename, activate, deactivate, delete }

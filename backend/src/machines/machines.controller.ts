@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseBoolPipe,
@@ -14,6 +15,7 @@ import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
 import { LoadMachineDto } from './dto/load-machine.dto.js';
+import { UpdateMachineDto } from './dto/update-machine.dto.js';
 import { UseMachineDto } from './dto/use-machine.dto.js';
 import { MachinesService } from './machines.service.js';
 
@@ -37,6 +39,12 @@ export class MachinesController {
   @Post()
   create(@Body() dto: CreateMachineDto, @Request() request: UserRequest) {
     return this.machines.create(dto, request.user.username);
+  }
+
+  @RequirePermissions(AppPermission.MANAGE_ASSETS)
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() dto: UpdateMachineDto) {
+    return this.machines.update(id, dto);
   }
 
   @RequirePermissions(AppPermission.TOP_UP_ASSETS)
@@ -68,5 +76,12 @@ export class MachinesController {
     @Body('active', ParseBoolPipe) active: boolean,
   ) {
     return this.machines.setActive(id, active);
+  }
+
+  @RequirePermissions(AppPermission.MANAGE_ASSETS)
+  @Idempotent()
+  @Delete(':id')
+  remove(@Param('id') id: string, @Request() request: UserRequest) {
+    return this.machines.remove(id, request.user.username);
   }
 }
