@@ -352,6 +352,57 @@ ThemeData hesbaTheme() {
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(textStyle: HesbaText.button),
     ),
+    datePickerTheme: DatePickerThemeData(
+      backgroundColor: Colors.white,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.black26,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: HesbaColors.border),
+      ),
+      headerBackgroundColor: Colors.white,
+      headerForegroundColor: HesbaColors.ink,
+      rangePickerBackgroundColor: Colors.white,
+      rangePickerSurfaceTintColor: Colors.transparent,
+      rangePickerShadowColor: Colors.black26,
+      rangePickerShape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: HesbaColors.border),
+      ),
+      rangePickerHeaderBackgroundColor: Colors.white,
+      rangePickerHeaderForegroundColor: HesbaColors.ink,
+      rangeSelectionBackgroundColor: HesbaColors.tealLight,
+      dividerColor: HesbaColors.border,
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 16,
+        ),
+        labelStyle: HesbaText.fieldLabel,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: const BorderSide(color: HesbaColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: const BorderSide(color: HesbaColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(9),
+          borderSide: const BorderSide(color: HesbaColors.teal),
+        ),
+      ),
+      cancelButtonStyle: TextButton.styleFrom(
+        foregroundColor: HesbaColors.teal,
+        textStyle: HesbaText.button,
+      ),
+      confirmButtonStyle: TextButton.styleFrom(
+        foregroundColor: HesbaColors.teal,
+        textStyle: HesbaText.button,
+      ),
+    ),
     dataTableTheme: const DataTableThemeData(
       headingTextStyle: HesbaText.tableHeader,
       dataTextStyle: HesbaText.tableCell,

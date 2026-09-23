@@ -140,6 +140,8 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'LegacySchemaRepair1790087699417',
       'OperationsHardening1790087699418',
       'RefreshTokens1790087699419',
+      'WalletOperations1790087699420',
+      'WalletOwner1790087699421',
     ]);
   });
 
@@ -302,7 +304,8 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .set(mutation(adminToken, 'create-wallet'))
       .send({
         name: `المحفظة الشاملة ${randomUUID()}`,
-        type: 'instapay',
+        ownerName: 'صاحب المحفظة التجريبية',
+        type: 'vodafone_cash',
         openingBalance: 100,
       })
       .expect(201);
@@ -341,6 +344,51 @@ describe.sequential('full system lifecycle (e2e)', () => {
         expect(body.balance).toBe(300);
         expect(body.dailyTopUp).toBe(200);
         expect(body.monthlyTopUp).toBe(200);
+      });
+    await request(app.getHttpServer())
+      .post(`/api/wallets/${walletId}/use`)
+      .set(mutation(adminToken, 'wallet-use'))
+      .send({
+        amount: 40,
+        commission: 5,
+        reference: 'WALLET-USE-40',
+        purpose: 'تحويل عميل تجريبي',
+      })
+      .expect(201)
+      .expect(({ body }) => {
+        expect(body.balance).toBe(260);
+        expect(body.commissionBalance).toBe(5);
+      });
+    const walletLedger = await request(app.getHttpServer())
+      .get('/api/ledger?limit=500')
+      .set(bearer(adminToken))
+      .expect(200);
+    const walletUsage = (
+      walletLedger.body as Array<{
+        id: string;
+        category: string;
+        reference: string;
+      }>
+    ).find(
+      (entry) =>
+        entry.reference === 'WALLET-USE-40' &&
+        entry.category === 'wallet_usage',
+    );
+    expect(walletUsage?.category).toBe('wallet_usage');
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${walletUsage!.id}/reverse`)
+      .set(mutation(adminToken, 'reverse-wallet-use'))
+      .send({ reason: 'اختبار عكس استخدام المحفظة' })
+      .expect(201);
+    await request(app.getHttpServer())
+      .get('/api/wallets')
+      .set(bearer(adminToken))
+      .expect(200)
+      .expect(({ body }) => {
+        const saved = (body as Array<Record<string, unknown>>).find(
+          (item) => item.id === walletId,
+        );
+        expect(saved).toMatchObject({ balance: 300, commissionBalance: 0 });
       });
     await request(app.getHttpServer())
       .post(`/api/machines/${machineId}/load`)
@@ -437,7 +485,11 @@ describe.sequential('full system lifecycle (e2e)', () => {
 
     const machineUsage = (
       ledger.body as Array<{ id: string; category: string; reference: string }>
-    ).find((entry) => entry.reference === 'MACHINE-USE-120');
+    ).find(
+      (entry) =>
+        entry.reference === 'MACHINE-USE-120' &&
+        entry.category === 'machine_usage',
+    );
     await request(app.getHttpServer())
       .post(`/api/ledger/${machineUsage!.id}/reverse`)
       .set(mutation(employeeToken, 'employee-reverse-machine'))
@@ -824,6 +876,42 @@ describe.sequential('full system lifecycle (e2e)', () => {
         password: 'FullEmployeePassword123!',
       })
       .expect(401);
+
+    const currentAdmin = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set(bearer(adminToken))
+      .expect(200);
+    await request(app.getHttpServer())
+      .delete(`/api/users/${currentAdmin.body.id}`)
+      .set(mutation(adminToken, 'reject-self-delete'))
+      .expect(400)
+      .expect(({ body }) =>
+        expect(body.message).toBe('لا يمكنك حذف حسابك الحالي'),
+      );
+
+    await request(app.getHttpServer())
+      .delete(`/api/users/${employeeId}`)
+      .set(mutation(adminToken, 'delete-employee'))
+      .expect(200)
+      .expect(({ body }) =>
+        expect(body).toMatchObject({ ok: true, id: employeeId }),
+      );
+    await request(app.getHttpServer())
+      .get('/api/users')
+      .set(bearer(adminToken))
+      .expect(200)
+      .expect(({ body }) =>
+        expect(body).not.toEqual(
+          expect.arrayContaining([expect.objectContaining({ id: employeeId })]),
+        ),
+      );
+
+    const [{ refresh_tokens: deletedUserRefreshTokens }] =
+      (await dataSource.query(
+        `SELECT count(*) AS refresh_tokens FROM refresh_tokens WHERE user_id = $1`,
+        [employeeId],
+      )) as Array<{ refresh_tokens: string }>;
+    expect(deletedUserRefreshTokens).toBe('0');
 
     const [invariants] = (await dataSource.query(`
       SELECT

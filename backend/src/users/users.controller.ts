@@ -1,19 +1,24 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
+  ParseBoolPipe,
   Patch,
   Post,
   Request,
 } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
-import { AppPermission } from '../database/enums.js';
+import { Roles } from '../common/decorators/roles.decorator.js';
+import { AppPermission, UserRole } from '../database/enums.js';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto.js';
 import { UsersService } from './users.service.js';
 
-type UserRequest = { user: { userId: string; username: string } };
+type UserRequest = {
+  user: { userId: string; username: string; role: UserRole };
+};
 
 @Controller('users')
 export class UsersController {
@@ -46,7 +51,7 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
     @Request() request: UserRequest,
   ) {
-    return this.users.update(id, dto, request.user.userId);
+    return this.users.update(id, dto, request.user.userId, request.user.role);
   }
 
   @RequirePermissions(AppPermission.MANAGE_USERS)
@@ -54,9 +59,22 @@ export class UsersController {
   @Patch(':id/status')
   setStatus(
     @Param('id') id: string,
-    @Body('active') active: boolean,
+    @Body('active', ParseBoolPipe) active: boolean,
     @Request() request: UserRequest,
   ) {
-    return this.users.setActive(id, active, request.user.userId);
+    return this.users.setActive(
+      id,
+      active,
+      request.user.userId,
+      request.user.role,
+    );
+  }
+
+  @Roles(UserRole.ADMIN)
+  @RequirePermissions(AppPermission.MANAGE_USERS)
+  @Idempotent()
+  @Delete(':id')
+  remove(@Param('id') id: string, @Request() request: UserRequest) {
+    return this.users.remove(id, request.user.userId, request.user.role);
   }
 }

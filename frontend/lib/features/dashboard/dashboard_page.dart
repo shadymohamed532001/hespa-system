@@ -248,7 +248,7 @@ class _DashboardContent extends StatelessWidget {
       ...wallets.map(
         (item) => _Asset(
           name: '${item['name']}',
-          kind: item['type'] == 'instapay' ? 'InstaPay' : 'محفظة إلكترونية',
+          kind: _walletTypeLabel('${item['type']}'),
           balance: _number(item['balance']),
         ),
       ),
@@ -658,11 +658,24 @@ String _accountType(String value) {
       value;
 }
 
+String _walletTypeLabel(String value) =>
+    {
+      'vodafone_cash': 'Vodafone Cash',
+      'orange_cash': 'Orange Cash',
+      'etisalat_cash': 'e& cash',
+      'we_pay': 'WE Pay',
+      'instapay': 'InstaPay',
+      'other_wallet': 'محفظة إلكترونية',
+      'wallet': 'محفظة إلكترونية',
+    }[value] ??
+    value;
+
 bool _isNegative(String category) {
   return const {
     'internal_transfer',
     'company_execution',
     'machine_usage',
+    'wallet_usage',
   }.contains(category);
 }
 
@@ -675,6 +688,7 @@ String _categoryName(String category) {
         'company_execution': 'توريد وتسوية شركة',
         'commission': 'عمولة',
         'machine_usage': 'استخدام رصيد ماكينة',
+        'wallet_usage': 'استخدام محفظة',
         'daily_rollover': 'ترحيل يومي',
       }[category] ??
       category;
@@ -689,6 +703,7 @@ String _categoryEffect(String category) {
         'company_execution': 'خفض رصيد حساب الشركة',
         'commission': 'إضافة عمولة مستقلة',
         'machine_usage': 'خفض رصيد الماكينة',
+        'wallet_usage': 'خفض رصيد المحفظة',
         'daily_rollover': 'ترحيل أرصدة اليوم',
       }[category] ??
       'حركة مالية';

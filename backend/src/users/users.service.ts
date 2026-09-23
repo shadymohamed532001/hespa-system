@@ -121,22 +121,38 @@ export class UsersService implements OnModuleInit {
     return this.toPublic(await this.users.save(user));
   }
 
-  async update(id: string, dto: UpdateUserDto, actorId: string) {
+  async update(
+    id: string,
+    dto: UpdateUserDto,
+    actorId: string,
+    actorRole: UserRole,
+  ) {
     const user = await this.findById(id);
     let revokeSessions = false;
-    if (user.role === UserRole.ADMIN && user.id !== actorId) {
-      throw new ForbiddenException(
-        'لا يمكن تعديل حساب الأدمن الأساسي بهذه الطريقة',
-      );
+    if (
+      user.role === UserRole.ADMIN &&
+      user.id !== actorId &&
+      actorRole !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('لا يمكن لغير الأدمن تعديل حساب أدمن');
     }
     if (dto.displayName != null) user.displayName = dto.displayName.trim();
     if (dto.password) {
       user.passwordHash = await hash(dto.password, 12);
       revokeSessions = true;
     }
-    if (dto.role != null && user.role !== UserRole.ADMIN) {
+    if (dto.role != null && dto.role !== user.role) {
       if (dto.role === UserRole.ADMIN) {
         throw new BadRequestException('لا يمكن ترقية المستخدم إلى أدمن');
+      }
+      if (user.id === actorId) {
+        throw new BadRequestException('لا يمكنك تغيير دور حسابك الحالي');
+      }
+      if (actorRole !== UserRole.ADMIN) {
+        throw new ForbiddenException('تغيير دور الحساب متاح للأدمن فقط');
+      }
+      if (user.role === UserRole.ADMIN && user.active) {
+        await this.assertAnotherActiveAdmin(user.id);
       }
       user.role = dto.role;
       revokeSessions = true;
@@ -157,7 +173,10 @@ export class UsersService implements OnModuleInit {
         throw new BadRequestException('لا يمكنك تعطيل حسابك الحالي');
       }
       if (user.role === UserRole.ADMIN && dto.active === false) {
-        throw new BadRequestException('لا يمكن تعطيل حساب الأدمن');
+        if (actorRole !== UserRole.ADMIN) {
+          throw new ForbiddenException('لا يمكن لغير الأدمن تعطيل حساب أدمن');
+        }
+        await this.assertAnotherActiveAdmin(user.id);
       }
       user.active = dto.active;
       revokeSessions = true;
@@ -166,8 +185,36 @@ export class UsersService implements OnModuleInit {
     return this.toPublic(await this.users.save(user));
   }
 
-  async setActive(id: string, active: boolean, actorId: string) {
-    return this.update(id, { active }, actorId);
+  async setActive(
+    id: string,
+    active: boolean,
+    actorId: string,
+    actorRole: UserRole,
+  ) {
+    return this.update(id, { active }, actorId, actorRole);
+  }
+
+  async remove(id: string, actorId: string, actorRole: UserRole) {
+    if (actorRole !== UserRole.ADMIN) {
+      throw new ForbiddenException('حذف الحسابات متاح للأدمن فقط');
+    }
+    if (id === actorId) {
+      throw new BadRequestException('لا يمكنك حذف حسابك الحالي');
+    }
+
+    const user = await this.findById(id);
+    if (user.role === UserRole.ADMIN && user.active) {
+      await this.assertAnotherActiveAdmin(user.id);
+    }
+
+    const deletedId = user.id;
+    const deletedLabel = user.displayName || user.username;
+    await this.users.remove(user);
+    return {
+      ok: true,
+      id: deletedId,
+      message: `تم حذف حساب ${deletedLabel} نهائيًا`,
+    };
   }
 
   async hasPermissions(userId: string, required: AppPermission[]) {
@@ -253,6 +300,11 @@ export class UsersService implements OnModuleInit {
         note: 'خصم من رصيد الماكينة',
       },
       {
+        key: AppPermission.USE_WALLETS,
+        label: 'استخدام المحافظ الإلكترونية وInstaPay',
+        note: 'تحويل أو دفع من رصيد المحفظة وتسجيل العمولة',
+      },
+      {
         key: AppPermission.REVERSE_OPERATIONS,
         label: 'عكس العمليات المالية',
         note: 'صلاحية حساسة مع تسجيل السبب والمنفذ',
@@ -263,6 +315,19 @@ export class UsersService implements OnModuleInit {
         note: 'مطابقة الرصيد المسجل مع الجرد الفعلي',
       },
     ];
+  }
+
+  private async assertAnotherActiveAdmin(excludedUserId: string) {
+    const activeAdmins = await this.users.count({
+      where: { role: UserRole.ADMIN, active: true },
+    });
+    const excluded = await this.users.findOne({
+      where: { id: excludedUserId },
+    });
+    const remaining = activeAdmins - (excluded?.active ? 1 : 0);
+    if (remaining < 1) {
+      throw new BadRequestException('لا يمكن تعطيل أو حذف آخر حساب أدمن نشط');
+    }
   }
 
   private mergeLimits(base: UserLimits, patch?: UserLimitsDto): UserLimits {

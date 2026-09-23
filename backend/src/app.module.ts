@@ -7,6 +7,8 @@ import { Schema1790087699416 } from './database/migrations/1790087699416-Schema.
 import { LegacySchemaRepair1790087699417 } from './database/migrations/1790087699417-LegacySchemaRepair.js';
 import { OperationsHardening1790087699418 } from './database/migrations/1790087699418-OperationsHardening.js';
 import { RefreshTokens1790087699419 } from './database/migrations/1790087699419-RefreshTokens.js';
+import { WalletOperations1790087699420 } from './database/migrations/1790087699420-WalletOperations.js';
+import { WalletOwner1790087699421 } from './database/migrations/1790087699421-WalletOwner.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -90,6 +92,8 @@ import { WalletsModule } from './wallets/wallets.module.js';
           LegacySchemaRepair1790087699417,
           OperationsHardening1790087699418,
           RefreshTokens1790087699419,
+          WalletOperations1790087699420,
+          WalletOwner1790087699421,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

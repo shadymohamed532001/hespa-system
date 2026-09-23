@@ -30,7 +30,13 @@ abstract final class ApiEndpoints {
   // Wallets
   static const String wallets = '/wallets';
 
+  static String walletsList({bool includeInactive = false}) =>
+      includeInactive ? '$wallets?includeInactive=true' : wallets;
+
+  static String wallet(String id) => '$wallets/$id';
   static String walletTopUp(String id) => '$wallets/$id/top-up';
+  static String walletUse(String id) => '$wallets/$id/use';
+  static String walletStatus(String id) => '$wallets/$id/status';
 
   // Machines
   static const String machines = '/machines';

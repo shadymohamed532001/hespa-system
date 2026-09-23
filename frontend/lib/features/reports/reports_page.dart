@@ -161,48 +161,71 @@ class _FiltersCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(18),
-        child: Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            SizedBox(
-              width: 300,
-              child: OutlinedButton.icon(
-                onPressed: onPickPeriod,
-                icon: const Icon(Icons.date_range_outlined),
-                label: Text(
-                  '${formatter.format(from)} — ${formatter.format(to)}',
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 270,
-              child: DropdownButtonFormField<String>(
-                initialValue: selectedScope,
-                decoration: const InputDecoration(
-                  labelText: 'القسم / الحساب',
-                  isDense: true,
-                ),
-                items: [
-                  const DropdownMenuItem(
-                    value: 'all',
-                    child: Text('كل النظام'),
-                  ),
-                  ...channels.map(
-                    (channel) => DropdownMenuItem(
-                      value: '${channel['entityType']}:${channel['entityId']}',
-                      child: Text('${channel['name']}'),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final dateFieldWidth = constraints.maxWidth < 300
+                ? constraints.maxWidth
+                : 300.0;
+            final scopeFieldWidth = constraints.maxWidth < 270
+                ? constraints.maxWidth
+                : 270.0;
+
+            return Wrap(
+              spacing: 12,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(
+                  width: dateFieldWidth,
+                  child: OutlinedButton.icon(
+                    onPressed: onPickPeriod,
+                    icon: const Icon(Icons.date_range_outlined),
+                    label: Text(
+                      '${formatter.format(from)} — ${formatter.format(to)}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                ],
-                onChanged: onScopeChanged,
-              ),
-            ),
-            _QuickButton(label: 'اليوم', onTap: () => onQuickPeriod(1)),
-            _QuickButton(label: '7 أيام', onTap: () => onQuickPeriod(7)),
-            _QuickButton(label: '30 يوم', onTap: () => onQuickPeriod(30)),
-          ],
+                ),
+                SizedBox(
+                  width: scopeFieldWidth,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedScope,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'القسم / الحساب',
+                      isDense: true,
+                    ),
+                    items: [
+                      const DropdownMenuItem(
+                        value: 'all',
+                        child: Text(
+                          'كل النظام',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      ...channels.map(
+                        (channel) => DropdownMenuItem(
+                          value:
+                              '${channel['entityType']}:${channel['entityId']}',
+                          child: Text(
+                            '${channel['name']}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                    ],
+                    onChanged: onScopeChanged,
+                  ),
+                ),
+                _QuickButton(label: 'اليوم', onTap: () => onQuickPeriod(1)),
+                _QuickButton(label: '7 أيام', onTap: () => onQuickPeriod(7)),
+                _QuickButton(label: '30 يوم', onTap: () => onQuickPeriod(30)),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -461,6 +484,11 @@ String _channelKind(String value) =>
       'company': 'شركة',
       'operating': 'تشغيل',
       'wallet': 'محفظة',
+      'vodafone_cash': 'Vodafone Cash',
+      'orange_cash': 'Orange Cash',
+      'etisalat_cash': 'e& cash',
+      'we_pay': 'WE Pay',
+      'other_wallet': 'محفظة أخرى',
       'instapay': 'InstaPay',
       'machine': 'ماكينة شحن',
       'inventory': 'مخزن',

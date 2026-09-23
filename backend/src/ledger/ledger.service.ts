@@ -207,6 +207,25 @@ export class LedgerService {
     await manager.save(machine);
   }
 
+  private async reverseWalletUsage(manager: EntityManager, entry: LedgerEntry) {
+    if (!entry.entityId) throw new BadRequestException('بيانات العملية ناقصة');
+    const wallet = await manager.getRepository(Wallet).findOne({
+      where: { id: entry.entityId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!wallet) throw new NotFoundException('المحفظة غير موجودة');
+    if (!Object.hasOwn(entry.metadata ?? {}, 'commission')) {
+      throw new BadRequestException('بيانات عمولة العملية غير مكتملة');
+    }
+    const commission = Number(entry.metadata?.commission ?? 0);
+    if (wallet.commissionBalance < commission) {
+      throw new BadRequestException('رصيد العمولات الحالي لا يسمح بالعكس');
+    }
+    wallet.balance = Number(wallet.balance) + Number(entry.amount);
+    wallet.commissionBalance = Number(wallet.commissionBalance) - commission;
+    await manager.save(wallet);
+  }
+
   private async reverseReconciliation(
     manager: EntityManager,
     entry: LedgerEntry,
@@ -246,6 +265,8 @@ export class LedgerService {
         await this.reverseTransfer(manager, entry);
       } else if (entry.category === LedgerCategory.MACHINE_USAGE) {
         await this.reverseMachineUsage(manager, entry);
+      } else if (entry.category === LedgerCategory.WALLET_USAGE) {
+        await this.reverseWalletUsage(manager, entry);
       } else if (entry.category === LedgerCategory.RECONCILIATION) {
         await this.reverseReconciliation(manager, entry);
       } else {
@@ -270,14 +291,21 @@ export class LedgerService {
         metadata: { reason: dto.reason, originalCategory: entry.category },
       });
 
-      if (entry.category === LedgerCategory.MACHINE_USAGE) {
+      if (
+        entry.category === LedgerCategory.MACHINE_USAGE ||
+        entry.category === LedgerCategory.WALLET_USAGE
+      ) {
+        const relationKey =
+          entry.category === LedgerCategory.MACHINE_USAGE
+            ? 'machineUsageEntryId'
+            : 'walletUsageEntryId';
         const commission = await repo
           .createQueryBuilder('entry')
           .where('entry.category = :category', {
             category: LedgerCategory.COMMISSION,
           })
           .andWhere(`entry.metadata @> :metadata::jsonb`, {
-            metadata: JSON.stringify({ machineUsageEntryId: entry.id }),
+            metadata: JSON.stringify({ [relationKey]: entry.id }),
           })
           .getOne();
         if (
@@ -295,7 +323,7 @@ export class LedgerService {
             reversesEntryId: commission.id,
             metadata: {
               reason: dto.reason,
-              machineUsageEntryId: entry.id,
+              [relationKey]: entry.id,
               originalCategory: commission.category,
             },
           });

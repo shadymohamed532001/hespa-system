@@ -1,10 +1,22 @@
-import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  ParseBoolPipe,
+  Patch,
+  Post,
+  Query,
+  Request,
+} from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { CreateWalletDto } from './dto/create-wallet.dto.js';
 import { TopUpWalletDto } from './dto/top-up-wallet.dto.js';
+import { UseWalletDto } from './dto/use-wallet.dto.js';
 import { WalletsService } from './wallets.service.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -18,8 +30,11 @@ export class WalletsController {
   ) {}
 
   @Get()
-  findAll() {
-    return this.wallets.findAll();
+  findAll(
+    @Query('includeInactive', new ParseBoolPipe({ optional: true }))
+    includeInactive?: boolean,
+  ) {
+    return this.wallets.findAll(includeInactive ?? false);
   }
 
   @RequirePermissions(AppPermission.MANAGE_ASSETS)
@@ -43,5 +58,33 @@ export class WalletsController {
       dto.amount,
     );
     return this.wallets.topUp(id, dto, request.user.username);
+  }
+
+  @RequirePermissions(AppPermission.USE_WALLETS)
+  @Idempotent()
+  @Post(':id/use')
+  use(
+    @Param('id') id: string,
+    @Body() dto: UseWalletDto,
+    @Request() request: UserRequest,
+  ) {
+    return this.wallets.use(id, dto, request.user.username);
+  }
+
+  @RequirePermissions(AppPermission.MANAGE_ASSETS)
+  @Idempotent()
+  @Patch(':id/status')
+  setStatus(
+    @Param('id') id: string,
+    @Body('active', ParseBoolPipe) active: boolean,
+  ) {
+    return this.wallets.setActive(id, active);
+  }
+
+  @RequirePermissions(AppPermission.MANAGE_ASSETS)
+  @Idempotent()
+  @Delete(':id')
+  remove(@Param('id') id: string, @Request() request: UserRequest) {
+    return this.wallets.remove(id, request.user.username);
   }
 }

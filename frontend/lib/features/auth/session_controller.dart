@@ -20,6 +20,7 @@ abstract final class AppPermissions {
   static const sellInventory = 'sell_inventory';
   static const manageInventory = 'manage_inventory';
   static const useMachines = 'use_machines';
+  static const useWallets = 'use_wallets';
   static const reverseOperations = 'reverse_operations';
   static const reconcileBalances = 'reconcile_balances';
 }

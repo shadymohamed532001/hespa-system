@@ -83,6 +83,7 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
       'top_up',
       'internal_transfer',
       'machine_usage',
+      'wallet_usage',
       'reconciliation',
     };
     return widget.allowReversal &&
@@ -192,6 +193,7 @@ String _category(String value) =>
       'company_execution': 'تنفيذ شركة',
       'commission': 'عمولة',
       'machine_usage': 'استخدام ماكينة',
+      'wallet_usage': 'استخدام محفظة',
       'daily_rollover': 'ترحيل يومي',
       'reversal': 'عكس عملية',
       'reconciliation': 'تسوية رصيد',

@@ -20,6 +20,14 @@ export class Wallet {
   name: string;
 
   @Column({
+    name: 'owner_name',
+    type: 'varchar',
+    length: 120,
+    default: '',
+  })
+  ownerName: string;
+
+  @Column({
     type: 'varchar',
     length: 80,
   })

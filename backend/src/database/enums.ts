@@ -15,6 +15,7 @@ export enum AppPermission {
   SELL_INVENTORY = 'sell_inventory',
   MANAGE_INVENTORY = 'manage_inventory',
   USE_MACHINES = 'use_machines',
+  USE_WALLETS = 'use_wallets',
   REVERSE_OPERATIONS = 'reverse_operations',
   RECONCILE_BALANCES = 'reconcile_balances',
 }
@@ -26,6 +27,7 @@ export const DEFAULT_EMPLOYEE_PERMISSIONS: AppPermission[] = [
   AppPermission.RECEIVE_COLLECTIONS,
   AppPermission.SELL_INVENTORY,
   AppPermission.USE_MACHINES,
+  AppPermission.USE_WALLETS,
 ];
 
 export type UserLimits = {
@@ -71,6 +73,7 @@ export enum LedgerCategory {
   COMPANY_EXECUTION = 'company_execution',
   COMMISSION = 'commission',
   MACHINE_USAGE = 'machine_usage',
+  WALLET_USAGE = 'wallet_usage',
   DAILY_ROLLOVER = 'daily_rollover',
   REVERSAL = 'reversal',
   RECONCILIATION = 'reconciliation',

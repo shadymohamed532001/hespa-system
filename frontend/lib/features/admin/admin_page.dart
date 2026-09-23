@@ -80,8 +80,11 @@ class _AdminPageState extends State<AdminPage> {
                 const SizedBox(height: 20),
                 _UsersCard(
                   users: users,
+                  currentUserId: widget.session.userId,
+                  viewerIsAdmin: widget.session.isAdmin,
                   onManage: _openUserEditor,
                   onToggleActive: _toggleActive,
+                  onDelete: _deleteUser,
                 ),
                 const SizedBox(height: 20),
                 _PermissionMatrixCard(catalog: catalog),
@@ -108,6 +111,42 @@ class _AdminPageState extends State<AdminPage> {
     }
   }
 
+  Future<void> _deleteUser(Map<String, dynamic> user) async {
+    final label = '${user['displayName'] ?? user['username']}';
+    final confirmed = await showHesbaModal<bool>(
+      context: context,
+      maxWidth: 470,
+      builder: (ctx) => HesbaModalCard(
+        title: 'تأكيد حذف الحساب',
+        subtitle:
+            'هل أنت متأكد من حذف حساب «$label» نهائيًا؟ سيتم إنهاء جلساته فورًا ولا يمكن التراجع عن هذا الإجراء.',
+        child: HesbaModalActions(
+          primaryLabel: 'حذف الحساب نهائيًا',
+          danger: true,
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
+        ),
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final response = await widget.session.api.delete(
+        ApiEndpoints.user('${user['id']}'),
+      );
+      await load();
+      if (!mounted) return;
+      final message = response is Map && response['message'] != null
+          ? '${response['message']}'
+          : 'تم حذف الحساب نهائيًا';
+      showAppSnack(context, message);
+    } catch (e) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(e), error: true);
+      }
+    }
+  }
+
   Future<void> _openUserEditor([Map<String, dynamic>? existing]) async {
     final isEdit = existing != null;
     final username = TextEditingController(
@@ -117,6 +156,7 @@ class _AdminPageState extends State<AdminPage> {
       text: existing?['displayName']?.toString() ?? '',
     );
     final password = TextEditingController();
+    var selectedRole = existing?['role']?.toString() ?? 'employee';
     final selected = <String>{
       ...((existing?['permissions'] as List<dynamic>?) ??
               const [
@@ -124,6 +164,7 @@ class _AdminPageState extends State<AdminPage> {
                 AppPermissions.receiveCollections,
                 AppPermissions.sellInventory,
                 AppPermissions.useMachines,
+                AppPermissions.useWallets,
               ])
           .map((e) => '$e'),
     };
@@ -182,6 +223,39 @@ class _AdminPageState extends State<AdminPage> {
                 ),
               ),
               const SizedBox(height: 16),
+              if (isEdit &&
+                  existing['role'] == 'admin' &&
+                  '${existing['id']}' != widget.session.userId &&
+                  widget.session.isAdmin) ...[
+                HesbaModalField(
+                  label: 'نوع الحساب',
+                  child: DropdownButtonFormField<String>(
+                    initialValue: selectedRole,
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'admin',
+                        child: Text('أدمن — كل الصلاحيات'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'employee',
+                        child: Text('موظف — صلاحيات مخصصة'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setLocal(() {
+                        selectedRole = value;
+                        if (value == 'employee') {
+                          selected
+                            ..clear()
+                            ..addAll(_defaultEmployeeKeys);
+                        }
+                      });
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
               HesbaModalField(
                 label: isEdit ? 'كلمة مرور جديدة (اختياري)' : 'كلمة المرور *',
                 child: TextField(
@@ -202,7 +276,7 @@ class _AdminPageState extends State<AdminPage> {
                   value: selected.contains('${item['key']}'),
                   title: Text('${item['label']}', style: HesbaText.tableCell),
                   subtitle: Text('${item['note']}', style: HesbaText.panelSub),
-                  onChanged: existing?['role'] == 'admin'
+                  onChanged: selectedRole == 'admin'
                       ? null
                       : (v) => setLocal(() {
                           final key = '${item['key']}';
@@ -328,7 +402,8 @@ class _AdminPageState extends State<AdminPage> {
           ? username.text.trim()
           : displayName.text.trim(),
       if (password.text.trim().isNotEmpty) 'password': password.text.trim(),
-      if (existing?['role'] != 'admin') 'permissions': selected.toList(),
+      if (isEdit && selectedRole != existing['role']) 'role': selectedRole,
+      if (selectedRole != 'admin') 'permissions': selected.toList(),
       'limits': {
         'maxReceiveAmount': _parseLimit(maxReceive.text),
         'maxTopUpAmount': _parseLimit(maxTopUp.text),
@@ -424,6 +499,11 @@ const _fallbackCatalog = [
     'note': 'خصم من رصيد الماكينة',
   },
   {
+    'key': AppPermissions.useWallets,
+    'label': 'استخدام المحافظ الإلكترونية وInstaPay',
+    'note': 'تحويل أو دفع من رصيد المحفظة وتسجيل العمولة',
+  },
+  {
     'key': AppPermissions.reverseOperations,
     'label': 'عكس العمليات المالية',
     'note': 'صلاحية حساسة مع توثيق السبب',
@@ -438,13 +518,19 @@ const _fallbackCatalog = [
 class _UsersCard extends StatelessWidget {
   const _UsersCard({
     required this.users,
+    required this.currentUserId,
+    required this.viewerIsAdmin,
     required this.onManage,
     required this.onToggleActive,
+    required this.onDelete,
   });
 
   final List<dynamic> users;
+  final String? currentUserId;
+  final bool viewerIsAdmin;
   final void Function([Map<String, dynamic>?]) onManage;
   final void Function(Map<String, dynamic>) onToggleActive;
+  final void Function(Map<String, dynamic>) onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -497,8 +583,11 @@ class _UsersCard extends StatelessWidget {
                         for (final raw in users)
                           _userRow(
                             Map<String, dynamic>.from(raw as Map),
+                            currentUserId,
+                            viewerIsAdmin,
                             onManage,
                             onToggleActive,
+                            onDelete,
                           ),
                       ],
                     ),
@@ -514,11 +603,18 @@ class _UsersCard extends StatelessWidget {
 
   static DataRow _userRow(
     Map<String, dynamic> user,
+    String? currentUserId,
+    bool viewerIsAdmin,
     void Function([Map<String, dynamic>?]) onManage,
     void Function(Map<String, dynamic>) onToggleActive,
+    void Function(Map<String, dynamic>) onDelete,
   ) {
     final perms = (user['permissions'] as List<dynamic>? ?? const []).length;
     final isAdmin = user['role'] == 'admin';
+    final isCurrent = '${user['id']}' == currentUserId;
+    final canManage = !isAdmin || viewerIsAdmin || isCurrent;
+    final canToggle = !isCurrent && (!isAdmin || viewerIsAdmin);
+    final canDelete = viewerIsAdmin && !isCurrent;
     return DataRow(
       cells: [
         DataCell(
@@ -547,13 +643,20 @@ class _UsersCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextButton(
-                onPressed: () => onManage(user),
+                onPressed: canManage ? () => onManage(user) : null,
                 child: const Text('إدارة'),
               ),
-              if (!isAdmin)
+              if (canToggle)
                 TextButton(
                   onPressed: () => onToggleActive(user),
                   child: Text(user['active'] == true ? 'تعطيل' : 'تفعيل'),
+                ),
+              if (canDelete)
+                TextButton.icon(
+                  onPressed: () => onDelete(user),
+                  icon: const Icon(Icons.delete_outline, size: 17),
+                  style: TextButton.styleFrom(foregroundColor: HesbaColors.red),
+                  label: const Text('حذف'),
                 ),
             ],
           ),
@@ -659,6 +762,7 @@ const _defaultEmployeeKeys = {
   AppPermissions.receiveCollections,
   AppPermissions.sellInventory,
   AppPermissions.useMachines,
+  AppPermissions.useWallets,
 };
 
 const _headerStyle = HesbaText.tableHeader;

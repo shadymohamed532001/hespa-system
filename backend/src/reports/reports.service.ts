@@ -437,9 +437,16 @@ export class ReportsService {
     }
     if (entry.category === LedgerCategory.COMPANY_EXECUTION)
       return 'withdrawal';
-    if (entry.category === LedgerCategory.MACHINE_USAGE) return 'withdrawal';
+    if (
+      entry.category === LedgerCategory.MACHINE_USAGE ||
+      entry.category === LedgerCategory.WALLET_USAGE
+    )
+      return 'withdrawal';
     if (entry.category === LedgerCategory.REVERSAL) {
-      if (entry.metadata?.originalCategory === LedgerCategory.MACHINE_USAGE) {
+      if (
+        entry.metadata?.originalCategory === LedgerCategory.MACHINE_USAGE ||
+        entry.metadata?.originalCategory === LedgerCategory.WALLET_USAGE
+      ) {
         return 'deposit';
       }
       return Number(entry.amount) >= 0 ? 'deposit' : 'withdrawal';

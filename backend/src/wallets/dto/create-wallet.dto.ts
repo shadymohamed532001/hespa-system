@@ -14,7 +14,21 @@ export class CreateWalletDto {
   @MaxLength(150)
   name: string;
 
-  @IsIn(['wallet', 'instapay'])
+  @IsOptional()
+  @IsString()
+  @MinLength(2)
+  @MaxLength(120)
+  ownerName?: string;
+
+  @IsIn([
+    'vodafone_cash',
+    'orange_cash',
+    'etisalat_cash',
+    'we_pay',
+    'instapay',
+    'other_wallet',
+    'wallet',
+  ])
   type: string;
 
   @IsOptional()
