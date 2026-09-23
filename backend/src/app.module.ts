@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -17,6 +17,7 @@ import { AuthModule } from './auth/auth.module.js';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard.js';
 import { PermissionsGuard } from './common/guards/permissions.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
+import { LocaleMiddleware } from './common/i18n/locale.middleware.js';
 import { SecurityModule } from './common/security.module.js';
 import { validateConfig } from './config/validate-config.js';
 import { CollectionsModule } from './collections/collections.module.js';
@@ -125,4 +126,8 @@ import { WalletsModule } from './wallets/wallets.module.js';
     { provide: APP_GUARD, useClass: PermissionsGuard },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LocaleMiddleware).forRoutes('*');
+  }
+}

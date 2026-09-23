@@ -1,4 +1,9 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsEnum, IsString, MaxLength, MinLength } from 'class-validator';
+
+export enum LoginPortal {
+  ADMIN = 'admin',
+  EMPLOYEE = 'employee',
+}
 
 export class LoginDto {
   @IsString()
@@ -9,4 +14,8 @@ export class LoginDto {
   @MinLength(4)
   @MaxLength(128)
   password: string;
+
+  /** Which entrance the client is using — must match the account role. */
+  @IsEnum(LoginPortal)
+  portal: LoginPortal;
 }

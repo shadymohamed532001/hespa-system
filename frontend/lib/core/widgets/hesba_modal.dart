@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../settings/hesba_l10n.dart';
 import '../theme/app_theme.dart';
 
 /// Shared white modal style matching «استلام كاش من مندوب».
@@ -123,7 +124,7 @@ class HesbaModalActions extends StatelessWidget {
     required this.primaryLabel,
     required this.onPrimary,
     this.onCancel,
-    this.cancelLabel = 'إلغاء',
+    this.cancelLabel,
     this.primaryEnabled = true,
     this.cancelEnabled = true,
     this.danger = false,
@@ -132,13 +133,17 @@ class HesbaModalActions extends StatelessWidget {
   final String primaryLabel;
   final VoidCallback? onPrimary;
   final VoidCallback? onCancel;
-  final String cancelLabel;
+  final String? cancelLabel;
   final bool primaryEnabled;
   final bool cancelEnabled;
   final bool danger;
 
   @override
   Widget build(BuildContext context) {
+    final resolvedCancel =
+        cancelLabel ??
+        HesbaL10n.maybeOf(context)?.strings.cancel ??
+        'Cancel';
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -154,7 +159,7 @@ class HesbaModalActions extends StatelessWidget {
           onPressed: cancelEnabled
               ? (onCancel ?? () => Navigator.of(context).pop())
               : null,
-          child: Text(cancelLabel),
+          child: Text(resolvedCancel),
         ),
       ],
     );

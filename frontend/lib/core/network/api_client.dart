@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'api_endpoints.dart';
+import '../settings/app_locale_holder.dart';
 
 final _sensitiveNetworkLogValue = RegExp(
   r'''^(\s*[║╟]?\s*(?:"|')?(?:authorization|proxy-authorization|cookie|set-cookie|password|passcode|access[_-]?token|refresh[_-]?token|id[_-]?token|token|api[_-]?key|recovery[_-]?key|client[_-]?secret|secret)(?:"|')?\s*:\s*).*$''',
@@ -116,6 +117,13 @@ class ApiClient {
   String? _currentToken;
   String? _refreshToken;
   Completer<bool>? _refreshCompleter;
+  String _locale = 'ar';
+
+  void setLocale(String languageCode) {
+    _locale = languageCode == 'en' ? 'en' : 'ar';
+    dio.options.headers['Accept-Language'] = _locale;
+    dio.options.headers['X-App-Locale'] = _locale;
+  }
 
   // =========================
   // Authentication Token
@@ -218,10 +226,18 @@ class ApiClient {
   // Login / Logout
   // =========================
 
-  Future<Map<String, dynamic>> login(String username, String password) async {
+  Future<Map<String, dynamic>> login(
+    String username,
+    String password, {
+    required String portal,
+  }) async {
     final response = await dio.post<Map<String, dynamic>>(
       ApiEndpoints.login,
-      data: {'username': username, 'password': password},
+      data: {
+        'username': username,
+        'password': password,
+        'portal': portal,
+      },
       options: Options(extra: const {'skipAuthRefresh': true}),
     );
 
@@ -449,7 +465,8 @@ class ApiClient {
   // Error Handling
   // =========================
 
-  static String errorMessage(Object error) {
+  static String errorMessage(Object error, {String? locale}) {
+    final isArabic = (locale ?? AppLocaleHolder.code) != 'en';
     if (error is DioException) {
       final data = error.response?.data;
 
@@ -458,7 +475,7 @@ class ApiClient {
         final message = data['message'];
 
         if (message is List) {
-          return message.join('، ');
+          return message.join(isArabic ? '، ' : ', ');
         }
 
         return message.toString();
@@ -466,36 +483,54 @@ class ApiClient {
 
       switch (error.type) {
         case DioExceptionType.connectionTimeout:
-          return 'انتهت مهلة الاتصال بالخادم.';
+          return isArabic
+              ? 'انتهت مهلة الاتصال بالخادم.'
+              : 'Connection to the server timed out.';
 
         case DioExceptionType.sendTimeout:
-          return 'انتهت مهلة إرسال البيانات إلى الخادم.';
+          return isArabic
+              ? 'انتهت مهلة إرسال البيانات إلى الخادم.'
+              : 'Sending data to the server timed out.';
 
         case DioExceptionType.receiveTimeout:
-          return 'انتهت مهلة انتظار استجابة الخادم.';
+          return isArabic
+              ? 'انتهت مهلة انتظار استجابة الخادم.'
+              : 'Waiting for the server response timed out.';
 
         case DioExceptionType.connectionError:
-          return 'تعذر الاتصال بالخادم. تأكد أن الباك إند وقاعدة البيانات يعملان.';
+          return isArabic
+              ? 'تعذر الاتصال بالخادم. تأكد أن الباك إند وقاعدة البيانات يعملان.'
+              : 'Could not connect to the server. Make sure the backend and database are running.';
 
         case DioExceptionType.badResponse:
-          return 'حدث خطأ في استجابة الخادم '
-              '(${error.response?.statusCode ?? 'غير معروف'}).';
+          final status = error.response?.statusCode ??
+              (isArabic ? 'غير معروف' : 'unknown');
+          return isArabic
+              ? 'حدث خطأ في استجابة الخادم ($status).'
+              : 'Server response error ($status).';
 
         case DioExceptionType.cancel:
-          return 'تم إلغاء الطلب.';
+          return isArabic
+              ? 'تم إلغاء الطلب.'
+              : 'The request was cancelled.';
 
         case DioExceptionType.badCertificate:
-          return 'حدث خطأ في شهادة الاتصال بالخادم.';
+          return isArabic
+              ? 'حدث خطأ في شهادة الاتصال بالخادم.'
+              : 'There was a problem with the server certificate.';
 
         default:
-          return 'تعذر إكمال الاتصال بالخادم.';
+          return isArabic
+              ? 'تعذر إكمال الاتصال بالخادم.'
+              : 'Could not complete the server request.';
       }
     }
 
-    return 'حدث خطأ غير متوقع';
+    return isArabic
+        ? 'حدث خطأ غير متوقع'
+        : 'An unexpected error occurred';
   }
 }
-
 String _resolveBaseUrl(String? override) {
   final value =
       override ??

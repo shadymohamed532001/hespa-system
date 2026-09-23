@@ -7,6 +7,7 @@ import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class InternalTransferPage extends StatefulWidget {
   const InternalTransferPage({super.key, required this.session});
@@ -116,7 +117,7 @@ class _InternalTransferPageState extends State<InternalTransferPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
-      title: 'تحويل داخلي',
+      title: tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
       subtitle: 'نقل الأموال بين أصول المحل دون تسجيل مصروف',
       child: _loading
           ? const Center(
@@ -303,7 +304,7 @@ class _TransferFormCard extends StatelessWidget {
                           SizedBox(
                             width: fieldWidth,
                             child: _LabeledField(
-                              label: 'المبلغ *',
+                              label: tr(ar: 'المبلغ *', en: 'Amount *'),
                               child: TextFormField(
                                 controller: amount,
                                 enabled: !saving,
@@ -318,7 +319,7 @@ class _TransferFormCard extends StatelessWidget {
                                     value?.trim() ?? '',
                                   );
                                   return number == null || number <= 0
-                                      ? 'أدخل مبلغًا صحيحًا'
+                                      ? tr(ar: 'أدخل مبلغًا صحيحًا', en: 'Enter a valid amount')
                                       : null;
                                 },
                               ),

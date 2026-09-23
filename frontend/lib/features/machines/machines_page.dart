@@ -10,6 +10,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class MachinesPage extends StatefulWidget {
   const MachinesPage({super.key, required this.session});
@@ -59,7 +60,7 @@ class _MachinesPageState extends State<MachinesPage> {
           OutlinedButton.icon(
             onPressed: _addMachine,
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('إضافة ماكينة'),
+            label: Text(tr(ar: 'إضافة ماكينة', en: 'Add machine')),
           ),
         if (widget.session.can(AppPermissions.topUpAssets))
           FilledButton.tonalIcon(
@@ -71,7 +72,7 @@ class _MachinesPageState extends State<MachinesPage> {
           FilledButton.icon(
             onPressed: _active.isEmpty ? null : _useMachine,
             icon: const Icon(Icons.phone_android_outlined, size: 18),
-            label: const Text('استخدام ماكينة'),
+            label: Text(tr(ar: 'استخدام ماكينة', en: 'Machine usage')),
           ),
       ],
       child: loading
@@ -128,7 +129,7 @@ class _MachinesPageState extends State<MachinesPage> {
                 size: 18,
               ),
               label: Text(
-                active ? 'إيقاف وإخفاء الماكينة' : 'إعادة تفعيل الماكينة',
+                active ? 'إيقاف وإخفاء الماكينة' : tr(ar: 'إعادة تفعيل الماكينة', en: 'Reactivate machine'),
               ),
             ),
             const SizedBox(height: 12),
@@ -140,11 +141,11 @@ class _MachinesPageState extends State<MachinesPage> {
                         context: ctx,
                         maxWidth: 460,
                         builder: (confirmCtx) => HesbaModalCard(
-                          title: 'تأكيد الحذف النهائي',
+                          title: tr(ar: 'تأكيد الحذف النهائي', en: 'Confirm permanent delete'),
                           subtitle:
                               'هل أنت متأكد من حذف «${machine['name']}» نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه.',
                           child: HesbaModalActions(
-                            primaryLabel: 'تأكيد الحذف',
+                            primaryLabel: tr(ar: 'تأكيد الحذف', en: 'Confirm delete'),
                             danger: true,
                             onPrimary: () => Navigator.pop(confirmCtx, true),
                             onCancel: () => Navigator.pop(confirmCtx, false),
@@ -165,7 +166,7 @@ class _MachinesPageState extends State<MachinesPage> {
                       : HesbaColors.border,
                 ),
               ),
-              label: Text(canDelete ? 'حذف نهائي' : 'الحذف النهائي غير متاح'),
+              label: Text(canDelete ? tr(ar: 'حذف نهائي', en: 'Delete permanently') : tr(ar: 'الحذف النهائي غير متاح', en: 'Permanent delete unavailable')),
             ),
           ],
         ),
@@ -265,10 +266,10 @@ class _MachinesPageState extends State<MachinesPage> {
       context: context,
       maxWidth: 520,
       builder: (ctx) => HesbaModalCard(
-        title: 'إضافة ماكينة شحن',
-        subtitle: 'أنشئ ماكينة جديدة ومتابعة رصيدها بشكل مستقل.',
+        title: tr(ar: 'إضافة ماكينة شحن', en: 'Add top-up machine'),
+        subtitle: tr(ar: 'أنشئ ماكينة جديدة ومتابعة رصيدها بشكل مستقل.', en: 'Create a new machine and track its balance independently.'),
         actions: HesbaModalActions(
-          primaryLabel: 'إضافة',
+          primaryLabel: tr(ar: 'إضافة', en: 'Add'),
           onPrimary: () => Navigator.pop(ctx, true),
           onCancel: () => Navigator.pop(ctx, false),
         ),
@@ -356,18 +357,18 @@ class _MachinesPageState extends State<MachinesPage> {
                   onChanged: (v) => setLocal(() => id = v!),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'مبلغ الشحن *',
+                label: tr(ar: 'مبلغ الشحن *', en: 'Top-up amount *'),
                 child: TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'رقم المرجع (اختياري)',
+                label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
                 child: TextField(
                   controller: reference,
                   decoration: const InputDecoration(),
@@ -409,11 +410,11 @@ class _MachinesPageState extends State<MachinesPage> {
       maxWidth: 540,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'استخدام ماكينة',
+          title: tr(ar: 'استخدام ماكينة', en: 'Machine usage'),
           subtitle:
               'سجّل عملية العميل من رصيد الماكينة: شحن رصيد، باقة، نت أرضي، أو تليفون أرضي',
           actions: HesbaModalActions(
-            primaryLabel: 'تنفيذ العملية',
+            primaryLabel: tr(ar: 'تنفيذ العملية', en: 'Execute operation'),
             onPrimary: () => Navigator.pop(ctx, true),
             onCancel: () => Navigator.pop(ctx, false),
           ),
@@ -465,9 +466,9 @@ class _MachinesPageState extends State<MachinesPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'المبلغ *',
+                label: tr(ar: 'المبلغ *', en: 'Amount *'),
                 child: TextField(
                   controller: amount,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -476,9 +477,9 @@ class _MachinesPageState extends State<MachinesPage> {
                   decoration: const InputDecoration(),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'العمولة',
+                label: tr(ar: 'العمولة', en: 'Commission'),
                 child: TextField(
                   controller: commission,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -487,9 +488,9 @@ class _MachinesPageState extends State<MachinesPage> {
                   decoration: const InputDecoration(),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'رقم المرجع (اختياري)',
+                label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
                 child: TextField(
                   controller: reference,
                   decoration: const InputDecoration(
@@ -578,7 +579,7 @@ class _MachinesTable extends StatelessWidget {
                 columnSpacing: 28,
                 dataRowMinHeight: 58,
                 dataRowMaxHeight: 64,
-                columns: const [
+                columns: [
                   DataColumn(
                     label: Text('الماكينة', style: HesbaText.tableHeader),
                   ),
@@ -586,19 +587,19 @@ class _MachinesTable extends StatelessWidget {
                     label: Text('المبلغ المشحون', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('المستخدم', style: HesbaText.tableHeader),
+                    label: Text(tr(ar: 'المستخدم', en: 'User'), style: HesbaText.tableHeader),
                   ),
                   DataColumn(
                     label: Text('المتبقي', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('العمولات', style: HesbaText.tableHeader),
+                    label: Text(tr(ar: 'العمولات', en: 'Commissions'), style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('الحالة', style: HesbaText.tableHeader),
+                    label: Text(tr(ar: 'الحالة', en: 'Status'), style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('إدارة', style: HesbaText.tableHeader),
+                    label: Text(tr(ar: 'إدارة', en: 'Admin'), style: HesbaText.tableHeader),
                   ),
                 ],
                 rows: [
@@ -654,7 +655,7 @@ class _MachinesTable extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                   ),
-                                  child: const Text('إدارة'),
+                                  child: Text(tr(ar: 'إدارة', en: 'Admin')),
                                 )
                               : const Text('—'),
                         ),

@@ -12,6 +12,7 @@ import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class WalletsPage extends StatefulWidget {
   const WalletsPage({super.key, required this.session, this.onOpenLedger});
@@ -66,31 +67,31 @@ class _WalletsPageState extends State<WalletsPage> {
   Widget build(BuildContext context) => PageFrame(
     title: 'المحافظ الإلكترونية وInstaPay',
     subtitle:
-        'أضف كل رقم أو حساب بشكل مستقل، ثم اشحنه أو استخدمه وسجّل العمولة',
+        tr(ar: 'أضف كل رقم أو حساب بشكل مستقل، ثم اشحنه أو استخدمه وسجّل العمولة', en: 'Add each number or account separately, then top it up or use it and record commission'),
     actions: [
       if (widget.onOpenLedger != null)
         OutlinedButton.icon(
           onPressed: widget.onOpenLedger,
           icon: const Icon(Icons.receipt_long_outlined, size: 18),
-          label: const Text('سجل العمليات'),
+          label: Text(tr(ar: 'سجل العمليات', en: 'Ledger')),
         ),
       if (widget.session.can(AppPermissions.manageAssets))
         OutlinedButton.icon(
           onPressed: _addWallet,
           icon: const Icon(Icons.add, size: 18),
-          label: const Text('إضافة محفظة'),
+          label: Text(tr(ar: 'إضافة محفظة', en: 'Add wallet')),
         ),
       if (widget.session.can(AppPermissions.topUpAssets))
         FilledButton.tonalIcon(
           onPressed: _active.isEmpty ? null : _topUpWallet,
           icon: const Icon(Icons.add_card_outlined, size: 18),
-          label: const Text('شحن محفظة'),
+          label: Text(tr(ar: 'شحن محفظة', en: 'Wallet top-up')),
         ),
       if (widget.session.can(AppPermissions.useWallets))
         FilledButton.icon(
           onPressed: _active.isEmpty ? null : _useWallet,
           icon: const Icon(Icons.send_outlined, size: 18),
-          label: const Text('استخدام محفظة'),
+          label: Text(tr(ar: 'استخدام محفظة', en: 'Wallet usage')),
         ),
     ],
     child: loading
@@ -121,7 +122,7 @@ class _WalletsPageState extends State<WalletsPage> {
                     childAspectRatio: columns == 1 ? 2.6 : 1.85,
                     children: [
                       MetricCard(
-                        label: 'إجمالي الأرصدة',
+                        label: tr(ar: 'إجمالي الأرصدة', en: 'Total balances'),
                         value: money(
                           data.fold<num>(
                             0,
@@ -133,7 +134,7 @@ class _WalletsPageState extends State<WalletsPage> {
                         note: 'كل المحافظ المسجلة',
                       ),
                       MetricCard(
-                        label: 'إجمالي العمولات',
+                        label: tr(ar: 'إجمالي العمولات', en: 'Total commissions'),
                         value: money(
                           data.fold<num>(
                             0,
@@ -148,15 +149,15 @@ class _WalletsPageState extends State<WalletsPage> {
                         note: 'من عمليات استخدام المحافظ',
                         accent: true,
                       ),
-                      const MetricCard(
+                      MetricCard(
                         label: 'الحد اليومي للشحن',
                         value: '60,000 ج.م',
-                        note: 'لكل محفظة',
+                        note: tr(ar: 'لكل محفظة', en: 'Per wallet'),
                       ),
-                      const MetricCard(
+                      MetricCard(
                         label: 'الحد الشهري للشحن',
                         value: '200,000 ج.م',
-                        note: 'لكل محفظة',
+                        note: tr(ar: 'لكل محفظة', en: 'Per wallet'),
                       ),
                     ],
                   );
@@ -187,10 +188,10 @@ class _WalletsPageState extends State<WalletsPage> {
       maxWidth: 540,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'إضافة محفظة جديدة',
+          title: tr(ar: 'إضافة محفظة جديدة', en: 'Add new wallet'),
           subtitle: 'سجّل كل رقم محفظة أو حساب InstaPay بصورة مستقلة.',
           actions: HesbaModalActions(
-            primaryLabel: 'إضافة المحفظة',
+            primaryLabel: tr(ar: 'إضافة المحفظة', en: 'Add wallet'),
             onPrimary: () => Navigator.pop(ctx, true),
             onCancel: () => Navigator.pop(ctx, false),
           ),
@@ -284,10 +285,10 @@ class _WalletsPageState extends State<WalletsPage> {
       maxWidth: 540,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'شحن محفظة',
+          title: tr(ar: 'شحن محفظة', en: 'Wallet top-up'),
           subtitle: 'الحد اليومي 60,000 والشهري 200,000 ج.م لكل محفظة.',
           actions: HesbaModalActions(
-            primaryLabel: 'إضافة الرصيد',
+            primaryLabel: tr(ar: 'إضافة الرصيد', en: 'Add balance'),
             onPrimary: () => Navigator.pop(ctx, true),
             onCancel: () => Navigator.pop(ctx, false),
           ),
@@ -323,11 +324,11 @@ class _WalletsPageState extends State<WalletsPage> {
       maxWidth: 540,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'استخدام محفظة',
+          title: tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
           subtitle:
               'استخدم الرصيد في تحويل أو دفع، وسجّل العمولة والمرجع للمراجعة.',
           actions: HesbaModalActions(
-            primaryLabel: 'تنفيذ العملية',
+            primaryLabel: tr(ar: 'تنفيذ العملية', en: 'Execute operation'),
             onPrimary: () => Navigator.pop(ctx, true),
             onCancel: () => Navigator.pop(ctx, false),
           ),
@@ -340,9 +341,9 @@ class _WalletsPageState extends State<WalletsPage> {
                 amount: amount,
                 reference: reference,
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'العمولة',
+                label: tr(ar: 'العمولة', en: 'Commission'),
                 child: TextField(
                   controller: commission,
                   keyboardType: const TextInputType.numberWithOptions(
@@ -420,11 +421,11 @@ class _WalletsPageState extends State<WalletsPage> {
                         context: ctx,
                         maxWidth: 460,
                         builder: (confirmCtx) => HesbaModalCard(
-                          title: 'تأكيد الحذف النهائي',
+                          title: tr(ar: 'تأكيد الحذف النهائي', en: 'Confirm permanent delete'),
                           subtitle:
                               'هل أنت متأكد من حذف «${wallet['name']}» نهائيًا؟',
                           child: HesbaModalActions(
-                            primaryLabel: 'تأكيد الحذف',
+                            primaryLabel: tr(ar: 'تأكيد الحذف', en: 'Confirm delete'),
                             danger: true,
                             onPrimary: () => Navigator.pop(confirmCtx, true),
                             onCancel: () => Navigator.pop(confirmCtx, false),
@@ -440,7 +441,7 @@ class _WalletsPageState extends State<WalletsPage> {
                 foregroundColor: HesbaColors.red,
                 disabledForegroundColor: const Color(0xFFD4A0A0),
               ),
-              label: Text(canDelete ? 'حذف نهائي' : 'الحذف النهائي غير متاح'),
+              label: Text(canDelete ? tr(ar: 'حذف نهائي', en: 'Delete permanently') : tr(ar: 'الحذف النهائي غير متاح', en: 'Permanent delete unavailable')),
             ),
           ],
         ),
@@ -531,18 +532,18 @@ class _WalletOperationFields extends StatelessWidget {
           },
         ),
       ),
-      const SizedBox(height: 18),
+      SizedBox(height: 18),
       HesbaModalField(
-        label: 'المبلغ *',
+        label: tr(ar: 'المبلغ *', en: 'Amount *'),
         child: TextField(
           controller: amount,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(),
         ),
       ),
-      const SizedBox(height: 18),
+      SizedBox(height: 18),
       HesbaModalField(
-        label: 'رقم المرجع (اختياري)',
+        label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
         child: TextField(
           controller: reference,
           decoration: const InputDecoration(),
@@ -583,16 +584,16 @@ class _WalletsTable extends StatelessWidget {
             columnSpacing: 28,
             dataRowMinHeight: 60,
             dataRowMaxHeight: 68,
-            columns: const [
+            columns: [
               DataColumn(label: Text('المحفظة', style: _headerStyle)),
               DataColumn(label: Text('باسم', style: _headerStyle)),
-              DataColumn(label: Text('النوع', style: _headerStyle)),
-              DataColumn(label: Text('الرصيد', style: _headerStyle)),
+              DataColumn(label: Text(tr(ar: 'النوع', en: 'Type'), style: _headerStyle)),
+              DataColumn(label: Text(tr(ar: 'الرصيد', en: 'Balance'), style: _headerStyle)),
               DataColumn(label: Text('شحن اليوم', style: _headerStyle)),
               DataColumn(label: Text('الشحن الشهري', style: _headerStyle)),
-              DataColumn(label: Text('العمولات', style: _headerStyle)),
-              DataColumn(label: Text('الحالة', style: _headerStyle)),
-              DataColumn(label: Text('إدارة', style: _headerStyle)),
+              DataColumn(label: Text(tr(ar: 'العمولات', en: 'Commissions'), style: _headerStyle)),
+              DataColumn(label: Text(tr(ar: 'الحالة', en: 'Status'), style: _headerStyle)),
+              DataColumn(label: Text(tr(ar: 'إدارة', en: 'Admin'), style: _headerStyle)),
             ],
             rows: [
               for (final raw in rows)
@@ -641,7 +642,7 @@ class _WalletsTable extends StatelessWidget {
                               onPressed: () => onManage(
                                 Map<String, dynamic>.from(raw as Map),
                               ),
-                              child: const Text('إدارة'),
+                              child: Text(tr(ar: 'إدارة', en: 'Admin')),
                             )
                           : const Text('—'),
                     ),
@@ -679,14 +680,14 @@ class _WalletMovements extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('سجل عمليات المحافظ', style: HesbaText.sectionTitle),
                       SizedBox(height: 2),
                       Text(
-                        'آخر الشحن والاستخدام والعمولات',
+                        tr(ar: 'آخر الشحن والاستخدام والعمولات', en: 'Latest top-ups, usage, and commissions'),
                         style: HesbaText.panelSub,
                       ),
                     ],
@@ -695,7 +696,7 @@ class _WalletMovements extends StatelessWidget {
                 if (onOpenLedger != null)
                   OutlinedButton(
                     onPressed: onOpenLedger,
-                    child: const Text('عرض الكل'),
+                    child: Text(tr(ar: 'عرض الكل', en: 'View all')),
                   ),
               ],
             ),
@@ -724,24 +725,24 @@ class _WalletMovements extends StatelessWidget {
                     dataRowMaxHeight: 60,
                     horizontalMargin: 20,
                     columnSpacing: 28,
-                    columns: const [
+                    columns: [
                       DataColumn(
                         label: Text(
-                          'التاريخ والوقت',
+                          tr(ar: 'التاريخ والوقت', en: 'Date & time'),
                           style: HesbaText.tableHeader,
                         ),
                       ),
                       DataColumn(
-                        label: Text('النوع', style: HesbaText.tableHeader),
+                        label: Text(tr(ar: 'النوع', en: 'Type'), style: HesbaText.tableHeader),
                       ),
                       DataColumn(
-                        label: Text('الوصف', style: HesbaText.tableHeader),
+                        label: Text(tr(ar: 'الوصف', en: 'Description'), style: HesbaText.tableHeader),
                       ),
                       DataColumn(
-                        label: Text('المبلغ', style: HesbaText.tableHeader),
+                        label: Text(tr(ar: 'المبلغ', en: 'Amount'), style: HesbaText.tableHeader),
                       ),
                       DataColumn(
-                        label: Text('المستخدم', style: HesbaText.tableHeader),
+                        label: Text(tr(ar: 'المستخدم', en: 'User'), style: HesbaText.tableHeader),
                       ),
                     ],
                     rows: [
@@ -792,12 +793,12 @@ class _WalletMovements extends StatelessWidget {
   }
 
   String _categoryLabel(String category) => switch (category) {
-    'top_up' => 'شحن محفظة',
-    'wallet_usage' => 'استخدام محفظة',
-    'commission' => 'عمولة',
-    'opening_balance' => 'رصيد افتتاحي',
+    'top_up' => tr(ar: 'شحن محفظة', en: 'Wallet top-up'),
+    'wallet_usage' => tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
+    'commission' => tr(ar: 'عمولة', en: 'Commission'),
+    'opening_balance' => tr(ar: 'رصيد افتتاحي', en: 'Opening balance'),
     'reversal' => 'عكس عملية',
-    'internal_transfer' => 'تحويل داخلي',
+    'internal_transfer' => tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
     _ => category,
   };
 }
@@ -812,7 +813,7 @@ const _walletTypes = {
 };
 
 String _walletType(String type) =>
-    _walletTypes[type] ?? (type == 'wallet' ? 'محفظة إلكترونية' : type);
+    _walletTypes[type] ?? (type == 'wallet' ? tr(ar: 'محفظة إلكترونية', en: 'E-wallet') : type);
 
 String _ownerName(dynamic wallet) {
   final value = '${wallet['ownerName'] ?? ''}'.trim();

@@ -4,6 +4,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
@@ -66,13 +67,13 @@ export class CollectionsService implements OnModuleInit {
       where: { id },
       relations: { account: true },
     });
-    if (!collection) throw new NotFoundException('التحصيل غير موجود');
+    if (!collection) throw new NotFoundException(msg({ ar: 'التحصيل غير موجود', en: 'Collection not found' }));
     return collection;
   }
 
   async receive(dto: ReceiveCollectionDto, username: string) {
     if (dto.executionMode === ExecutionMode.IMMEDIATE && !dto.accountId) {
-      throw new BadRequestException('الحساب المستخدم مطلوب للتنفيذ الفوري');
+      throw new BadRequestException(msg({ ar: 'الحساب المستخدم مطلوب للتنفيذ الفوري', en: 'An account is required for immediate execution' }));
     }
     return this.dataSource.transaction(async (manager) => {
       // Reference generation must be serialized. count()+1 outside the
@@ -90,7 +91,7 @@ export class CollectionsService implements OnModuleInit {
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!treasury) throw new NotFoundException('الخزنة غير مهيأة');
+      if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
       treasury.balance += dto.amount;
       await treasuryRepo.save(treasury);
 
@@ -101,9 +102,9 @@ export class CollectionsService implements OnModuleInit {
           lock: { mode: 'pessimistic_write' },
         });
         if (!account)
-          throw new NotFoundException('الحساب المستخدم غير موجود أو موقوف');
+          throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
         if (account.balance < dto.amount)
-          throw new BadRequestException('رصيد الحساب غير كافٍ');
+          throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
         account.balance -= dto.amount;
         account.commissionBalance += dto.commission;
         await manager.getRepository(FinancialAccount).save(account);
@@ -169,17 +170,17 @@ export class CollectionsService implements OnModuleInit {
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!collection) throw new NotFoundException('المعلّق غير موجود');
+      if (!collection) throw new NotFoundException(msg({ ar: 'المعلّق غير موجود', en: 'Pending item not found' }));
       if (collection.status !== CollectionStatus.PENDING)
-        throw new BadRequestException('العملية منفذة بالفعل');
+        throw new BadRequestException(msg({ ar: 'العملية منفذة بالفعل', en: 'Operation already executed' }));
       const account = await manager.getRepository(FinancialAccount).findOne({
         where: { id: dto.accountId, active: true },
         lock: { mode: 'pessimistic_write' },
       });
       if (!account)
-        throw new NotFoundException('الحساب المستخدم غير موجود أو موقوف');
+        throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
       if (account.balance < collection.amount)
-        throw new BadRequestException('رصيد الحساب غير كافٍ');
+        throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
       account.balance -= collection.amount;
       account.commissionBalance += dto.commission;
       await manager.getRepository(FinancialAccount).save(account);
@@ -219,33 +220,33 @@ export class CollectionsService implements OnModuleInit {
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!collection) throw new NotFoundException('التحصيل غير موجود');
+      if (!collection) throw new NotFoundException(msg({ ar: 'التحصيل غير موجود', en: 'Collection not found' }));
       if (collection.status === CollectionStatus.REVERSED) {
-        throw new BadRequestException('تم عكس التحصيل بالفعل');
+        throw new BadRequestException(msg({ ar: 'تم عكس التحصيل بالفعل', en: 'Collection already reversed' }));
       }
 
       const treasury = await manager.getRepository(Treasury).findOne({
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!treasury) throw new NotFoundException('الخزنة غير مهيأة');
+      if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
       if (treasury.balance < collection.amount) {
-        throw new BadRequestException('رصيد الخزنة لا يكفي لعكس التحصيل');
+        throw new BadRequestException(msg({ ar: 'رصيد الخزنة لا يكفي لعكس التحصيل', en: 'Treasury balance is insufficient to reverse the collection' }));
       }
 
       let account: FinancialAccount | null = null;
       if (collection.status === CollectionStatus.DONE) {
         if (!collection.accountId) {
-          throw new BadRequestException('التحصيل المنفذ غير مرتبط بحساب');
+          throw new BadRequestException(msg({ ar: 'التحصيل المنفذ غير مرتبط بحساب', en: 'Executed collection is not linked to an account' }));
         }
         account = await manager.getRepository(FinancialAccount).findOne({
           where: { id: collection.accountId },
           lock: { mode: 'pessimistic_write' },
         });
-        if (!account) throw new NotFoundException('الحساب المرتبط غير موجود');
+        if (!account) throw new NotFoundException(msg({ ar: 'الحساب المرتبط غير موجود', en: 'Linked account not found' }));
         if (account.commissionBalance < collection.commission) {
           throw new BadRequestException(
-            'رصيد العمولة الحالي لا يكفي لعكس عمولة التحصيل',
+            msg({ ar: 'رصيد العمولة الحالي لا يكفي لعكس عمولة التحصيل', en: 'Current commission balance is insufficient to reverse collection commission' }),
           );
         }
         account.balance += collection.amount;

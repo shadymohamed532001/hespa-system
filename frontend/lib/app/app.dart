@@ -5,12 +5,14 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../core/network/api_client.dart';
 import '../core/notifications/push_notifications_service.dart';
 import '../core/settings/app_settings.dart';
+import '../core/settings/hesba_l10n.dart';
 import '../core/system/system_availability_service.dart';
 import '../core/system/system_unavailable_page.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/session_controller.dart';
 import 'app_shell.dart';
+import '../core/settings/tr.dart';
 
 class HesbaApp extends StatefulWidget {
   const HesbaApp({super.key});
@@ -34,7 +36,12 @@ class _HesbaAppState extends State<HesbaApp> {
     initializeDateFormatting('ar');
     initializeDateFormatting('en');
     session.addListener(_onSessionChanged);
+    settings.addListener(_syncLocale);
     _refreshAvailability();
+  }
+
+  void _syncLocale() {
+    session.setLocale(settings.locale.languageCode);
   }
 
   Future<void> _refreshAvailability() async {
@@ -53,6 +60,7 @@ class _HesbaAppState extends State<HesbaApp> {
   @override
   void dispose() {
     session.removeListener(_onSessionChanged);
+    settings.removeListener(_syncLocale);
     session.dispose();
     settings.dispose();
     super.dispose();
@@ -63,9 +71,10 @@ class _HesbaAppState extends State<HesbaApp> {
     return AnimatedBuilder(
       animation: Listenable.merge([session, settings]),
       builder: (context, _) {
+        session.setLocale(settings.locale.languageCode);
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'حِسبة',
+          title: settings.isArabic ? tr(ar: 'حِسبة', en: 'Hesba') : 'Hesba',
           theme: hesbaTheme(),
           darkTheme: hesbaDarkTheme(),
           themeMode: settings.themeMode,
@@ -77,9 +86,12 @@ class _HesbaAppState extends State<HesbaApp> {
             GlobalCupertinoLocalizations.delegate,
           ],
           builder: (context, child) {
-            return Directionality(
-              textDirection: settings.textDirection,
-              child: child ?? const SizedBox.shrink(),
+            return HesbaL10n(
+              settings: settings,
+              child: Directionality(
+                textDirection: settings.textDirection,
+                child: child ?? const SizedBox.shrink(),
+              ),
             );
           },
           home: _buildHome(),
@@ -101,6 +113,6 @@ class _HesbaAppState extends State<HesbaApp> {
     if (session.signedIn) {
       return AppShell(session: session, settings: settings);
     }
-    return LoginPage(session: session);
+    return LoginPage(session: session, settings: settings);
   }
 }

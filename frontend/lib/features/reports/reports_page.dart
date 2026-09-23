@@ -11,6 +11,7 @@ import '../../core/widgets/error_box.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class ReportsPage extends StatefulWidget {
   const ReportsPage({super.key, required this.session});
@@ -76,7 +77,7 @@ class _ReportsPageState extends State<ReportsPage> {
       initialDateRange: DateTimeRange(start: from, end: to),
       helpText: 'اختر فترة التقرير',
       saveText: 'تطبيق',
-      cancelText: 'إلغاء',
+      cancelText: tr(ar: 'إلغاء', en: 'Cancel'),
     );
     if (picked == null) return;
     from = DateUtils.dateOnly(picked.start);
@@ -193,8 +194,8 @@ class _FiltersCard extends StatelessWidget {
                   child: DropdownButtonFormField<String>(
                     initialValue: selectedScope,
                     isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'القسم / الحساب',
+                    decoration: InputDecoration(
+                      labelText: tr(ar: 'القسم / الحساب', en: 'Section / account'),
                       isDense: true,
                     ),
                     items: [
@@ -282,26 +283,26 @@ class _ReportContent extends StatelessWidget {
               ),
               children: [
                 MetricCard(
-                  label: 'إجمالي الإيداعات',
+                  label: tr(ar: 'إجمالي الإيداعات', en: 'Total deposits'),
                   value: money(summary['deposits']),
                   note: 'كل الأموال الداخلة خلال الفترة',
                   accent: true,
                 ),
                 MetricCard(
-                  label: 'إجمالي السحب والاستخدام',
+                  label: tr(ar: 'إجمالي السحب والاستخدام', en: 'Total withdrawals and usage'),
                   value: money(summary['withdrawals']),
                   note: 'كل الأموال الخارجة خلال الفترة',
                   warning: true,
                 ),
                 MetricCard(
-                  label: 'صافي الحركة',
+                  label: tr(ar: 'صافي الحركة', en: 'Net movement'),
                   value: money(summary['net']),
                   note: 'الإيداعات ناقص السحب',
                 ),
                 MetricCard(
-                  label: 'العمولات',
+                  label: tr(ar: 'العمولات', en: 'Commissions'),
                   value: money(summary['commissions']),
-                  note: 'مسجلة منفصلة عن أصل المبالغ',
+                  note: tr(ar: 'مسجلة منفصلة عن أصل المبالغ', en: 'Recorded separately from principal amounts'),
                 ),
                 MetricCard(
                   label: 'مبيعات المخزن',
@@ -334,16 +335,16 @@ class _ReportContent extends StatelessWidget {
           title: 'تفصيل كل حساب وقسم',
           subtitle: 'الرصيد الحالي وحركة الإيداع والسحب داخل الفترة المختارة',
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         DataCard(
-          columns: const [
-            'القسم / الحساب',
-            'النوع',
-            'الرصيد الحالي',
+          columns: [
+            tr(ar: 'القسم / الحساب', en: 'Section / account'),
+            tr(ar: 'النوع', en: 'Type'),
+            tr(ar: 'الرصيد الحالي', en: 'Current balance'),
             'إيداعات',
             'سحب / استخدام',
             'عمولات',
-            'صافي الحركة',
+            tr(ar: 'صافي الحركة', en: 'Net movement'),
             'الحركات',
           ],
           rows: channels
@@ -367,15 +368,15 @@ class _ReportContent extends StatelessWidget {
           subtitle:
               'تجميع الحركة يومًا بيوم لمعرفة حجم السحب والإيداع والمبيعات',
         ),
-        const SizedBox(height: 10),
+        SizedBox(height: 10),
         DataCard(
-          columns: const [
+          columns: [
             'اليوم',
             'الإيداعات',
             'السحب / الاستخدام',
-            'صافي الحركة',
+            tr(ar: 'صافي الحركة', en: 'Net movement'),
             'المبيعات',
-            'العمولات',
+            tr(ar: 'العمولات', en: 'Commissions'),
             'عدد الحركات',
           ],
           rows: daily
@@ -396,7 +397,7 @@ class _ReportContent extends StatelessWidget {
         _SectionTitle(
           title: 'تفاصيل الحركات',
           subtitle: report['truncated'] == true
-              ? 'أحدث 500 حركة في الفترة — ضيّق الفترة لعرض باقي التفاصيل'
+              ? tr(ar: 'أحدث 500 حركة في الفترة — ضيّق الفترة لعرض باقي التفاصيل', en: 'Latest 500 movements in the period — narrow the range to see more detail')
               : 'كل حركة مع مصدرها وتاريخها والمستخدم الذي سجلها',
         ),
         const SizedBox(height: 10),
@@ -413,14 +414,14 @@ class _ReportContent extends StatelessWidget {
           )
         else
           DataCard(
-            columns: const [
-              'التاريخ والوقت',
-              'الحركة',
-              'القسم / الحساب',
-              'البيان',
-              'المبلغ',
-              'المرجع',
-              'المستخدم',
+            columns: [
+              tr(ar: 'التاريخ والوقت', en: 'Date & time'),
+              tr(ar: 'الحركة', en: 'Entry'),
+              tr(ar: 'القسم / الحساب', en: 'Section / account'),
+              tr(ar: 'البيان', en: 'Description'),
+              tr(ar: 'المبلغ', en: 'Amount'),
+              tr(ar: 'المرجع', en: 'Reference'),
+              tr(ar: 'المستخدم', en: 'User'),
             ],
             rows: operations
                 .map(
@@ -478,9 +479,9 @@ String _shortDate(dynamic value) {
 String _channelKind(String value) =>
     {
       'cash': 'كاش',
-      'fawry': 'فوري',
-      'company': 'شركة',
-      'operating': 'تشغيل',
+      'fawry': tr(ar: 'فوري', en: 'Fawry'),
+      'company': tr(ar: 'شركة', en: 'Company'),
+      'operating': tr(ar: 'تشغيل', en: 'Operations'),
       'wallet': 'محفظة',
       'vodafone_cash': 'Vodafone Cash',
       'orange_cash': 'Orange Cash',
@@ -488,7 +489,7 @@ String _channelKind(String value) =>
       'we_pay': 'WE Pay',
       'other_wallet': 'محفظة أخرى',
       'instapay': 'InstaPay',
-      'machine': 'ماكينة شحن',
+      'machine': tr(ar: 'ماكينة شحن', en: 'Top-up machine'),
       'inventory': 'مخزن',
     }[value] ??
     value;
@@ -497,8 +498,8 @@ String _flowKind(String value) =>
     {
       'deposit': 'إيداع',
       'withdrawal': 'سحب / استخدام',
-      'commission': 'عمولة',
-      'transfer': 'تحويل داخلي',
+      'commission': tr(ar: 'عمولة', en: 'Commission'),
+      'transfer': tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
       'sale': 'بيع مخزن',
       'neutral': 'حركة إدارية',
     }[value] ??

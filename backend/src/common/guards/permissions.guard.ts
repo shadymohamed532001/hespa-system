@@ -8,6 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator.js';
 import { AppPermission, UserRole } from '../../database/enums.js';
 import { UsersService } from '../../users/users.service.js';
+import { msg } from '../i18n/locale-context.js';
 
 type AuthUser = { userId?: string; role?: UserRole };
 
@@ -28,14 +29,21 @@ export class PermissionsGuard implements CanActivate {
     const request = context.switchToHttp().getRequest<{ user?: AuthUser }>();
     const auth = request.user;
     if (!auth?.userId) {
-      throw new ForbiddenException('غير مصرح');
+      throw new ForbiddenException(
+        msg({ ar: 'غير مصرح', en: 'Unauthorized' }),
+      );
     }
 
     if (auth.role === UserRole.ADMIN) return true;
 
     const allowed = await this.users.hasPermissions(auth.userId, required);
     if (!allowed) {
-      throw new ForbiddenException('ليس لديك صلاحية لتنفيذ هذه العملية');
+      throw new ForbiddenException(
+        msg({
+          ar: 'ليس لديك صلاحية لتنفيذ هذه العملية',
+          en: 'You do not have permission to perform this action',
+        }),
+      );
     }
     return true;
   }

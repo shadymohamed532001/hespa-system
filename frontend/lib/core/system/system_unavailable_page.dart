@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../settings/hesba_l10n.dart';
 import '../theme/app_theme.dart';
+import '../settings/tr.dart';
 
 /// Full-screen gate when Remote Config `IS_SYSTEM_WORK` is false.
 class SystemUnavailablePage extends StatelessWidget {
@@ -10,8 +12,13 @@ class SystemUnavailablePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = HesbaL10n.maybeOf(context);
+    final t = l10n?.strings;
+    final textDirection =
+        l10n?.settings.textDirection ?? TextDirection.rtl;
+
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: textDirection,
       child: Scaffold(
         body: DecoratedBox(
           decoration: const BoxDecoration(
@@ -65,16 +72,17 @@ class SystemUnavailablePage extends StatelessWidget {
                             color: HesbaColors.red,
                           ),
                         ),
-                        const SizedBox(height: 22),
+                        SizedBox(height: 22),
                         Text(
-                          'حِسبة',
+                          t?.brand ?? tr(ar: 'حِسبة', en: 'Hesba'),
                           style: HesbaText.loginTitle.copyWith(
                             color: HesbaColors.navy,
                           ),
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          'النظام غير متاح حالياً',
+                          t?.systemUnavailableTitle ??
+                              'النظام غير متاح حالياً',
                           textAlign: TextAlign.center,
                           style: HesbaText.sectionTitle.copyWith(
                             color: HesbaColors.ink,
@@ -82,7 +90,8 @@ class SystemUnavailablePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'يرجى التواصل مع مطور السيستم لحل مشكلة',
+                          t?.systemUnavailableBody ??
+                              'يرجى التواصل مع مطور السيستم لحل مشكلة',
                           textAlign: TextAlign.center,
                           style: HesbaText.body.copyWith(
                             fontSize: 15,
@@ -91,16 +100,17 @@ class SystemUnavailablePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          'تم إيقاف التشغيل مؤقتاً من لوحة التحكم. '
-                          'بعد حل المشكلة وإعادة تفعيل النظام يمكنك المحاولة مرة أخرى.',
+                          t?.systemUnavailableHint ??
+                              'تم إيقاف التشغيل مؤقتاً من لوحة التحكم. '
+                                  'بعد حل المشكلة وإعادة تفعيل النظام يمكنك المحاولة مرة أخرى.',
                           textAlign: TextAlign.center,
                           style: HesbaText.bodyMuted,
                         ),
                         if (onRetry != null) ...[
-                          const SizedBox(height: 24),
+                          SizedBox(height: 24),
                           FilledButton.tonal(
                             onPressed: onRetry,
-                            child: const Text('إعادة المحاولة'),
+                            child: Text(t?.retry ?? tr(ar: 'إعادة المحاولة', en: 'Retry')),
                           ),
                         ],
                       ],

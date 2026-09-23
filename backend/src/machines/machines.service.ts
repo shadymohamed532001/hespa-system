@@ -5,6 +5,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
@@ -58,9 +59,9 @@ export class MachinesService implements OnModuleInit {
 
   async create(dto: CreateMachineDto, username: string) {
     const name = dto.name.trim();
-    if (!name) throw new BadRequestException('اسم الماكينة مطلوب');
+    if (!name) throw new BadRequestException(msg({ ar: 'اسم الماكينة مطلوب', en: 'Machine name is required' }));
     if (await this.machines.exists({ where: { name } })) {
-      throw new ConflictException('يوجد ماكينة بنفس الاسم بالفعل');
+      throw new ConflictException(msg({ ar: 'يوجد ماكينة بنفس الاسم بالفعل', en: 'A machine with this name already exists' }));
     }
 
     const opening = Number(dto.openingBalance ?? 0);
@@ -94,13 +95,13 @@ export class MachinesService implements OnModuleInit {
 
   async update(id: string, dto: UpdateMachineDto) {
     const machine = await this.machines.findOne({ where: { id } });
-    if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+    if (!machine) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة', en: 'Machine not found' }));
 
     const name = dto.name.trim();
-    if (!name) throw new BadRequestException('اسم الماكينة مطلوب');
+    if (!name) throw new BadRequestException(msg({ ar: 'اسم الماكينة مطلوب', en: 'Machine name is required' }));
     const duplicate = await this.machines.findOne({ where: { name } });
     if (duplicate && duplicate.id !== id) {
-      throw new ConflictException('يوجد ماكينة بنفس الاسم بالفعل');
+      throw new ConflictException(msg({ ar: 'يوجد ماكينة بنفس الاسم بالفعل', en: 'A machine with this name already exists' }));
     }
 
     machine.name = name;
@@ -115,7 +116,7 @@ export class MachinesService implements OnModuleInit {
         lock: { mode: 'pessimistic_write' },
       });
       if (!machine)
-        throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
+        throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة أو موقوفة', en: 'Machine not found or inactive' }));
       machine.loadedBalance =
         Number(machine.loadedBalance) + Number(dto.amount);
       await repo.save(machine);
@@ -140,16 +141,16 @@ export class MachinesService implements OnModuleInit {
         lock: { mode: 'pessimistic_write' },
       });
       if (!machine)
-        throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
+        throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة أو موقوفة', en: 'Machine not found or inactive' }));
       const customerNumber = dto.customerNumber.trim();
       if (!customerNumber) {
-        throw new BadRequestException('رقم العميل أو التليفون مطلوب');
+        throw new BadRequestException(msg({ ar: 'رقم العميل أو التليفون مطلوب', en: 'Customer number or phone is required' }));
       }
       const serviceLabel = machineServiceLabels[dto.serviceType];
       const remaining =
         Number(machine.loadedBalance) - Number(machine.usedBalance);
       if (remaining < Number(dto.amount)) {
-        throw new BadRequestException('رصيد الماكينة غير كافٍ');
+        throw new BadRequestException(msg({ ar: 'رصيد الماكينة غير كافٍ', en: 'Insufficient machine balance' }));
       }
       machine.usedBalance = Number(machine.usedBalance) + Number(dto.amount);
       machine.commissionBalance =
@@ -198,14 +199,14 @@ export class MachinesService implements OnModuleInit {
 
   async setActive(id: string, active: boolean) {
     const machine = await this.machines.findOne({ where: { id } });
-    if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+    if (!machine) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة', en: 'Machine not found' }));
     machine.active = active;
     return this.withRemaining(await this.machines.save(machine));
   }
 
   async remove(id: string, username: string) {
     const machine = await this.machines.findOne({ where: { id } });
-    if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+    if (!machine) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة', en: 'Machine not found' }));
 
     const history = await this.dataSource
       .getRepository(LedgerEntry)
@@ -231,7 +232,7 @@ export class MachinesService implements OnModuleInit {
       history > 0
     ) {
       throw new BadRequestException(
-        'لا يمكن الحذف النهائي إلا إذا كانت كل أرصدة الماكينة صفرًا ولا توجد أي حركات مرتبطة بها؛ يمكنك إيقافها بدلًا من ذلك',
+        msg({ ar: 'لا يمكن الحذف النهائي إلا إذا كانت كل أرصدة الماكينة صفرًا ولا توجد أي حركات مرتبطة بها؛ يمكنك إيقافها بدلًا من ذلك', en: 'Permanent delete is only allowed when all machine balances are zero and there are no related movements; you can deactivate it instead' }),
       );
     }
 

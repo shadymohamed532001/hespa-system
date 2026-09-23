@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/hesba_modal.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 Future<bool> showReceiveCollectionDialog({
   required BuildContext context,
@@ -83,7 +84,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       context: context,
       initialTime: _receivedAt,
       helpText: 'اختر وقت الاستلام',
-      cancelText: 'إلغاء',
+      cancelText: tr(ar: 'إلغاء', en: 'Cancel'),
       confirmText: 'اختيار',
     );
     if (value != null && mounted) setState(() => _receivedAt = value);
@@ -141,7 +142,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   @override
   Widget build(BuildContext context) {
     return HesbaModalCard(
-      title: 'استلام كاش من مندوب',
+      title: tr(ar: 'استلام كاش من مندوب', en: 'Receive cash from agent'),
       subtitle:
           'اختر تنفيذ العملية فورًا أو الاحتفاظ بها كمعلّق للتنفيذ لاحقًا.',
       actions: HesbaModalActions(
@@ -182,13 +183,13 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     SizedBox(
                       width: width,
                       child: _textField(
-                        label: 'المبلغ *',
+                        label: tr(ar: 'المبلغ *', en: 'Amount *'),
                         controller: _amount,
                         numeric: true,
                         validator: (value) {
                           final number = num.tryParse(value?.trim() ?? '');
                           return number == null || number <= 0
-                              ? 'أدخل مبلغًا صحيحًا'
+                              ? tr(ar: 'أدخل مبلغًا صحيحًا', en: 'Enter a valid amount')
                               : null;
                         },
                       ),
@@ -201,7 +202,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                       SizedBox(
                         width: width,
                         child: _textField(
-                          label: 'العمولة',
+                          label: tr(ar: 'العمولة', en: 'Commission'),
                           controller: _commission,
                           numeric: true,
                           validator: (value) {
@@ -211,7 +212,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                                   : value!.trim(),
                             );
                             return number == null || number < 0
-                                ? 'أدخل عمولة صحيحة'
+                                ? tr(ar: 'أدخل عمولة صحيحة', en: 'Enter a valid commission')
                                 : null;
                           },
                         ),

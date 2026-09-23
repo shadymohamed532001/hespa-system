@@ -16,6 +16,7 @@ import {
   IdempotencyRecord,
   IdempotencyStatus,
 } from '../../database/entities/idempotency-record.entity.js';
+import { msg } from '../i18n/locale-context.js';
 
 type RequestShape = {
   method: string;
@@ -45,13 +46,22 @@ export class IdempotencyInterceptor implements NestInterceptor {
 
     const request = context.switchToHttp().getRequest<RequestShape>();
     const userId = request.user?.userId;
-    if (!userId) throw new BadRequestException('تعذر تحديد المستخدم للعملية');
+    if (!userId)
+      throw new BadRequestException(
+        msg({
+          ar: 'تعذر تحديد المستخدم للعملية',
+          en: 'Could not determine the user for this operation',
+        }),
+      );
 
     const rawHeader = request.headers['idempotency-key'];
     const key = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader;
     if (!key || !/^[A-Za-z0-9._:-]{16,120}$/.test(key)) {
       throw new BadRequestException(
-        'يلزم إرسال Idempotency-Key صالح لمنع تكرار العملية',
+        msg({
+          ar: 'يلزم إرسال Idempotency-Key صالح لمنع تكرار العملية',
+          en: 'A valid Idempotency-Key is required to prevent duplicate operations',
+        }),
       );
     }
 
@@ -83,14 +93,22 @@ export class IdempotencyInterceptor implements NestInterceptor {
       const existing = await this.records.findOne({ where: { userId, key } });
       if (!existing) throw error;
       if (existing.requestHash !== requestHash) {
-        throw new ConflictException('تم استخدام مفتاح العملية مع طلب مختلف');
+        throw new ConflictException(
+          msg({
+            ar: 'تم استخدام مفتاح العملية مع طلب مختلف',
+            en: 'This idempotency key was already used with a different request',
+          }),
+        );
       }
       if (existing.status === IdempotencyStatus.COMPLETED) {
         return of(existing.response);
       }
       throw new ConflictException({
         code: 'IDEMPOTENCY_IN_PROGRESS',
-        message: 'العملية قيد التنفيذ؛ ستتم إعادة المحاولة بنفس المفتاح',
+        message: msg({
+          ar: 'العملية قيد التنفيذ؛ ستتم إعادة المحاولة بنفس المفتاح',
+          en: 'Operation is already in progress; retry with the same key',
+        }),
         retryAfterMs: 350,
       });
     }

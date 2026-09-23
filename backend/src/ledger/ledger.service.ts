@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { ReversalDto } from '../common/dto/reversal.dto.js';
@@ -43,7 +44,7 @@ export class LedgerService {
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('الخزنة غير موجودة');
+      if (!item) throw new NotFoundException(msg({ ar: 'الخزنة غير موجودة', en: 'Treasury not found' }));
       return {
         balance: item.balance,
         save: async (balance) => {
@@ -52,13 +53,13 @@ export class LedgerService {
         },
       };
     }
-    if (!id) throw new BadRequestException('بيانات الأصل غير مكتملة');
+    if (!id) throw new BadRequestException(msg({ ar: 'بيانات الأصل غير مكتملة', en: 'Asset data is incomplete' }));
     if (type === 'account') {
       const item = await manager.getRepository(FinancialAccount).findOne({
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('الحساب غير موجود');
+      if (!item) throw new NotFoundException(msg({ ar: 'الحساب غير موجود', en: 'Account not found' }));
       return {
         balance: item.balance,
         save: async (balance) => {
@@ -72,7 +73,7 @@ export class LedgerService {
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('المحفظة غير موجودة');
+      if (!item) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }));
       return {
         balance: item.balance,
         save: async (balance) => {
@@ -86,7 +87,7 @@ export class LedgerService {
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('الماكينة غير موجودة');
+      if (!item) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة', en: 'Machine not found' }));
       return {
         balance: item.loadedBalance - item.usedBalance,
         save: async (balance) => {
@@ -95,20 +96,20 @@ export class LedgerService {
         },
       };
     }
-    throw new BadRequestException('نوع الأصل غير مدعوم');
+    throw new BadRequestException(msg({ ar: 'نوع الأصل غير مدعوم', en: 'Unsupported asset type' }));
   }
 
   private async reverseTopUp(manager: EntityManager, entry: LedgerEntry) {
-    if (!entry.entityId) throw new BadRequestException('بيانات الشحن ناقصة');
+    if (!entry.entityId) throw new BadRequestException(msg({ ar: 'بيانات الشحن ناقصة', en: 'Top-up data is incomplete' }));
     if (entry.entityType === 'account') {
       const account = await manager.getRepository(FinancialAccount).findOne({
         where: { id: entry.entityId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!account) throw new NotFoundException('الحساب غير موجود');
+      if (!account) throw new NotFoundException(msg({ ar: 'الحساب غير موجود', en: 'Account not found' }));
       if (account.balance < entry.amount || account.todayTopUp < entry.amount) {
         throw new BadRequestException(
-          'لا يمكن عكس الشحن بعد استخدام الرصيد أو بعد إقفال يومه',
+          msg({ ar: 'لا يمكن عكس الشحن بعد استخدام الرصيد أو بعد إقفال يومه', en: 'Cannot reverse top-up after balance was used or its day was closed' }),
         );
       }
       account.balance -= entry.amount;
@@ -121,7 +122,7 @@ export class LedgerService {
         where: { id: entry.entityId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!wallet) throw new NotFoundException('المحفظة غير موجودة');
+      if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }));
       if (
         wallet.balance < entry.amount ||
         wallet.todayTopUp < entry.amount ||
@@ -129,7 +130,7 @@ export class LedgerService {
         wallet.monthlyTopUp < entry.amount
       ) {
         throw new BadRequestException(
-          'لا يمكن عكس الشحن بعد استخدام الرصيد أو تغيير عدادات الفترة',
+          msg({ ar: 'لا يمكن عكس الشحن بعد استخدام الرصيد أو تغيير عدادات الفترة', en: 'Cannot reverse top-up after balance was used or period counters changed' }),
         );
       }
       wallet.balance -= entry.amount;
@@ -144,17 +145,17 @@ export class LedgerService {
         where: { id: entry.entityId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+      if (!machine) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة', en: 'Machine not found' }));
       if (machine.loadedBalance - machine.usedBalance < entry.amount) {
         throw new BadRequestException(
-          'الرصيد المشحون تم استخدامه ولا يمكن عكسه',
+          msg({ ar: 'الرصيد المشحون تم استخدامه ولا يمكن عكسه', en: 'Topped-up balance was used and cannot be reversed' }),
         );
       }
       machine.loadedBalance -= entry.amount;
       await manager.save(machine);
       return;
     }
-    throw new BadRequestException('نوع الشحن غير قابل للعكس');
+    throw new BadRequestException(msg({ ar: 'نوع الشحن غير قابل للعكس', en: 'This top-up type cannot be reversed' }));
   }
 
   private async reverseTransfer(manager: EntityManager, entry: LedgerEntry) {
@@ -174,7 +175,7 @@ export class LedgerService {
     const source = assets.get(sourceKey)!;
     const target = assets.get(targetKey)!;
     if (target.balance < entry.amount) {
-      throw new BadRequestException('رصيد وجهة التحويل لا يكفي لعكسه');
+      throw new BadRequestException(msg({ ar: 'رصيد وجهة التحويل لا يكفي لعكسه', en: 'Destination balance is insufficient to reverse the transfer' }));
     }
     await target.save(target.balance - entry.amount);
     await source.save(source.balance + entry.amount);
@@ -184,15 +185,15 @@ export class LedgerService {
     manager: EntityManager,
     entry: LedgerEntry,
   ) {
-    if (!entry.entityId) throw new BadRequestException('بيانات العملية ناقصة');
+    if (!entry.entityId) throw new BadRequestException(msg({ ar: 'بيانات العملية ناقصة', en: 'Operation data is incomplete' }));
     const machine = await manager.getRepository(Machine).findOne({
       where: { id: entry.entityId },
       lock: { mode: 'pessimistic_write' },
     });
-    if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+    if (!machine) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة', en: 'Machine not found' }));
     if (!Object.hasOwn(entry.metadata ?? {}, 'commission')) {
       throw new BadRequestException(
-        'هذه حركة قديمة بلا تفاصيل عمولة؛ استخدم تسوية رصيد موثقة بدل عكسها آليًا',
+        msg({ ar: 'هذه حركة قديمة بلا تفاصيل عمولة؛ استخدم تسوية رصيد موثقة بدل عكسها آليًا', en: 'This is a legacy entry without commission details; use a documented balance reconciliation instead of automatic reversal' }),
       );
     }
     const commission = Number(entry.metadata?.commission ?? 0);
@@ -200,7 +201,7 @@ export class LedgerService {
       machine.usedBalance < entry.amount ||
       machine.commissionBalance < commission
     ) {
-      throw new BadRequestException('أرصدة الماكينة الحالية لا تسمح بالعكس');
+      throw new BadRequestException(msg({ ar: 'أرصدة الماكينة الحالية لا تسمح بالعكس', en: 'Current machine balances do not allow reversal' }));
     }
     machine.usedBalance -= entry.amount;
     machine.commissionBalance -= commission;
@@ -208,18 +209,18 @@ export class LedgerService {
   }
 
   private async reverseWalletUsage(manager: EntityManager, entry: LedgerEntry) {
-    if (!entry.entityId) throw new BadRequestException('بيانات العملية ناقصة');
+    if (!entry.entityId) throw new BadRequestException(msg({ ar: 'بيانات العملية ناقصة', en: 'Operation data is incomplete' }));
     const wallet = await manager.getRepository(Wallet).findOne({
       where: { id: entry.entityId },
       lock: { mode: 'pessimistic_write' },
     });
-    if (!wallet) throw new NotFoundException('المحفظة غير موجودة');
+    if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }));
     if (!Object.hasOwn(entry.metadata ?? {}, 'commission')) {
-      throw new BadRequestException('بيانات عمولة العملية غير مكتملة');
+      throw new BadRequestException(msg({ ar: 'بيانات عمولة العملية غير مكتملة', en: 'Operation commission data is incomplete' }));
     }
     const commission = Number(entry.metadata?.commission ?? 0);
     if (wallet.commissionBalance < commission) {
-      throw new BadRequestException('رصيد العمولات الحالي لا يسمح بالعكس');
+      throw new BadRequestException(msg({ ar: 'رصيد العمولات الحالي لا يسمح بالعكس', en: 'Current commission balance does not allow reversal' }));
     }
     wallet.balance = Number(wallet.balance) + Number(entry.amount);
     wallet.commissionBalance = Number(wallet.commissionBalance) - commission;
@@ -233,12 +234,12 @@ export class LedgerService {
     const expected = Number(entry.metadata?.expectedBalance);
     const counted = Number(entry.metadata?.countedBalance);
     if (!Number.isFinite(expected) || !Number.isFinite(counted)) {
-      throw new BadRequestException('بيانات التسوية غير مكتملة');
+      throw new BadRequestException(msg({ ar: 'بيانات التسوية غير مكتملة', en: 'Reconciliation data is incomplete' }));
     }
     const item = await this.asset(manager, entry.entityType, entry.entityId);
     if (Math.abs(item.balance - counted) > 0.001) {
       throw new BadRequestException(
-        'تغير الرصيد بعد التسوية؛ اعمل تسوية جديدة بدل عكس السجل القديم',
+        msg({ ar: 'تغير الرصيد بعد التسوية؛ اعمل تسوية جديدة بدل عكس السجل القديم', en: 'Balance changed after reconciliation; create a new reconciliation instead of reversing the old record' }),
       );
     }
     await item.save(expected);
@@ -251,12 +252,12 @@ export class LedgerService {
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!entry) throw new NotFoundException('الحركة غير موجودة');
+      if (!entry) throw new NotFoundException(msg({ ar: 'الحركة غير موجودة', en: 'Ledger entry not found' }));
       if (entry.category === LedgerCategory.REVERSAL) {
-        throw new BadRequestException('لا يمكن عكس حركة عكسية');
+        throw new BadRequestException(msg({ ar: 'لا يمكن عكس حركة عكسية', en: 'Cannot reverse a reversal entry' }));
       }
       if (await repo.exists({ where: { reversesEntryId: entry.id } })) {
-        throw new BadRequestException('تم عكس الحركة بالفعل');
+        throw new BadRequestException(msg({ ar: 'تم عكس الحركة بالفعل', en: 'Entry already reversed' }));
       }
 
       if (entry.category === LedgerCategory.TOP_UP) {
@@ -271,7 +272,7 @@ export class LedgerService {
         await this.reverseReconciliation(manager, entry);
       } else {
         throw new BadRequestException(
-          'هذه الحركة تُعكس من شاشة العملية الأصلية حفاظًا على ترابط القيود',
+          msg({ ar: 'هذه الحركة تُعكس من شاشة العملية الأصلية حفاظًا على ترابط القيود', en: 'Reverse this entry from the original operation screen to keep ledger links intact' }),
         );
       }
 

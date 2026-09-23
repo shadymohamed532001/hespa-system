@@ -12,6 +12,7 @@ import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
 import 'receive_collection_dialog.dart';
+import '../../core/settings/tr.dart';
 
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({super.key, required this.session});
@@ -52,7 +53,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
       title: 'التحصيل والمعلّقات',
       subtitle: 'استلام المندوب يمكن تنفيذه فورًا أو حفظه كمعلّق',
       actions: [
-        FilledButton(onPressed: _receive, child: const Text('استلام من مندوب')),
+        FilledButton(onPressed: _receive, child: Text(tr(ar: 'استلام من مندوب', en: 'Receive from agent'))),
       ],
       child: loading
           ? const Center(
@@ -79,7 +80,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
     );
     if (saved) {
       await load();
-      if (mounted) showAppSnack(context, 'تم تسجيل التحصيل');
+      if (mounted) showAppSnack(context, tr(ar: 'تم تسجيل التحصيل', en: 'Collection recorded'));
     }
   }
 
@@ -118,9 +119,9 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   onChanged: (v) => setLocal(() => accountId = v!),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'العمولة',
+                label: tr(ar: 'العمولة', en: 'Commission'),
                 child: TextField(
                   controller: commission,
                   keyboardType: TextInputType.number,
@@ -160,12 +161,12 @@ class _CollectionsPageState extends State<CollectionsPage> {
         title: 'عكس التحصيل ${collection['reference']}',
         subtitle: 'سيتم عكس أثر الخزنة والحساب والعمولة كوحدة واحدة.',
         actions: HesbaModalActions(
-          primaryLabel: 'تأكيد العكس',
+          primaryLabel: tr(ar: 'تأكيد العكس', en: 'Confirm reversal'),
           onPrimary: () => Navigator.pop(ctx, true),
           onCancel: () => Navigator.pop(ctx, false),
         ),
         child: HesbaModalField(
-          label: 'سبب العكس *',
+          label: tr(ar: 'سبب العكس *', en: 'Reversal reason *'),
           child: TextField(
             controller: reason,
             minLines: 2,
@@ -230,7 +231,7 @@ class _CollectionsTable extends StatelessWidget {
                 columnSpacing: 22,
                 dataRowMinHeight: 58,
                 dataRowMaxHeight: 64,
-                columns: const [
+                columns: [
                   DataColumn(
                     label: Text('الرقم', style: HesbaText.tableHeader),
                   ),
@@ -241,7 +242,7 @@ class _CollectionsTable extends StatelessWidget {
                     label: Text('الشركة', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('المبلغ', style: HesbaText.tableHeader),
+                    label: Text(tr(ar: 'المبلغ', en: 'Amount'), style: HesbaText.tableHeader),
                   ),
                   DataColumn(
                     label: Text(
@@ -253,7 +254,7 @@ class _CollectionsTable extends StatelessWidget {
                     label: Text('طريقة التنفيذ', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('الحالة', style: HesbaText.tableHeader),
+                    label: Text(tr(ar: 'الحالة', en: 'Status'), style: HesbaText.tableHeader),
                   ),
                   DataColumn(
                     label: Text(
@@ -268,7 +269,7 @@ class _CollectionsTable extends StatelessWidget {
                     ),
                   ),
                   DataColumn(
-                    label: Text('العمولة', style: HesbaText.tableHeader),
+                    label: Text(tr(ar: 'العمولة', en: 'Commission'), style: HesbaText.tableHeader),
                   ),
                   DataColumn(label: Text('', style: HesbaText.tableHeader)),
                 ],
@@ -306,8 +307,8 @@ class _CollectionsTable extends StatelessWidget {
                           e['status'] == 'pending'
                               ? const SoftBadge.pending()
                               : e['status'] == 'reversed'
-                              ? const Text(
-                                  'معكوسة',
+                              ? Text(
+                                  tr(ar: 'معكوسة', en: 'Reversed'),
                                   style: TextStyle(color: Colors.red),
                                 )
                               : const SoftBadge.done(),
@@ -345,11 +346,11 @@ class _CollectionsTable extends StatelessWidget {
                                   child: const Text('تنفيذ'),
                                 ),
                               if (canReverse && e['status'] != 'reversed') ...[
-                                const SizedBox(width: 6),
+                                SizedBox(width: 6),
                                 TextButton(
                                   onPressed: () =>
                                       onReverse(e as Map<String, dynamic>),
-                                  child: const Text('عكس'),
+                                  child: Text(tr(ar: 'عكس', en: 'Reverse')),
                                 ),
                               ],
                               if (e['status'] != 'pending' &&

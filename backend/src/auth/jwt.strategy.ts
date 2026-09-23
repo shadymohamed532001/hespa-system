@@ -4,6 +4,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserRole } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
+import { msg } from '../common/i18n/locale-context.js';
 
 type JwtPayload = {
   sub: string;
@@ -30,7 +31,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   async validate(payload: JwtPayload) {
     const user = await this.users.findActiveById(payload.sub).catch(() => null);
     if (!user || Number(user.tokenVersion ?? 0) !== Number(payload.ver ?? -1)) {
-      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+      throw new UnauthorizedException(
+        msg({
+          ar: 'انتهت الجلسة، سجل الدخول مرة أخرى',
+          en: 'Session expired, please sign in again',
+        }),
+      );
     }
     return { userId: user.id, username: user.username, role: user.role };
   }

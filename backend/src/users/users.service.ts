@@ -6,6 +6,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { hash } from 'bcryptjs';
 import { Repository } from 'typeorm';
@@ -87,24 +88,24 @@ export class UsersService implements OnModuleInit {
 
   async findById(id: string) {
     const user = await this.users.findOne({ where: { id } });
-    if (!user) throw new NotFoundException('المستخدم غير موجود');
+    if (!user) throw new NotFoundException(msg({ ar: 'المستخدم غير موجود', en: 'User not found' }));
     return user;
   }
 
   async findActiveById(id: string) {
     const user = await this.users.findOne({ where: { id, active: true } });
-    if (!user) throw new NotFoundException('المستخدم غير موجود أو غير نشط');
+    if (!user) throw new NotFoundException(msg({ ar: 'المستخدم غير موجود أو غير نشط', en: 'User not found or inactive' }));
     return user;
   }
 
   async create(dto: CreateUserDto) {
     const username = dto.username.trim().toLowerCase();
     if (await this.users.exists({ where: { username } })) {
-      throw new ConflictException('اسم المستخدم مستخدم بالفعل');
+      throw new ConflictException(msg({ ar: 'اسم المستخدم مستخدم بالفعل', en: 'Username is already taken' }));
     }
     const role = dto.role ?? UserRole.EMPLOYEE;
     if (role === UserRole.ADMIN) {
-      throw new BadRequestException('لا يمكن إنشاء أدمن إضافي من هذه الواجهة');
+      throw new BadRequestException(msg({ ar: 'لا يمكن إنشاء أدمن إضافي من هذه الواجهة', en: 'Cannot create an additional admin from this screen' }));
     }
     const user = this.users.create({
       username,
@@ -134,7 +135,7 @@ export class UsersService implements OnModuleInit {
       user.id !== actorId &&
       actorRole !== UserRole.ADMIN
     ) {
-      throw new ForbiddenException('لا يمكن لغير الأدمن تعديل حساب أدمن');
+      throw new ForbiddenException(msg({ ar: 'لا يمكن لغير الأدمن تعديل حساب أدمن', en: 'Only an admin can edit an admin account' }));
     }
     if (dto.displayName != null) user.displayName = dto.displayName.trim();
     if (dto.password) {
@@ -143,13 +144,13 @@ export class UsersService implements OnModuleInit {
     }
     if (dto.role != null && dto.role !== user.role) {
       if (dto.role === UserRole.ADMIN) {
-        throw new BadRequestException('لا يمكن ترقية المستخدم إلى أدمن');
+        throw new BadRequestException(msg({ ar: 'لا يمكن ترقية المستخدم إلى أدمن', en: 'Cannot promote the user to admin' }));
       }
       if (user.id === actorId) {
-        throw new BadRequestException('لا يمكنك تغيير دور حسابك الحالي');
+        throw new BadRequestException(msg({ ar: 'لا يمكنك تغيير دور حسابك الحالي', en: 'You cannot change your own account role' }));
       }
       if (actorRole !== UserRole.ADMIN) {
-        throw new ForbiddenException('تغيير دور الحساب متاح للأدمن فقط');
+        throw new ForbiddenException(msg({ ar: 'تغيير دور الحساب متاح للأدمن فقط', en: 'Changing account role is available to admins only' }));
       }
       if (user.role === UserRole.ADMIN && user.active) {
         await this.assertAnotherActiveAdmin(user.id);
@@ -170,11 +171,11 @@ export class UsersService implements OnModuleInit {
     }
     if (dto.active != null) {
       if (user.id === actorId && dto.active === false) {
-        throw new BadRequestException('لا يمكنك تعطيل حسابك الحالي');
+        throw new BadRequestException(msg({ ar: 'لا يمكنك تعطيل حسابك الحالي', en: 'You cannot deactivate your own account' }));
       }
       if (user.role === UserRole.ADMIN && dto.active === false) {
         if (actorRole !== UserRole.ADMIN) {
-          throw new ForbiddenException('لا يمكن لغير الأدمن تعطيل حساب أدمن');
+          throw new ForbiddenException(msg({ ar: 'لا يمكن لغير الأدمن تعطيل حساب أدمن', en: 'Only an admin can deactivate an admin account' }));
         }
         await this.assertAnotherActiveAdmin(user.id);
       }
@@ -196,10 +197,10 @@ export class UsersService implements OnModuleInit {
 
   async remove(id: string, actorId: string, actorRole: UserRole) {
     if (actorRole !== UserRole.ADMIN) {
-      throw new ForbiddenException('حذف الحسابات متاح للأدمن فقط');
+      throw new ForbiddenException(msg({ ar: 'حذف الحسابات متاح للأدمن فقط', en: 'Deleting accounts is available to admins only' }));
     }
     if (id === actorId) {
-      throw new BadRequestException('لا يمكنك حذف حسابك الحالي');
+      throw new BadRequestException(msg({ ar: 'لا يمكنك حذف حسابك الحالي', en: 'You cannot delete your own account' }));
     }
 
     const user = await this.findById(id);
@@ -236,10 +237,10 @@ export class UsersService implements OnModuleInit {
     if (cap == null) return;
     if (Number(amount) > Number(cap)) {
       const labels: Record<keyof UserLimits, string> = {
-        maxReceiveAmount: 'استلام/تحصيل',
-        maxTopUpAmount: 'الشحن',
-        maxSaleAmount: 'البيع',
-        maxTransferAmount: 'التحويل',
+        maxReceiveAmount: msg({ ar: 'استلام/تحصيل', en: 'Receive / collection' }),
+        maxTopUpAmount: msg({ ar: 'الشحن', en: 'Top-up' }),
+        maxSaleAmount: msg({ ar: 'البيع', en: 'Sale' }),
+        maxTransferAmount: msg({ ar: 'التحويل', en: 'Transfer' }),
       };
       throw new ForbiddenException(
         `تجاوزت الحد المسموح لعملية ${labels[key]} (${cap})`,
@@ -326,7 +327,12 @@ export class UsersService implements OnModuleInit {
     });
     const remaining = activeAdmins - (excluded?.active ? 1 : 0);
     if (remaining < 1) {
-      throw new BadRequestException('لا يمكن تعطيل أو حذف آخر حساب أدمن نشط');
+      throw new BadRequestException(
+        msg({
+          ar: 'لا يمكن تعطيل أو حذف آخر حساب أدمن نشط',
+          en: 'Cannot deactivate or delete the last active admin account',
+        }),
+      );
     }
   }
 

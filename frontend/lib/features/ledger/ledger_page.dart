@@ -9,6 +9,7 @@ import '../../core/widgets/error_box.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/app_snack.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class LedgerPage extends StatelessWidget {
   const LedgerPage({super.key, required this.session});
@@ -16,16 +17,16 @@ class LedgerPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _AsyncListFrame(
     session: session,
-    title: 'سجل العمليات',
-    subtitle: 'سجل مركزي غير مختلط بين أصل المبالغ والعمولات',
+    title: tr(ar: 'سجل العمليات', en: 'Ledger'),
+    subtitle: tr(ar: 'سجل مركزي غير مختلط بين أصل المبالغ والعمولات', en: 'Central ledger separating principal amounts from commissions'),
     endpoint: ApiEndpoints.ledgerList(limit: 200),
-    columns: const [
-      'التاريخ والوقت',
-      'النوع',
-      'الوصف',
-      'المبلغ',
-      'المرجع',
-      'المستخدم',
+    columns: [
+      tr(ar: 'التاريخ والوقت', en: 'Date & time'),
+      tr(ar: 'النوع', en: 'Type'),
+      tr(ar: 'الوصف', en: 'Description'),
+      tr(ar: 'المبلغ', en: 'Amount'),
+      tr(ar: 'المرجع', en: 'Reference'),
+      tr(ar: 'المستخدم', en: 'User'),
     ],
     allowReversal: session.can(AppPermissions.reverseOperations),
     rowBuilder: (e) => [
@@ -111,14 +112,14 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('إلغاء'),
+            child: Text(tr(ar: 'إلغاء', en: 'Cancel')),
           ),
           FilledButton(
             onPressed: () {
               final text = reason.text.trim();
               if (text.length >= 3) Navigator.pop(context, text);
             },
-            child: const Text('تأكيد العكس'),
+            child: Text(tr(ar: 'تأكيد العكس', en: 'Confirm reversal')),
           ),
         ],
       ),
@@ -157,7 +158,7 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
                   .whereType<String>()
                   .toSet();
               return DataCard(
-                columns: [...widget.columns, if (widget.allowReversal) 'إجراء'],
+                columns: [...widget.columns, if (widget.allowReversal) tr(ar: 'إجراء', en: 'Action')],
                 rows: data.map((raw) {
                   final entry = raw as Map<String, dynamic>;
                   return <Object>[
@@ -166,7 +167,7 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
                       _canReverse(entry, reversedIds)
                           ? TextButton(
                               onPressed: () => _reverse(entry),
-                              child: const Text('عكس'),
+                              child: Text(tr(ar: 'عكس', en: 'Reverse')),
                             )
                           : const Text('—'),
                   ];
@@ -179,15 +180,15 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
 
 String _category(String value) =>
     {
-      'opening_balance': 'رصيد افتتاحي',
+      'opening_balance': tr(ar: 'رصيد افتتاحي', en: 'Opening balance'),
       'top_up': 'شحن',
-      'internal_transfer': 'تحويل داخلي',
+      'internal_transfer': tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
       'cash_receipt': 'استلام كاش',
       'company_execution': 'تنفيذ شركة',
-      'commission': 'عمولة',
-      'machine_usage': 'استخدام ماكينة',
-      'wallet_usage': 'استخدام محفظة',
-      'daily_rollover': 'ترحيل يومي',
+      'commission': tr(ar: 'عمولة', en: 'Commission'),
+      'machine_usage': tr(ar: 'استخدام ماكينة', en: 'Machine usage'),
+      'wallet_usage': tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
+      'daily_rollover': tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
       'reversal': 'عكس عملية',
       'reconciliation': 'تسوية رصيد',
     }[value] ??

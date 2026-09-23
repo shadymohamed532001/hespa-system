@@ -4,6 +4,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
@@ -59,7 +60,7 @@ export class AccountsService implements OnModuleInit {
       dto.openingBalance > FAWRY_MAX_BALANCE
     ) {
       throw new BadRequestException(
-        'الرصيد الافتتاحي يتجاوز الحد الأقصى لحساب فوري',
+        msg({ ar: 'الرصيد الافتتاحي يتجاوز الحد الأقصى لحساب فوري', en: 'Opening balance exceeds the Fawry account maximum' }),
       );
     }
     return this.dataSource.transaction(async (manager) => {
@@ -94,13 +95,13 @@ export class AccountsService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!account) throw new NotFoundException('الحساب غير موجود أو موقوف');
+      if (!account) throw new NotFoundException(msg({ ar: 'الحساب غير موجود أو موقوف', en: 'Account not found or inactive' }));
       if (
         account.type === AccountType.FAWRY &&
         account.balance + dto.amount > FAWRY_MAX_BALANCE
       ) {
         throw new BadRequestException({
-          message: 'سيتم تجاوز الحد الأقصى لحساب فوري',
+          message: msg({ ar: 'سيتم تجاوز الحد الأقصى لحساب فوري', en: 'This would exceed the Fawry account maximum' }),
           limit: FAWRY_MAX_BALANCE,
           available: Math.max(0, FAWRY_MAX_BALANCE - account.balance),
         });
@@ -123,14 +124,14 @@ export class AccountsService implements OnModuleInit {
 
   async setActive(id: string, active: boolean) {
     const account = await this.accounts.findOne({ where: { id } });
-    if (!account) throw new NotFoundException('الحساب غير موجود');
+    if (!account) throw new NotFoundException(msg({ ar: 'الحساب غير موجود', en: 'Account not found' }));
     account.active = active;
     return this.accounts.save(account);
   }
 
   async remove(id: string, username: string) {
     const account = await this.accounts.findOne({ where: { id } });
-    if (!account) throw new NotFoundException('الحساب غير موجود');
+    if (!account) throw new NotFoundException(msg({ ar: 'الحساب غير موجود', en: 'Account not found' }));
 
     const history = await this.ledger.count({
       where: { entityType: 'account', entityId: id },
@@ -142,7 +143,7 @@ export class AccountsService implements OnModuleInit {
       history > 0
     ) {
       throw new BadRequestException(
-        'لا يمكن الحذف النهائي إلا إذا كان الرصيد والعمولة صفرًا ولا توجد أي حركات مرتبطة بالحساب',
+        msg({ ar: 'لا يمكن الحذف النهائي إلا إذا كان الرصيد والعمولة صفرًا ولا توجد أي حركات مرتبطة بالحساب', en: 'Permanent delete is only allowed when balance and commission are zero and the account has no related movements' }),
       );
     }
 

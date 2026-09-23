@@ -90,7 +90,11 @@ describe('financial operations (e2e)', () => {
 
     const login = await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send({ username: 'e2e-admin', password: 'e2e-password-123' })
+      .send({
+        username: 'e2e-admin',
+        password: 'e2e-password-123',
+        portal: 'admin',
+      })
       .expect(201);
     token = login.body.accessToken as string;
     expect(login.body.refreshToken).toEqual(expect.any(String));

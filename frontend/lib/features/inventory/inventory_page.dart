@@ -11,6 +11,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class InventoryPage extends StatefulWidget {
   const InventoryPage({super.key, required this.session});
@@ -67,7 +68,7 @@ class _InventoryPageState extends State<InventoryPage> {
               OutlinedButton.icon(
                 onPressed: _addProduct,
                 icon: const Icon(Icons.add, size: 18),
-                label: const Text('إضافة صنف'),
+                label: Text(tr(ar: 'إضافة صنف', en: 'Add item')),
               ),
             ]
           : const [],
@@ -109,15 +110,15 @@ class _InventoryPageState extends State<InventoryPage> {
                         MetricCard(
                           label: 'بالمخزن الآن',
                           value: '${summary['stockUnits'] ?? 0}',
-                          note: 'إجمالي القطع المتبقية',
+                          note: tr(ar: 'إجمالي القطع المتبقية', en: 'Total remaining units'),
                         ),
                         MetricCard(
-                          label: 'إجمالي المباع',
+                          label: tr(ar: 'إجمالي المباع', en: 'Total sold'),
                           value: '${summary['soldUnits'] ?? 0}',
                           note: 'كل المبيعات المسجّلة',
                         ),
                         MetricCard(
-                          label: 'مجمل الربح',
+                          label: tr(ar: 'مجمل الربح', en: 'Gross profit'),
                           value: money(summary['grossProfit']),
                           note: 'المبيعات غير المعكوسة بعد تكلفة الشراء',
                         ),
@@ -165,10 +166,10 @@ class _InventoryPageState extends State<InventoryPage> {
       maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'إضافة صنف للمخزن',
+          title: tr(ar: 'إضافة صنف للمخزن', en: 'Add item to inventory'),
           subtitle: 'موبايل، إكسسوار، جراب، شاشة أو غيرها.',
           actions: HesbaModalActions(
-            primaryLabel: 'إضافة',
+            primaryLabel: tr(ar: 'إضافة', en: 'Add'),
             onPrimary: () => Navigator.pop(ctx, true),
             onCancel: () => Navigator.pop(ctx, false),
           ),
@@ -181,21 +182,21 @@ class _InventoryPageState extends State<InventoryPage> {
                   decoration: const InputDecoration(),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'النوع *',
+                label: tr(ar: 'النوع *', en: 'Type *'),
                 child: DropdownButtonFormField<String>(
                   initialValue: category,
                   decoration: const InputDecoration(),
-                  items: const [
-                    DropdownMenuItem(value: 'mobile', child: Text('موبايل')),
+                  items: [
+                    DropdownMenuItem(value: 'mobile', child: Text(tr(ar: 'موبايل', en: 'Mobile'))),
                     DropdownMenuItem(
                       value: 'accessory',
-                      child: Text('إكسسوار'),
+                      child: Text(tr(ar: 'إكسسوار', en: 'Accessory')),
                     ),
-                    DropdownMenuItem(value: 'case', child: Text('جراب')),
-                    DropdownMenuItem(value: 'screen', child: Text('شاشة')),
-                    DropdownMenuItem(value: 'other', child: Text('أخرى')),
+                    DropdownMenuItem(value: 'case', child: Text(tr(ar: 'جراب', en: 'Case'))),
+                    DropdownMenuItem(value: 'screen', child: Text(tr(ar: 'شاشة', en: 'Screen'))),
+                    DropdownMenuItem(value: 'other', child: Text(tr(ar: 'أخرى', en: 'Other'))),
                   ],
                   onChanged: (v) => setLocal(() => category = v!),
                 ),
@@ -261,7 +262,7 @@ class _InventoryPageState extends State<InventoryPage> {
       maxWidth: 460,
       builder: (ctx) => HesbaModalCard(
         title: 'توريد مخزون — ${product['name']}',
-        subtitle: 'أضف كمية جديدة إلى المخزن.',
+        subtitle: tr(ar: 'أضف كمية جديدة إلى المخزن.', en: 'Add a new quantity to inventory.'),
         actions: HesbaModalActions(
           primaryLabel: 'تأكيد التوريد',
           onPrimary: () => Navigator.pop(ctx, true),
@@ -404,12 +405,12 @@ class _InventoryPageState extends State<InventoryPage> {
         title: 'عكس بيع — ${sale['productName']}',
         subtitle: 'سيعود المخزون ويُخصم المبلغ من خزنة المخزن.',
         actions: HesbaModalActions(
-          primaryLabel: 'تأكيد العكس',
+          primaryLabel: tr(ar: 'تأكيد العكس', en: 'Confirm reversal'),
           onPrimary: () => Navigator.pop(ctx, true),
           onCancel: () => Navigator.pop(ctx, false),
         ),
         child: HesbaModalField(
-          label: 'سبب العكس *',
+          label: tr(ar: 'سبب العكس *', en: 'Reversal reason *'),
           child: TextField(
             controller: reason,
             minLines: 2,
@@ -494,12 +495,12 @@ class _ProductsCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(22, 18, 22, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('أصناف المخزن', style: HesbaText.sectionTitle),
+                Text(tr(ar: 'أصناف المخزن', en: 'Inventory items'), style: HesbaText.sectionTitle),
                 SizedBox(height: 4),
                 Text(
                   'بالمخزن · المباع · المتبقي · وسعر البيع',
@@ -534,12 +535,12 @@ class _ProductsCard extends StatelessWidget {
                       columnSpacing: 24,
                       dataRowMinHeight: 58,
                       dataRowMaxHeight: 64,
-                      columns: const [
+                      columns: [
                         DataColumn(
-                          label: Text('الصنف', style: HesbaText.tableHeader),
+                          label: Text(tr(ar: 'الصنف', en: 'Item'), style: HesbaText.tableHeader),
                         ),
                         DataColumn(
-                          label: Text('النوع', style: HesbaText.tableHeader),
+                          label: Text(tr(ar: 'النوع', en: 'Type'), style: HesbaText.tableHeader),
                         ),
                         DataColumn(
                           label: Text('بالمخزن', style: HesbaText.tableHeader),
@@ -560,7 +561,7 @@ class _ProductsCard extends StatelessWidget {
                           ),
                         ),
                         DataColumn(
-                          label: Text('إجراء', style: HesbaText.tableHeader),
+                          label: Text(tr(ar: 'إجراء', en: 'Action'), style: HesbaText.tableHeader),
                         ),
                       ],
                       rows: [
@@ -690,12 +691,12 @@ class _SalesCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(22, 18, 22, 8),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('آخر المبيعات', style: HesbaText.sectionTitle),
+                Text(tr(ar: 'آخر المبيعات', en: 'Latest sales'), style: HesbaText.sectionTitle),
                 SizedBox(height: 4),
                 Text(
                   'الكمية والسعر والمبلغ الداخل لخزنة المخزن',
@@ -730,15 +731,15 @@ class _SalesCard extends StatelessWidget {
                       columnSpacing: 24,
                       dataRowMinHeight: 54,
                       dataRowMaxHeight: 58,
-                      columns: const [
+                      columns: [
                         DataColumn(
                           label: Text(
-                            'التاريخ والوقت',
+                            tr(ar: 'التاريخ والوقت', en: 'Date & time'),
                             style: HesbaText.tableHeader,
                           ),
                         ),
                         DataColumn(
-                          label: Text('الصنف', style: HesbaText.tableHeader),
+                          label: Text(tr(ar: 'الصنف', en: 'Item'), style: HesbaText.tableHeader),
                         ),
                         DataColumn(
                           label: Text('الكمية', style: HesbaText.tableHeader),
@@ -754,7 +755,7 @@ class _SalesCard extends StatelessWidget {
                         ),
                         DataColumn(
                           label: Text(
-                            'مجمل الربح',
+                            tr(ar: 'مجمل الربح', en: 'Gross profit'),
                             style: HesbaText.tableHeader,
                           ),
                         ),
@@ -762,7 +763,7 @@ class _SalesCard extends StatelessWidget {
                           label: Text('بواسطة', style: HesbaText.tableHeader),
                         ),
                         DataColumn(
-                          label: Text('الحالة', style: HesbaText.tableHeader),
+                          label: Text(tr(ar: 'الحالة', en: 'Status'), style: HesbaText.tableHeader),
                         ),
                       ],
                       rows: [
@@ -817,8 +818,8 @@ class _SalesCard extends StatelessWidget {
                               ),
                               DataCell(
                                 e['reversedAt'] != null
-                                    ? const Text(
-                                        'معكوسة',
+                                    ? Text(
+                                        tr(ar: 'معكوسة', en: 'Reversed'),
                                         style: TextStyle(color: Colors.red),
                                       )
                                     : canReverse
@@ -846,9 +847,9 @@ class _SalesCard extends StatelessWidget {
 }
 
 String _categoryLabel(String category) => switch (category) {
-  'mobile' => 'موبايل',
-  'accessory' => 'إكسسوار',
-  'case' => 'جراب',
-  'screen' => 'شاشة',
-  _ => 'أخرى',
+  'mobile' => tr(ar: 'موبايل', en: 'Mobile'),
+  'accessory' => tr(ar: 'إكسسوار', en: 'Accessory'),
+  'case' => tr(ar: 'جراب', en: 'Case'),
+  'screen' => tr(ar: 'شاشة', en: 'Screen'),
+  _ => tr(ar: 'أخرى', en: 'Other'),
 };

@@ -1,15 +1,35 @@
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/settings/app_settings.dart';
+import '../../core/settings/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/hesba_modal.dart';
 import 'session_controller.dart';
 
+/// Which entrance the user chose before typing credentials.
+enum LoginPortal { admin, employee }
+
+extension LoginPortalApi on LoginPortal {
+  String get apiValue => this == LoginPortal.admin ? 'admin' : 'employee';
+
+  String title(AppStrings t) =>
+      this == LoginPortal.admin ? t.securityPortal : t.staffPortal;
+
+  String subtitle(AppStrings t) => this == LoginPortal.admin
+      ? t.securityPortalSubtitle
+      : t.staffPortalSubtitle;
+
+  String submitLabel(AppStrings t) =>
+      this == LoginPortal.admin ? t.securitySignIn : t.staffSignIn;
+}
+
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key, required this.session});
+  const LoginPage({super.key, required this.session, required this.settings});
 
   final SessionController session;
+  final AppSettings settings;
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -18,6 +38,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final username = TextEditingController();
   final password = TextEditingController();
+  LoginPortal? _portal;
   int _recoveryTapCount = 0;
   bool _recoveryVisible = false;
 
@@ -28,10 +49,40 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  Future<void> submit() => widget.session.login(username.text, password.text);
+  Future<void> submit() {
+    final portal = _portal;
+    if (portal == null) return Future.value();
+    return widget.session.login(
+      username.text,
+      password.text,
+      portal: portal.apiValue,
+    );
+  }
+
+  void _openPortal(LoginPortal portal) {
+    widget.session.clearError();
+    setState(() {
+      _portal = portal;
+      _recoveryTapCount = 0;
+      _recoveryVisible = false;
+      username.clear();
+      password.clear();
+    });
+  }
+
+  void _backToPortals() {
+    widget.session.clearError();
+    setState(() {
+      _portal = null;
+      _recoveryTapCount = 0;
+      _recoveryVisible = false;
+      username.clear();
+      password.clear();
+    });
+  }
 
   void _recordRecoveryTap() {
-    if (_recoveryVisible) return;
+    if (_portal != LoginPortal.admin || _recoveryVisible) return;
     _recoveryTapCount += 1;
     if (_recoveryTapCount < 5) return;
     setState(() => _recoveryVisible = true);
@@ -42,18 +93,24 @@ class _LoginPageState extends State<LoginPage> {
       context: context,
       maxWidth: 520,
       barrierDismissible: false,
-      builder: (context) => _AdminRecoveryDialog(api: widget.session.api),
+      builder: (context) => _AdminRecoveryDialog(
+        api: widget.session.api,
+        strings: AppStrings.of(widget.settings.locale),
+      ),
     );
     if (!mounted || createdUsername == null) return;
     username.text = createdUsername;
     password.clear();
-    showAppSnack(context, 'تم إنشاء المدير. يمكنك تسجيل الدخول الآن');
+    showAppSnack(context, AppStrings.of(widget.settings.locale).adminCreated);
   }
 
   @override
   Widget build(BuildContext context) {
+    final portal = _portal;
+    final t = AppStrings.of(widget.settings.locale);
+
     return Directionality(
-      textDirection: TextDirection.rtl,
+      textDirection: widget.settings.textDirection,
       child: Scaffold(
         body: Stack(
           fit: StackFit.expand,
@@ -97,13 +154,22 @@ class _LoginPageState extends State<LoginPage> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const _LoginHeader(),
-                            _LoginForm(
-                              session: widget.session,
-                              username: username,
-                              password: password,
-                              onSubmit: submit,
+                            _LoginHeader(
+                              portal: portal,
+                              strings: t,
+                              onBack: portal == null ? null : _backToPortals,
                             ),
+                            if (portal == null)
+                              _PortalChooser(strings: t, onChoose: _openPortal)
+                            else
+                              _LoginForm(
+                                session: widget.session,
+                                portal: portal,
+                                strings: t,
+                                username: username,
+                                password: password,
+                                onSubmit: submit,
+                              ),
                           ],
                         ),
                       ),
@@ -112,35 +178,36 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
-            Positioned(
-              left: 0,
-              bottom: 0,
-              child: SafeArea(
-                top: false,
-                right: false,
-                child: SizedBox(
-                  width: 72,
-                  height: 72,
-                  child: _recoveryVisible
-                      ? Center(
-                          child: Tooltip(
-                            message: 'استعادة حساب مدير',
-                            child: IconButton.filledTonal(
-                              onPressed: _openAdminRecovery,
-                              icon: const Icon(
-                                Icons.admin_panel_settings_outlined,
+            if (portal == LoginPortal.admin)
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: SafeArea(
+                  top: false,
+                  right: false,
+                  child: SizedBox(
+                    width: 72,
+                    height: 72,
+                    child: _recoveryVisible
+                        ? Center(
+                            child: Tooltip(
+                              message: t.recoverAdminTooltip,
+                              child: IconButton.filledTonal(
+                                onPressed: _openAdminRecovery,
+                                icon: const Icon(
+                                  Icons.admin_panel_settings_outlined,
+                                ),
                               ),
                             ),
+                          )
+                        : GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: _recordRecoveryTap,
+                            child: const SizedBox.expand(),
                           ),
-                        )
-                      : GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: _recordRecoveryTap,
-                          child: const SizedBox.expand(),
-                        ),
+                  ),
                 ),
               ),
-            ),
           ],
         ),
       ),
@@ -149,9 +216,10 @@ class _LoginPageState extends State<LoginPage> {
 }
 
 class _AdminRecoveryDialog extends StatefulWidget {
-  const _AdminRecoveryDialog({required this.api});
+  const _AdminRecoveryDialog({required this.api, required this.strings});
 
   final ApiClient api;
+  final AppStrings strings;
 
   @override
   State<_AdminRecoveryDialog> createState() => _AdminRecoveryDialogState();
@@ -177,19 +245,20 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
   }
 
   Future<void> _submit() async {
+    final t = widget.strings;
     final normalizedUsername = username.text.trim();
     final secret = recoveryKey.text;
     final newPassword = password.text;
     if (secret.isEmpty || normalizedUsername.isEmpty || newPassword.isEmpty) {
-      setState(() => error = 'كود الاستعادة واسم المستخدم وكلمة المرور مطلوبة');
+      setState(() => error = t.recoveryRequiredFields);
       return;
     }
     if (newPassword.length < 10) {
-      setState(() => error = 'كلمة المرور يجب ألا تقل عن 10 أحرف');
+      setState(() => error = t.passwordTooShort);
       return;
     }
     if (newPassword != passwordConfirmation.text) {
-      setState(() => error = 'كلمتا المرور غير متطابقتين');
+      setState(() => error = t.passwordsMismatch);
       return;
     }
 
@@ -210,7 +279,12 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
       Navigator.pop(context, normalizedUsername);
     } catch (exception) {
       if (!mounted) return;
-      setState(() => error = ApiClient.errorMessage(exception));
+      setState(
+        () => error = ApiClient.errorMessage(
+          exception,
+          locale: t.localeCode,
+        ),
+      );
     } finally {
       if (mounted) setState(() => busy = false);
     }
@@ -218,11 +292,12 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final t = widget.strings;
     return HesbaModalCard(
-      title: 'إنشاء مدير استعادة',
-      subtitle: 'سيحصل هذا الحساب على كل صلاحيات النظام',
+      title: t.recoverAdminTitle,
+      subtitle: t.recoverAdminSubtitle,
       actions: HesbaModalActions(
-        primaryLabel: busy ? 'جارٍ الإنشاء...' : 'إنشاء المدير',
+        primaryLabel: busy ? t.recoverAdminBusy : t.recoverAdminAction,
         primaryEnabled: !busy,
         cancelEnabled: !busy,
         onPrimary: _submit,
@@ -232,7 +307,7 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           HesbaModalField(
-            label: 'كود استعادة المدير *',
+            label: t.recoveryKey,
             child: _LoginTextField(
               controller: recoveryKey,
               obscureText: true,
@@ -241,7 +316,7 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
           ),
           const SizedBox(height: 15),
           HesbaModalField(
-            label: 'اسم المستخدم *',
+            label: t.usernameRequired,
             child: _LoginTextField(
               controller: username,
               textInputAction: TextInputAction.next,
@@ -249,7 +324,7 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
           ),
           const SizedBox(height: 15),
           HesbaModalField(
-            label: 'الاسم الظاهر',
+            label: t.displayName,
             child: _LoginTextField(
               controller: displayName,
               textInputAction: TextInputAction.next,
@@ -257,7 +332,7 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
           ),
           const SizedBox(height: 15),
           HesbaModalField(
-            label: 'كلمة المرور *',
+            label: t.passwordRequired,
             child: _LoginTextField(
               controller: password,
               obscureText: true,
@@ -266,7 +341,7 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
           ),
           const SizedBox(height: 15),
           HesbaModalField(
-            label: 'تأكيد كلمة المرور *',
+            label: t.passwordConfirm,
             child: _LoginTextField(
               controller: passwordConfirmation,
               obscureText: true,
@@ -295,29 +370,62 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
 }
 
 class _LoginHeader extends StatelessWidget {
-  const _LoginHeader();
+  const _LoginHeader({
+    required this.portal,
+    required this.strings,
+    this.onBack,
+  });
+
+  final LoginPortal? portal;
+  final AppStrings strings;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
+    final backOnStart = strings.isArabic
+        ? Alignment.centerLeft
+        : Alignment.centerRight;
+    final brandOnEnd = strings.isArabic
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
+
     return Container(
       width: double.infinity,
       height: 134,
       color: HesbaColors.navy,
-      padding: const EdgeInsets.symmetric(horizontal: 32),
-      alignment: Alignment.centerRight,
-      child: const Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Stack(
         children: [
-          Text('حِسبة', style: HesbaText.loginBrand),
-          SizedBox(height: 5),
-          Text(
-            'إدارة التحصيل والمدفوعات',
-            style: TextStyle(
-              fontFamily: HesbaText.family,
-              color: Color(0x99FFFFFF),
-              fontSize: 14,
-              fontWeight: FontWeight.w400,
+          if (onBack != null)
+            Align(
+              alignment: backOnStart,
+              child: IconButton(
+                onPressed: onBack,
+                tooltip: strings.backToPortals,
+                icon: Icon(
+                  strings.isArabic ? Icons.arrow_forward : Icons.arrow_back,
+                  color: Colors.white70,
+                ),
+              ),
+            ),
+          Align(
+            alignment: brandOnEnd,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(strings.brand, style: HesbaText.loginBrand),
+                const SizedBox(height: 5),
+                Text(
+                  portal?.title(strings) ?? strings.brandSub,
+                  style: const TextStyle(
+                    fontFamily: HesbaText.family,
+                    color: Color(0x99FFFFFF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -326,15 +434,148 @@ class _LoginHeader extends StatelessWidget {
   }
 }
 
+class _PortalChooser extends StatelessWidget {
+  const _PortalChooser({required this.strings, required this.onChoose});
+
+  final AppStrings strings;
+  final ValueChanged<LoginPortal> onChoose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(32, 30, 32, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(strings.choosePortalTitle, style: HesbaText.loginTitle),
+          const SizedBox(height: 5),
+          Text(strings.choosePortalSubtitle, style: HesbaText.bodyMuted),
+          const SizedBox(height: 24),
+          _PortalCard(
+            portal: LoginPortal.admin,
+            strings: strings,
+            icon: Icons.shield_outlined,
+            onTap: () => onChoose(LoginPortal.admin),
+          ),
+          const SizedBox(height: 14),
+          _PortalCard(
+            portal: LoginPortal.employee,
+            strings: strings,
+            icon: Icons.storefront_outlined,
+            onTap: () => onChoose(LoginPortal.employee),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PortalCard extends StatelessWidget {
+  const _PortalCard({
+    required this.portal,
+    required this.strings,
+    required this.icon,
+    required this.onTap,
+  });
+
+  final LoginPortal portal;
+  final AppStrings strings;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = portal == LoginPortal.admin;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(14),
+        child: Ink(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: isAdmin ? HesbaColors.navy : const Color(0xFFF7F9FA),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: isAdmin ? HesbaColors.navy : HesbaColors.border,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: isAdmin
+                      ? const Color(0x331F8C7E)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isAdmin
+                        ? const Color(0x44FFFFFF)
+                        : HesbaColors.border,
+                  ),
+                ),
+                child: Icon(
+                  icon,
+                  color: isAdmin ? Colors.white : HesbaColors.teal,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      portal.title(strings),
+                      style: TextStyle(
+                        fontFamily: HesbaText.family,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: isAdmin ? Colors.white : HesbaColors.ink,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      portal.subtitle(strings),
+                      style: TextStyle(
+                        fontFamily: HesbaText.family,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: isAdmin
+                            ? const Color(0xB3FFFFFF)
+                            : HesbaColors.muted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                strings.isArabic ? Icons.chevron_left : Icons.chevron_right,
+                color: isAdmin ? Colors.white70 : HesbaColors.muted,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _LoginForm extends StatelessWidget {
   const _LoginForm({
     required this.session,
+    required this.portal,
+    required this.strings,
     required this.username,
     required this.password,
     required this.onSubmit,
   });
 
   final SessionController session;
+  final LoginPortal portal;
+  final AppStrings strings;
   final TextEditingController username;
   final TextEditingController password;
   final VoidCallback onSubmit;
@@ -349,14 +590,11 @@ class _LoginForm extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('تسجيل الدخول', style: HesbaText.loginTitle),
+              Text(portal.title(strings), style: HesbaText.loginTitle),
               const SizedBox(height: 5),
-              const Text(
-                'أدخل اسم المستخدم وكلمة المرور للمتابعة.',
-                style: HesbaText.bodyMuted,
-              ),
+              Text(portal.subtitle(strings), style: HesbaText.bodyMuted),
               const SizedBox(height: 23),
-              const _FieldLabel('اسم المستخدم'),
+              _FieldLabel(strings.username),
               const SizedBox(height: 8),
               _LoginTextField(
                 controller: username,
@@ -365,7 +603,7 @@ class _LoginForm extends StatelessWidget {
                 autofillHints: const [AutofillHints.username],
               ),
               const SizedBox(height: 17),
-              const _FieldLabel('كلمة المرور'),
+              _FieldLabel(strings.password),
               const SizedBox(height: 8),
               _LoginTextField(
                 controller: password,
@@ -411,9 +649,9 @@ class _LoginForm extends StatelessWidget {
                             color: Colors.white,
                           ),
                         )
-                      : const Text(
-                          'دخول إلى النظام',
-                          style: TextStyle(
+                      : Text(
+                          portal.submitLabel(strings),
+                          style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
                           ),
@@ -421,7 +659,7 @@ class _LoginForm extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 19),
-              const _DemoAccounts(),
+              _DemoAccounts(portal: portal, strings: strings),
             ],
           );
         },
@@ -536,10 +774,15 @@ class _LoginTextFieldState extends State<_LoginTextField> {
 }
 
 class _DemoAccounts extends StatelessWidget {
-  const _DemoAccounts();
+  const _DemoAccounts({required this.portal, required this.strings});
+
+  final LoginPortal portal;
+  final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = portal == LoginPortal.admin;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(15),
@@ -547,37 +790,26 @@ class _DemoAccounts extends StatelessWidget {
         color: const Color(0xFFF7F9FA),
         borderRadius: BorderRadius.circular(11),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Align(
             alignment: Alignment.centerRight,
             child: Text(
-              'حسابات النسخة التجريبية',
-              style: TextStyle(
+              strings.demoAccounts,
+              style: const TextStyle(
                 color: HesbaColors.navy,
                 fontSize: 12,
                 fontWeight: FontWeight.w400,
               ),
             ),
           ),
-          SizedBox(height: 2),
+          const SizedBox(height: 2),
           Align(
             alignment: Alignment.centerRight,
             child: Text(
-              'الأدمن: demo / demo',
-              style: TextStyle(
-                color: HesbaColors.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              'موظف المحل: shix / shix',
-              style: TextStyle(
+              isAdmin ? strings.demoSecurityAccount : strings.demoStaffAccount,
+              style: const TextStyle(
                 color: HesbaColors.muted,
                 fontSize: 12,
                 fontWeight: FontWeight.w400,

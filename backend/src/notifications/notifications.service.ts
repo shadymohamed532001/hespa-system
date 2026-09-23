@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AppNotification } from '../database/entities/notification.entity.js';
 import { LedgerCategory, NotificationKind } from '../database/enums.js';
+import { msg } from '../common/i18n/locale-context.js';
 
 @Injectable()
 export class NotificationsService implements OnModuleInit {
@@ -40,7 +41,7 @@ export class NotificationsService implements OnModuleInit {
 
   async markRead(id: string) {
     const notification = await this.notifications.findOne({ where: { id } });
-    if (!notification) throw new NotFoundException('الإشعار غير موجود');
+    if (!notification) throw new NotFoundException(msg({ ar: 'الإشعار غير موجود', en: 'Notification not found' }));
     notification.isRead = true;
     return this.notifications.save(notification);
   }
@@ -84,18 +85,31 @@ export function notificationContent(entry: LedgerEntry): {
     const machineName =
       typeof rawMachineName === 'string' && rawMachineName.trim()
         ? rawMachineName
-        : 'غير معروفة';
+        : msg({ ar: 'غير معروفة', en: 'Unknown' });
     return {
       kind: NotificationKind.WITHDRAWAL,
-      title: `نفاد رصيد الماكينة — ${machineName}`,
-      body:
-        `نفد رصيد الماكينة «${machineName}». ` +
-        `إجمالي المشحون: ${value('loadedBalance')} ج.م، ` +
-        `إجمالي المستخدم: ${value('usedBalance')} ج.م، ` +
-        `المتبقي: ${value('remainingBalance')} ج.م، ` +
-        `إجمالي العمولات: ${value('commissionBalance')} ج.م، ` +
-        `قيمة آخر عملية: ${Number(entry.amount).toFixed(2)} ج.م، ` +
-        `عمولة آخر عملية: ${value('commission')} ج.م. يرجى شحن الماكينة.`,
+      title: msg({
+        ar: `نفاد رصيد الماكينة — ${machineName}`,
+        en: `Machine balance depleted — ${machineName}`,
+      }),
+      body: msg({
+        ar:
+          `نفد رصيد الماكينة «${machineName}». ` +
+          `إجمالي المشحون: ${value('loadedBalance')} ج.م، ` +
+          `إجمالي المستخدم: ${value('usedBalance')} ج.م، ` +
+          `المتبقي: ${value('remainingBalance')} ج.م، ` +
+          `إجمالي العمولات: ${value('commissionBalance')} ج.م، ` +
+          `قيمة آخر عملية: ${Number(entry.amount).toFixed(2)} ج.م، ` +
+          `عمولة آخر عملية: ${value('commission')} ج.م. يرجى شحن الماكينة.`,
+        en:
+          `Machine «${machineName}» balance is depleted. ` +
+          `Total loaded: EGP ${value('loadedBalance')}, ` +
+          `total used: EGP ${value('usedBalance')}, ` +
+          `remaining: EGP ${value('remainingBalance')}, ` +
+          `total commissions: EGP ${value('commissionBalance')}, ` +
+          `last operation amount: EGP ${Number(entry.amount).toFixed(2)}, ` +
+          `last operation commission: EGP ${value('commission')}. Please top up the machine.`,
+      }),
     };
   }
 
@@ -109,35 +123,35 @@ export function mapLedgerCategory(category: LedgerCategory): {
 } {
   switch (category) {
     case LedgerCategory.TOP_UP:
-      return { kind: NotificationKind.DEPOSIT, title: 'إيداع — شحن رصيد' };
+      return { kind: NotificationKind.DEPOSIT, title: msg({ ar: 'إيداع — شحن رصيد', en: 'Deposit — balance top-up' }) };
     case LedgerCategory.CASH_RECEIPT:
       return {
         kind: NotificationKind.DEPOSIT,
-        title: 'إيداع — استلام من مندوب',
+        title: msg({ ar: 'إيداع — استلام من مندوب', en: 'Deposit — agent collection' }),
       };
     case LedgerCategory.COMMISSION:
-      return { kind: NotificationKind.DEPOSIT, title: 'إيداع — عمولة' };
+      return { kind: NotificationKind.DEPOSIT, title: msg({ ar: 'إيداع — عمولة', en: 'Deposit — commission' }) };
     case LedgerCategory.OPENING_BALANCE:
-      return { kind: NotificationKind.DEPOSIT, title: 'إيداع — رصيد افتتاحي' };
+      return { kind: NotificationKind.DEPOSIT, title: msg({ ar: 'إيداع — رصيد افتتاحي', en: 'Deposit — opening balance' }) };
     case LedgerCategory.MACHINE_USAGE:
       return {
         kind: NotificationKind.WITHDRAWAL,
-        title: 'سحب — استخدام ماكينة',
+        title: msg({ ar: 'سحب — استخدام ماكينة', en: 'Withdrawal — machine usage' }),
       };
     case LedgerCategory.WALLET_USAGE:
       return {
         kind: NotificationKind.WITHDRAWAL,
-        title: 'سحب — استخدام محفظة',
+        title: msg({ ar: 'سحب — استخدام محفظة', en: 'Withdrawal — wallet usage' }),
       };
     case LedgerCategory.COMPANY_EXECUTION:
-      return { kind: NotificationKind.WITHDRAWAL, title: 'سحب — تنفيذ توريد' };
+      return { kind: NotificationKind.WITHDRAWAL, title: msg({ ar: 'سحب — تنفيذ توريد', en: 'Withdrawal — company settlement' }) };
     case LedgerCategory.REVERSAL:
-      return { kind: NotificationKind.WITHDRAWAL, title: 'سحب — عكس عملية' };
+      return { kind: NotificationKind.WITHDRAWAL, title: msg({ ar: 'سحب — عكس عملية', en: 'Withdrawal — operation reversal' }) };
     case LedgerCategory.INTERNAL_TRANSFER:
-      return { kind: NotificationKind.TRANSFER, title: 'تحويل داخلي' };
+      return { kind: NotificationKind.TRANSFER, title: msg({ ar: 'تحويل داخلي', en: 'Internal transfer' }) };
     case LedgerCategory.DAILY_ROLLOVER:
-      return { kind: NotificationKind.INFO, title: 'ترحيل يومي' };
+      return { kind: NotificationKind.INFO, title: msg({ ar: 'ترحيل يومي', en: 'Daily rollover' }) };
     default:
-      return { kind: NotificationKind.INFO, title: 'حركة جديدة' };
+      return { kind: NotificationKind.INFO, title: msg({ ar: 'حركة جديدة', en: 'New movement' }) };
   }
 }

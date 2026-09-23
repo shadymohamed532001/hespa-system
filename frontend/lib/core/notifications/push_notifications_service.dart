@@ -6,6 +6,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
 import '../../firebase_options.dart';
+import '../settings/tr.dart';
 
 /// Top-level background handler required by firebase_messaging.
 @pragma('vm:entry-point')
@@ -157,7 +158,7 @@ class PushNotificationsService {
 
   Future<void> showLocalFromRemote(RemoteMessage message) async {
     final notification = message.notification;
-    final title = notification?.title ?? message.data['title'] ?? 'حسبة';
+    final title = notification?.title ?? message.data['title'] ?? tr(ar: 'حسبة', en: 'Hesba');
     final body = notification?.body ?? message.data['body'] ?? '';
     await showLocal(
       title: title,

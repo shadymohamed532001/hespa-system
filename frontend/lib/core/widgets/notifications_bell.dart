@@ -11,6 +11,7 @@ import '../settings/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/money_formatter.dart';
 import 'header_icon_button.dart';
+import '../settings/tr.dart';
 
 class NotificationsBell extends StatefulWidget {
   const NotificationsBell({super.key, required this.session, this.strings});
@@ -102,7 +103,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
 
       for (final item in fresh) {
         await PushNotificationsService.instance.showLocal(
-          title: '${item['title'] ?? 'حسبة'}',
+          title: '${item['title'] ?? tr(ar: 'حسبة', en: 'Hesba')}',
           body: '${item['body'] ?? ''}',
           payload: '${item['id']}',
         );

@@ -5,6 +5,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
@@ -67,10 +68,10 @@ export class WalletsService implements OnModuleInit {
 
   async create(dto: CreateWalletDto, username: string) {
     const name = dto.name.trim();
-    if (!name) throw new BadRequestException('اسم أو رقم المحفظة مطلوب');
+    if (!name) throw new BadRequestException(msg({ ar: 'اسم أو رقم المحفظة مطلوب', en: 'Wallet name or number is required' }));
     const ownerName = dto.ownerName?.trim() ?? '';
     if (await this.wallets.exists({ where: { name } })) {
-      throw new ConflictException('توجد محفظة بنفس الاسم أو الرقم بالفعل');
+      throw new ConflictException(msg({ ar: 'توجد محفظة بنفس الاسم أو الرقم بالفعل', en: 'A wallet with this name or number already exists' }));
     }
     return this.dataSource.transaction(async (manager) => {
       const wallet = await manager.getRepository(Wallet).save(
@@ -104,7 +105,7 @@ export class WalletsService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!wallet) throw new NotFoundException('المحفظة غير موجودة أو موقوفة');
+      if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
       const period = cairoPeriod();
       if (wallet.counterDay !== period.day) {
         wallet.counterDay = period.day;
@@ -118,14 +119,14 @@ export class WalletsService implements OnModuleInit {
       }
       if (wallet.dailyTopUp + dto.amount > WALLET_DAILY_TOP_UP_LIMIT) {
         throw new BadRequestException({
-          message: 'سيتم تجاوز حد شحن المحفظة اليومي',
+          message: msg({ ar: 'سيتم تجاوز حد شحن المحفظة اليومي', en: 'This would exceed the wallet daily top-up limit' }),
           limit: WALLET_DAILY_TOP_UP_LIMIT,
           available: Math.max(0, WALLET_DAILY_TOP_UP_LIMIT - wallet.dailyTopUp),
         });
       }
       if (wallet.monthlyTopUp + dto.amount > WALLET_MONTHLY_TOP_UP_LIMIT) {
         throw new BadRequestException({
-          message: 'سيتم تجاوز حد شحن المحفظة الشهري',
+          message: msg({ ar: 'سيتم تجاوز حد شحن المحفظة الشهري', en: 'This would exceed the wallet monthly top-up limit' }),
           limit: WALLET_MONTHLY_TOP_UP_LIMIT,
           available: Math.max(
             0,
@@ -158,12 +159,12 @@ export class WalletsService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!wallet) throw new NotFoundException('المحفظة غير موجودة أو موقوفة');
+      if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
 
       const amount = Number(dto.amount);
       const commission = Number(dto.commission);
       if (Number(wallet.balance) < amount) {
-        throw new BadRequestException('رصيد المحفظة غير كافٍ');
+        throw new BadRequestException(msg({ ar: 'رصيد المحفظة غير كافٍ', en: 'Insufficient wallet balance' }));
       }
 
       wallet.balance = Number(wallet.balance) - amount;
@@ -208,14 +209,14 @@ export class WalletsService implements OnModuleInit {
 
   async setActive(id: string, active: boolean) {
     const wallet = await this.wallets.findOne({ where: { id } });
-    if (!wallet) throw new NotFoundException('المحفظة غير موجودة');
+    if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }));
     wallet.active = active;
     return this.wallets.save(wallet);
   }
 
   async remove(id: string, username: string) {
     const wallet = await this.wallets.findOne({ where: { id } });
-    if (!wallet) throw new NotFoundException('المحفظة غير موجودة');
+    if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }));
 
     const history = await this.dataSource
       .getRepository(LedgerEntry)
@@ -236,7 +237,7 @@ export class WalletsService implements OnModuleInit {
 
     if (wallet.balance !== 0 || wallet.commissionBalance !== 0 || history > 0) {
       throw new BadRequestException(
-        'لا يمكن حذف المحفظة نهائيًا إلا إذا كان الرصيد والعمولة صفرًا ولا توجد حركات مرتبطة بها',
+        msg({ ar: 'لا يمكن حذف المحفظة نهائيًا إلا إذا كان الرصيد والعمولة صفرًا ولا توجد حركات مرتبطة بها', en: 'Permanent wallet delete is only allowed when balance and commission are zero and there are no related movements' }),
       );
     }
 

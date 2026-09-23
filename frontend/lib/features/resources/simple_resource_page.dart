@@ -9,6 +9,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class SimpleResourcePage extends StatefulWidget {
   const SimpleResourcePage({
@@ -82,16 +83,16 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
                   mainAxisSpacing: 16,
                   crossAxisSpacing: 16,
                   childAspectRatio: 2.1,
-                  children: const [
+                  children: [
                     MetricCard(
                       label: 'الحد اليومي للشحن',
                       value: '60,000 ج.م',
-                      note: 'لكل محفظة',
+                      note: tr(ar: 'لكل محفظة', en: 'Per wallet'),
                     ),
                     MetricCard(
                       label: 'الحد الشهري للشحن',
                       value: '200,000 ج.م',
-                      note: 'لكل محفظة',
+                      note: tr(ar: 'لكل محفظة', en: 'Per wallet'),
                     ),
                     MetricCard(
                       label: 'الترحيل',
@@ -126,7 +127,7 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
           title: widget.topUpLabel!,
           subtitle: widget.topUpNote,
           actions: HesbaModalActions(
-            primaryLabel: 'تأكيد',
+            primaryLabel: tr(ar: 'تأكيد', en: 'Confirm'),
             onPrimary: () => Navigator.pop(ctx, true),
             onCancel: () => Navigator.pop(ctx, false),
           ),
@@ -148,18 +149,18 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
                   onChanged: (v) => setLocal(() => id = v!),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'المبلغ *',
+                label: tr(ar: 'المبلغ *', en: 'Amount *'),
                 child: TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(),
                 ),
               ),
-              const SizedBox(height: 18),
+              SizedBox(height: 18),
               HesbaModalField(
-                label: 'رقم المرجع (اختياري)',
+                label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
                 child: TextField(
                   controller: reference,
                   decoration: const InputDecoration(),

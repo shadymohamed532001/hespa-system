@@ -10,6 +10,7 @@ import '../../core/widgets/error_box.dart';
 import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class TopUpPage extends StatefulWidget {
   const TopUpPage({super.key, required this.session});
@@ -177,7 +178,7 @@ class _TopUpPageState extends State<TopUpPage> {
       builder: (ctx) => HesbaModalCard(
         title: 'إقفال اليوم الفعلي',
         actions: HesbaModalActions(
-          primaryLabel: 'تأكيد',
+          primaryLabel: tr(ar: 'تأكيد', en: 'Confirm'),
           onPrimary: () => Navigator.pop(ctx, true),
           onCancel: () => Navigator.pop(ctx, false),
         ),
@@ -395,7 +396,7 @@ class _TopUpFormCard extends StatelessWidget {
                           SizedBox(
                             width: fieldWidth,
                             child: _LabeledField(
-                              label: 'مبلغ الشحن *',
+                              label: tr(ar: 'مبلغ الشحن *', en: 'Top-up amount *'),
                               child: TextFormField(
                                 controller: amount,
                                 enabled: !saving,
@@ -409,7 +410,7 @@ class _TopUpFormCard extends StatelessWidget {
                                     value?.trim() ?? '',
                                   );
                                   if (parsed == null || parsed <= 0) {
-                                    return 'أدخل مبلغًا صحيحًا';
+                                    return tr(ar: 'أدخل مبلغًا صحيحًا', en: 'Enter a valid amount');
                                   }
                                   return null;
                                 },
@@ -468,7 +469,7 @@ class _TopUpFormCard extends StatelessWidget {
                           SizedBox(
                             width: fieldWidth,
                             child: _LabeledField(
-                              label: 'ملاحظة',
+                              label: tr(ar: 'ملاحظة', en: 'Note'),
                               child: TextFormField(
                                 controller: note,
                                 enabled: !saving,
@@ -497,7 +498,7 @@ class _TopUpFormCard extends StatelessWidget {
                                     color: Colors.white,
                                   ),
                                 )
-                              : const Text('إضافة الرصيد'),
+                              : Text(tr(ar: 'إضافة الرصيد', en: 'Add balance')),
                         ),
                       ),
                     ],

@@ -8,6 +8,7 @@ import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/notifications/push_notifications_service.dart';
 import '../../core/security/auth_token_store.dart';
+import '../../core/settings/app_locale_holder.dart';
 
 /// Permission keys matching backend `AppPermission`.
 abstract final class AppPermissions {
@@ -47,6 +48,19 @@ class SessionController extends ChangeNotifier {
   List<String> permissions = const [];
   Map<String, dynamic> limits = const {};
   String? error;
+  String _locale = 'ar';
+
+  void clearError() {
+    if (error == null) return;
+    error = null;
+    notifyListeners();
+  }
+
+  void setLocale(String languageCode) {
+    _locale = languageCode == 'en' ? 'en' : 'ar';
+    api.setLocale(_locale);
+    AppLocaleHolder.setCode(_locale);
+  }
 
   bool get signedIn => token != null;
   bool get isAdmin => role == 'admin';
@@ -104,12 +118,13 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<bool> login(String user, String password) async {
+  /// `portal` is `admin` (مدخل الأمن) or `employee` (مدخل الموظفين).
+  Future<bool> login(String user, String password, {required String portal}) async {
     busy = true;
     error = null;
     notifyListeners();
     try {
-      final result = await api.login(user.trim(), password);
+      final result = await api.login(user.trim(), password, portal: portal);
       final currentUser = result['user'] as Map<String, dynamic>;
       token = result['accessToken'] as String?;
       refreshToken = result['refreshToken'] as String?;
@@ -127,7 +142,7 @@ class SessionController extends ChangeNotifier {
         // The logout marker is written before keychain deletion, so an old
         // token will still not be restored on the next launch.
       }
-      error = ApiClient.errorMessage(e);
+      error = ApiClient.errorMessage(e, locale: _locale);
       return false;
     } finally {
       busy = false;

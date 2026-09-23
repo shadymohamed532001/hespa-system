@@ -19,8 +19,9 @@ import {
   UserRole,
 } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
-import { LoginDto } from './dto/login.dto.js';
+import { LoginDto, LoginPortal } from './dto/login.dto.js';
 import { RecoverAdminDto } from './dto/recover-admin.dto.js';
+import { msg } from '../common/i18n/locale-context.js';
 
 const DAY_MS = 86_400_000;
 
@@ -153,8 +154,30 @@ export class AuthService implements OnModuleInit {
       where: { username: dto.username.trim().toLowerCase(), active: true },
     });
     if (!user || !(await compare(dto.password, user.passwordHash))) {
-      throw new UnauthorizedException('اسم المستخدم أو كلمة المرور غير صحيحة');
+      throw new UnauthorizedException(
+        msg({
+          ar: 'اسم المستخدم أو كلمة المرور غير صحيحة',
+          en: 'Invalid username or password',
+        }),
+      );
     }
+
+    const expectedRole =
+      dto.portal === LoginPortal.ADMIN ? UserRole.ADMIN : UserRole.EMPLOYEE;
+    if (user.role !== expectedRole) {
+      throw new UnauthorizedException(
+        dto.portal === LoginPortal.ADMIN
+          ? msg({
+              ar: 'هذا الحساب يدخل من مدخل الموظفين فقط',
+              en: 'This account can only sign in from the staff portal',
+            })
+          : msg({
+              ar: 'هذا الحساب يدخل من مدخل الأمن فقط',
+              en: 'This account can only sign in from the security portal',
+            }),
+      );
+    }
+
     return this.issueSession(user);
   }
 
@@ -162,13 +185,21 @@ export class AuthService implements OnModuleInit {
     const configuredKey = this.config.get<string>('ADMIN_RECOVERY_KEY') ?? '';
     if (!this.matchesRecoveryKey(dto.recoveryKey, configuredKey)) {
       throw new UnauthorizedException(
-        'كود استعادة المدير غير صحيح أو غير مفعّل',
+        msg({
+          ar: 'كود استعادة المدير غير صحيح أو غير مفعّل',
+          en: 'Admin recovery code is invalid or not configured',
+        }),
       );
     }
 
     const username = dto.username.trim().toLowerCase();
     if (await this.users.exists({ where: { username } })) {
-      throw new ConflictException('اسم المستخدم مستخدم بالفعل');
+      throw new ConflictException(
+        msg({
+          ar: 'اسم المستخدم مستخدم بالفعل',
+          en: 'Username is already taken',
+        }),
+      );
     }
 
     const user = await this.users.save(
@@ -190,19 +221,34 @@ export class AuthService implements OnModuleInit {
     const tokenHash = this.hashRefreshToken(rawRefreshToken);
     const stored = await this.refreshTokens.findOne({ where: { tokenHash } });
     if (!stored) {
-      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+      throw new UnauthorizedException(
+        msg({
+          ar: 'انتهت الجلسة، سجل الدخول مرة أخرى',
+          en: 'Session expired, please sign in again',
+        }),
+      );
     }
 
     if (stored.revokedAt) {
       // Suspected reuse of a rotated token — revoke the whole family.
       await this.revokeAllRefreshTokens(stored.userId);
-      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+      throw new UnauthorizedException(
+        msg({
+          ar: 'انتهت الجلسة، سجل الدخول مرة أخرى',
+          en: 'Session expired, please sign in again',
+        }),
+      );
     }
 
     if (stored.expiresAt.getTime() <= Date.now()) {
       stored.revokedAt = new Date();
       await this.refreshTokens.save(stored);
-      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+      throw new UnauthorizedException(
+        msg({
+          ar: 'انتهت الجلسة، سجل الدخول مرة أخرى',
+          en: 'Session expired, please sign in again',
+        }),
+      );
     }
 
     const user = await this.users.findOne({
@@ -213,7 +259,12 @@ export class AuthService implements OnModuleInit {
       Number(user.tokenVersion ?? 0) !== Number(stored.tokenVersion)
     ) {
       await this.revokeAllRefreshTokens(stored.userId);
-      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+      throw new UnauthorizedException(
+        msg({
+          ar: 'انتهت الجلسة، سجل الدخول مرة أخرى',
+          en: 'Session expired, please sign in again',
+        }),
+      );
     }
 
     const session = await this.issueSession(user, stored);

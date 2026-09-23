@@ -105,7 +105,11 @@ describe.sequential('full system lifecycle (e2e)', () => {
     await request(app.getHttpServer()).get('/api/accounts').expect(401);
     await request(app.getHttpServer())
       .post('/api/auth/login')
-      .send({ username: 'full-admin', password: 'wrong-password' })
+      .send({
+        username: 'full-admin',
+        password: 'wrong-password',
+        portal: 'admin',
+      })
       .expect(401);
 
     const login = await request(app.getHttpServer())
@@ -113,6 +117,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .send({
         username: 'full-admin',
         password: 'FullSystemAdminPassword123!',
+        portal: 'admin',
       })
       .expect(201);
     adminToken = login.body.accessToken as string;
@@ -132,6 +137,14 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .expect(200)
       .expect(({ body }) => expect(body.username).toBe('full-admin'));
 
+    await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({
+        username: 'full-admin',
+        password: 'FullSystemAdminPassword123!',
+        portal: 'employee',
+      })
+      .expect(401);
     const migrations = (await dataSource.query(
       `SELECT name FROM schema_migrations ORDER BY id`,
     )) as Array<{ name: string }>;
@@ -187,6 +200,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .send({
         username: 'full-employee',
         password: 'FullEmployeePassword123!',
+        portal: 'employee',
       })
       .expect(201);
     employeeToken = employeeLogin.body.accessToken as string;
@@ -858,6 +872,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .send({
         username: 'full-employee',
         password: 'FullEmployeePassword123!',
+        portal: 'employee',
       })
       .expect(201);
     const renewedToken = renewedLogin.body.accessToken as string;
@@ -880,6 +895,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .send({
         username: 'full-employee',
         password: 'FullEmployeePassword123!',
+        portal: 'employee',
       })
       .expect(401);
 

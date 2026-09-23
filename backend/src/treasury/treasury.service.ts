@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Collection } from '../database/entities/collection.entity.js';
@@ -36,7 +37,7 @@ export class TreasuryService {
 
   async summary() {
     const treasury = await this.treasury.findOne({ where: { id: 'main' } });
-    if (!treasury) throw new NotFoundException('الخزنة غير مهيأة');
+    if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
     const result = await this.collections
       .createQueryBuilder('collection')
       .select('COALESCE(SUM(collection.amount), 0)', 'total')
@@ -55,9 +56,9 @@ export class TreasuryService {
   private assetKey(type: string, id?: string) {
     if (type === 'treasury') return 'treasury:main';
     if (!['account', 'wallet', 'machine'].includes(type)) {
-      throw new BadRequestException('نوع الأصل غير مدعوم');
+      throw new BadRequestException(msg({ ar: 'نوع الأصل غير مدعوم', en: 'Unsupported asset type' }));
     }
-    if (!id) throw new BadRequestException('معرّف الأصل مطلوب');
+    if (!id) throw new BadRequestException(msg({ ar: 'معرّف الأصل مطلوب', en: 'Asset id is required' }));
     return `${type}:${id}`;
   }
 
@@ -71,7 +72,7 @@ export class TreasuryService {
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('الخزنة غير موجودة');
+      if (!item) throw new NotFoundException(msg({ ar: 'الخزنة غير موجودة', en: 'Treasury not found' }));
       return {
         key: 'treasury:main',
         name: 'الخزنة المركزية',
@@ -82,13 +83,13 @@ export class TreasuryService {
         },
       };
     }
-    if (!id) throw new BadRequestException('معرّف الأصل مطلوب');
+    if (!id) throw new BadRequestException(msg({ ar: 'معرّف الأصل مطلوب', en: 'Asset id is required' }));
     if (type === 'account') {
       const item = await manager.getRepository(FinancialAccount).findOne({
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('الحساب غير موجود أو موقوف');
+      if (!item) throw new NotFoundException(msg({ ar: 'الحساب غير موجود أو موقوف', en: 'Account not found or inactive' }));
       return {
         key: `account:${id}`,
         name: item.name,
@@ -104,7 +105,7 @@ export class TreasuryService {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('المحفظة غير موجودة أو موقوفة');
+      if (!item) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
       return {
         key: `wallet:${id}`,
         name: item.name,
@@ -120,7 +121,7 @@ export class TreasuryService {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
+      if (!item) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة أو موقوفة', en: 'Machine not found or inactive' }));
       const balance = item.loadedBalance - item.usedBalance;
       return {
         key: `machine:${id}`,
@@ -132,7 +133,7 @@ export class TreasuryService {
         },
       };
     }
-    throw new BadRequestException('نوع الأصل غير مدعوم');
+    throw new BadRequestException(msg({ ar: 'نوع الأصل غير مدعوم', en: 'Unsupported asset type' }));
   }
 
   async transfer(dto: InternalTransferDto, username: string) {
@@ -140,7 +141,7 @@ export class TreasuryService {
       const sourceKey = this.assetKey(dto.fromType, dto.fromId);
       const targetKey = this.assetKey(dto.toType, dto.toId);
       if (sourceKey === targetKey)
-        throw new BadRequestException('المصدر والوجهة يجب أن يكونا مختلفين');
+        throw new BadRequestException(msg({ ar: 'المصدر والوجهة يجب أن يكونا مختلفين', en: 'Source and destination must be different' }));
 
       // Always acquire row locks in the same order. Without this, two reverse
       // transfers (A -> B and B -> A) can deadlock by each holding one row.
@@ -155,7 +156,7 @@ export class TreasuryService {
       const source = locked.get(sourceKey)!;
       const target = locked.get(targetKey)!;
       if (source.balance < dto.amount)
-        throw new BadRequestException('رصيد المصدر غير كافٍ');
+        throw new BadRequestException(msg({ ar: 'رصيد المصدر غير كافٍ', en: 'Insufficient source balance' }));
       await source.setBalance(source.balance - dto.amount);
       await target.setBalance(target.balance + dto.amount);
       await manager.getRepository(LedgerEntry).save({
@@ -242,7 +243,7 @@ export class TreasuryService {
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!treasury) throw new NotFoundException('الخزنة غير مهيأة');
+      if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
       const accounts = await manager
         .getRepository(FinancialAccount)
         .createQueryBuilder('account')
@@ -328,7 +329,7 @@ export class TreasuryService {
         entityId: null,
         reference,
         description:
-          'ترحيل أرصدة نهاية اليوم إلى اليوم التالي وتصفير العدادات اليومية',
+          msg({ ar: 'ترحيل أرصدة نهاية اليوم إلى اليوم التالي وتصفير العدادات اليومية', en: 'Roll end-of-day balances to the next day and reset daily counters' }),
         performedBy: username,
         metadata: { dailyCloseId: close.id, totalAssets, pendingCollections },
       });

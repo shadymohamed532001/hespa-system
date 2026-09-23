@@ -2,6 +2,7 @@ import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { ReportsService } from './reports.service.js';
+import { msg } from '../common/i18n/locale-context.js';
 
 @RequirePermissions(AppPermission.VIEW_BALANCES)
 @Controller('reports')
@@ -16,21 +17,21 @@ export class ReportsController {
     @Query('entityId') entityId?: string,
   ) {
     if (!from || !to) {
-      throw new BadRequestException('تاريخ البداية والنهاية مطلوبان');
+      throw new BadRequestException(msg({ ar: 'تاريخ البداية والنهاية مطلوبان', en: 'Start and end dates are required' }));
     }
 
     const start = new Date(from);
     const end = new Date(to);
     if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-      throw new BadRequestException('صيغة الفترة غير صحيحة');
+      throw new BadRequestException(msg({ ar: 'صيغة الفترة غير صحيحة', en: 'Invalid date range format' }));
     }
     if (end <= start) {
       throw new BadRequestException(
-        'تاريخ النهاية يجب أن يكون بعد تاريخ البداية',
+        msg({ ar: 'تاريخ النهاية يجب أن يكون بعد تاريخ البداية', en: 'End date must be after start date' }),
       );
     }
     if (end.getTime() - start.getTime() > 366 * 24 * 60 * 60 * 1000) {
-      throw new BadRequestException('أقصى فترة للتقرير هي سنة واحدة');
+      throw new BadRequestException(msg({ ar: 'أقصى فترة للتقرير هي سنة واحدة', en: 'Maximum report range is one year' }));
     }
 
     const allowedTypes = [
@@ -43,7 +44,7 @@ export class ReportsController {
     ];
     const scopeType = entityType || 'all';
     if (!allowedTypes.includes(scopeType)) {
-      throw new BadRequestException('نوع القسم غير مدعوم');
+      throw new BadRequestException(msg({ ar: 'نوع القسم غير مدعوم', en: 'Unsupported section type' }));
     }
 
     return this.reports.summary({

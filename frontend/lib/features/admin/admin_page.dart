@@ -10,6 +10,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key, required this.session});
@@ -61,12 +62,12 @@ class _AdminPageState extends State<AdminPage> {
   Widget build(BuildContext context) {
     return PageFrame(
       title: 'المستخدمون والصلاحيات',
-      subtitle: 'أضف حسابات للموظفين وحدد صلاحياتهم وحدود المبالغ',
+      subtitle: tr(ar: 'أضف حسابات للموظفين وحدد صلاحياتهم وحدود المبالغ', en: 'Add staff accounts and set their permissions and amount limits'),
       actions: [
         FilledButton.icon(
           onPressed: () => _openUserEditor(),
           icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
-          label: const Text('إضافة مستخدم'),
+          label: Text(tr(ar: 'إضافة مستخدم', en: 'Add user')),
         ),
       ],
       child: loading
@@ -191,12 +192,12 @@ class _AdminPageState extends State<AdminPage> {
       maxWidth: 640,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: isEdit ? 'تعديل المستخدم' : 'إضافة مستخدم',
+          title: isEdit ? 'تعديل المستخدم' : tr(ar: 'إضافة مستخدم', en: 'Add user'),
           subtitle: isEdit
               ? 'حدّث الصلاحيات أو الحدود أو كلمة المرور'
-              : 'أنشئ حسابًا لشخص يعمل معك وحدد ما يُسمح له به',
+              : tr(ar: 'أنشئ حسابًا لشخص يعمل معك وحدد ما يُسمح له به', en: 'Create an account for someone who works with you and define what they can do'),
           actions: HesbaModalActions(
-            primaryLabel: isEdit ? 'حفظ' : 'إنشاء الحساب',
+            primaryLabel: isEdit ? tr(ar: 'حفظ', en: 'Save') : 'إنشاء الحساب',
             onPrimary: () => Navigator.pop(ctx, true),
             onCancel: () => Navigator.pop(ctx, false),
           ),
@@ -231,10 +232,10 @@ class _AdminPageState extends State<AdminPage> {
                   label: 'نوع الحساب',
                   child: DropdownButtonFormField<String>(
                     initialValue: selectedRole,
-                    items: const [
+                    items: [
                       DropdownMenuItem(
                         value: 'admin',
-                        child: Text('أدمن — كل الصلاحيات'),
+                        child: Text(tr(ar: 'أدمن — كل الصلاحيات', en: 'Admin — all permissions')),
                       ),
                       DropdownMenuItem(
                         value: 'employee',
@@ -266,8 +267,8 @@ class _AdminPageState extends State<AdminPage> {
                   decoration: const InputDecoration(),
                 ),
               ),
-              const SizedBox(height: 20),
-              const Text('الصلاحيات', style: HesbaText.sectionTitle),
+              SizedBox(height: 20),
+              Text(tr(ar: 'الصلاحيات', en: 'Permissions'), style: HesbaText.sectionTitle),
               const SizedBox(height: 8),
               for (final item in catalogItems)
                 CheckboxListTile(
@@ -317,8 +318,8 @@ class _AdminPageState extends State<AdminPage> {
                                 RegExp(r'[0-9.]'),
                               ),
                             ],
-                            decoration: const InputDecoration(
-                              hintText: 'بدون حد',
+                            decoration: InputDecoration(
+                              hintText: tr(ar: 'بدون حد', en: 'No limit'),
                             ),
                           ),
                         ),
@@ -326,7 +327,7 @@ class _AdminPageState extends State<AdminPage> {
                       SizedBox(
                         width: width,
                         child: HesbaModalField(
-                          label: 'حد الشحن',
+                          label: tr(ar: 'حد الشحن', en: 'Top-up limit'),
                           child: TextField(
                             controller: maxTopUp,
                             keyboardType: TextInputType.number,
@@ -335,8 +336,8 @@ class _AdminPageState extends State<AdminPage> {
                                 RegExp(r'[0-9.]'),
                               ),
                             ],
-                            decoration: const InputDecoration(
-                              hintText: 'بدون حد',
+                            decoration: InputDecoration(
+                              hintText: tr(ar: 'بدون حد', en: 'No limit'),
                             ),
                           ),
                         ),
@@ -353,8 +354,8 @@ class _AdminPageState extends State<AdminPage> {
                                 RegExp(r'[0-9.]'),
                               ),
                             ],
-                            decoration: const InputDecoration(
-                              hintText: 'بدون حد',
+                            decoration: InputDecoration(
+                              hintText: tr(ar: 'بدون حد', en: 'No limit'),
                             ),
                           ),
                         ),
@@ -371,8 +372,8 @@ class _AdminPageState extends State<AdminPage> {
                                 RegExp(r'[0-9.]'),
                               ),
                             ],
-                            decoration: const InputDecoration(
-                              hintText: 'بدون حد',
+                            decoration: InputDecoration(
+                              hintText: tr(ar: 'بدون حد', en: 'No limit'),
                             ),
                           ),
                         ),
@@ -447,7 +448,7 @@ class _AdminPageState extends State<AdminPage> {
   }
 }
 
-const _fallbackCatalog = [
+final _fallbackCatalog = [
   {
     'key': AppPermissions.viewBalances,
     'label': 'مشاهدة الأرصدة والحركات',
@@ -460,7 +461,7 @@ const _fallbackCatalog = [
   },
   {
     'key': AppPermissions.manageAssets,
-    'label': 'إضافة أو تعديل الحسابات والمحافظ والماكينات',
+    'label': tr(ar: 'إضافة أو تعديل الحسابات والمحافظ والماكينات', en: 'Add or edit accounts, wallets, and machines'),
     'note': 'إعدادات الأصول',
   },
   {
@@ -480,7 +481,7 @@ const _fallbackCatalog = [
   },
   {
     'key': AppPermissions.manageUsers,
-    'label': 'إدارة المستخدمين والصلاحيات',
+    'label': tr(ar: 'إدارة المستخدمين والصلاحيات', en: 'Manage users and permissions'),
     'note': 'إعدادات النظام',
   },
   {
@@ -490,7 +491,7 @@ const _fallbackCatalog = [
   },
   {
     'key': AppPermissions.manageInventory,
-    'label': 'إضافة أصناف وتوريد مخزون للمخزن',
+    'label': tr(ar: 'إضافة أصناف وتوريد مخزون للمخزن', en: 'Add items and stock inventory'),
     'note': 'إعدادات مخزن منفصل عن الكاش',
   },
   {
@@ -568,16 +569,16 @@ class _UsersCard extends StatelessWidget {
                       columnSpacing: 36,
                       dataRowMinHeight: 64,
                       dataRowMaxHeight: 72,
-                      columns: const [
+                      columns: [
                         DataColumn(
-                          label: Text('المستخدم', style: _headerStyle),
+                          label: Text(tr(ar: 'المستخدم', en: 'User'), style: _headerStyle),
                         ),
                         DataColumn(label: Text('الدور', style: _headerStyle)),
-                        DataColumn(label: Text('الحالة', style: _headerStyle)),
+                        DataColumn(label: Text(tr(ar: 'الحالة', en: 'Status'), style: _headerStyle)),
                         DataColumn(
-                          label: Text('الصلاحيات', style: _headerStyle),
+                          label: Text(tr(ar: 'الصلاحيات', en: 'Permissions'), style: _headerStyle),
                         ),
-                        DataColumn(label: Text('إجراء', style: _headerStyle)),
+                        DataColumn(label: Text(tr(ar: 'إجراء', en: 'Action'), style: _headerStyle)),
                       ],
                       rows: [
                         for (final raw in users)
@@ -630,7 +631,7 @@ class _UsersCard extends StatelessWidget {
             ],
           ),
         ),
-        DataCell(Text(isAdmin ? 'أدمن' : 'موظف', style: HesbaText.tableCell)),
+        DataCell(Text(isAdmin ? tr(ar: 'أدمن', en: 'Admin') : tr(ar: 'موظف', en: 'Employee'), style: HesbaText.tableCell)),
         DataCell(SoftBadge.status(active: user['active'] == true)),
         DataCell(
           Text(
@@ -644,7 +645,7 @@ class _UsersCard extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: canManage ? () => onManage(user) : null,
-                child: const Text('إدارة'),
+                child: Text(tr(ar: 'إدارة', en: 'Admin')),
               ),
               if (canToggle)
                 TextButton(
@@ -656,7 +657,7 @@ class _UsersCard extends StatelessWidget {
                   onPressed: () => onDelete(user),
                   icon: const Icon(Icons.delete_outline, size: 17),
                   style: TextButton.styleFrom(foregroundColor: HesbaColors.red),
-                  label: const Text('حذف'),
+                  label: Text(tr(ar: 'حذف', en: 'Delete')),
                 ),
             ],
           ),
@@ -708,13 +709,13 @@ class _PermissionMatrixCard extends StatelessWidget {
                     headingRowHeight: 54,
                     horizontalMargin: 22,
                     columnSpacing: 36,
-                    columns: const [
+                    columns: [
                       DataColumn(label: Text('العملية', style: _headerStyle)),
                       DataColumn(label: Text('الأدمن', style: _headerStyle)),
                       DataColumn(
                         label: Text('موظف (افتراضي)', style: _headerStyle),
                       ),
-                      DataColumn(label: Text('ملاحظة', style: _headerStyle)),
+                      DataColumn(label: Text(tr(ar: 'ملاحظة', en: 'Note'), style: _headerStyle)),
                     ],
                     rows: [
                       for (final item in rows)

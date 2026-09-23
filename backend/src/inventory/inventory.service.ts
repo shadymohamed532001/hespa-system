@@ -4,6 +4,7 @@ import {
   NotFoundException,
   OnModuleInit,
 } from '@nestjs/common';
+import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
@@ -108,7 +109,7 @@ export class InventoryService implements OnModuleInit {
           quantity: dto.openingStock,
           unitCost: dto.costPrice,
           supplier: null,
-          note: 'رصيد افتتاحي للمخزون',
+          note: msg({ ar: 'رصيد افتتاحي للمخزون', en: 'Opening inventory balance' }),
           performedBy: username,
         });
       }
@@ -123,7 +124,7 @@ export class InventoryService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!product) throw new NotFoundException('الصنف غير موجود أو موقوف');
+      if (!product) throw new NotFoundException(msg({ ar: 'الصنف غير موجود أو موقوف', en: 'Item not found or inactive' }));
       const previousQty = product.stockQty;
       const incomingCost = dto.unitCost ?? product.costPrice;
       const nextQty = previousQty + dto.quantity;
@@ -160,10 +161,10 @@ export class InventoryService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!product) throw new NotFoundException('الصنف غير موجود أو موقوف');
+      if (!product) throw new NotFoundException(msg({ ar: 'الصنف غير موجود أو موقوف', en: 'Item not found or inactive' }));
       if (product.stockQty < dto.quantity) {
         throw new BadRequestException({
-          message: 'الكمية المطلوبة أكبر من المتاح في المخزن',
+          message: msg({ ar: 'الكمية المطلوبة أكبر من المتاح في المخزن', en: 'Requested quantity exceeds available stock' }),
           available: product.stockQty,
         });
       }
@@ -225,7 +226,7 @@ export class InventoryService implements OnModuleInit {
         product: this.serializeProduct(product),
         inventoryTreasuryBalance: box.balance,
         message:
-          'تم تسجيل البيع وإضافة المبلغ إلى خزنة المخزن (منفصلة عن خزنة الكاش)',
+          msg({ ar: 'تم تسجيل البيع وإضافة المبلغ إلى خزنة المخزن (منفصلة عن خزنة الكاش)', en: 'Sale recorded and amount added to inventory treasury (separate from cash treasury)' }),
       };
     });
   }
@@ -325,7 +326,7 @@ export class InventoryService implements OnModuleInit {
       todaySalesCount: Number(todayTotals?.count ?? 0),
       todaySalesAmount: Number(todayTotals?.total ?? 0),
       isolatedFromCashTreasury: true,
-      note: 'خزنة المخزن مستقلة تمامًا عن خزنة الكاش المركزية',
+      note: msg({ ar: 'خزنة المخزن مستقلة تمامًا عن خزنة الكاش المركزية', en: 'Inventory treasury is completely separate from the central cash treasury' }),
     };
   }
 
@@ -352,8 +353,8 @@ export class InventoryService implements OnModuleInit {
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!sale) throw new NotFoundException('عملية البيع غير موجودة');
-      if (sale.reversedAt) throw new BadRequestException('تم عكس البيع بالفعل');
+      if (!sale) throw new NotFoundException(msg({ ar: 'عملية البيع غير موجودة', en: 'Sale not found' }));
+      if (sale.reversedAt) throw new BadRequestException(msg({ ar: 'تم عكس البيع بالفعل', en: 'Sale already reversed' }));
 
       const product = await manager.getRepository(InventoryProduct).findOne({
         where: { id: sale.productId },
@@ -364,9 +365,9 @@ export class InventoryService implements OnModuleInit {
         lock: { mode: 'pessimistic_write' },
       });
       if (!product || !box)
-        throw new NotFoundException('بيانات البيع غير مكتملة');
+        throw new NotFoundException(msg({ ar: 'بيانات البيع غير مكتملة', en: 'Sale data is incomplete' }));
       if (box.balance < sale.totalAmount) {
-        throw new BadRequestException('رصيد خزنة المخزن لا يكفي لعكس البيع');
+        throw new BadRequestException(msg({ ar: 'رصيد خزنة المخزن لا يكفي لعكس البيع', en: 'Inventory treasury balance is insufficient to reverse the sale' }));
       }
 
       product.stockQty += sale.quantity;

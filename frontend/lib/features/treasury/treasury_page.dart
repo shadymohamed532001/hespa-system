@@ -10,6 +10,7 @@ import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/app_snack.dart';
 import '../auth/session_controller.dart';
+import '../../core/settings/tr.dart';
 
 class TreasuryPage extends StatefulWidget {
   const TreasuryPage({
@@ -93,7 +94,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('إلغاء'),
+            child: Text(tr(ar: 'إلغاء', en: 'Cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
@@ -136,7 +137,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
         if (widget.session.can(AppPermissions.internalTransfer))
           FilledButton(
             onPressed: widget.onOpenTransfer,
-            child: const Text('تحويل داخلي'),
+            child: Text(tr(ar: 'تحويل داخلي', en: 'Internal transfer')),
           ),
       ],
       child: loading
@@ -209,7 +210,7 @@ class _SummaryGrid extends StatelessWidget {
             MetricCard(
               label: 'التزامات معلّقة',
               value: money(summary['pendingAmount']),
-              note: 'أموال ليست حرة للتصرف',
+              note: tr(ar: 'أموال ليست حرة للتصرف', en: 'Funds that are not freely disposable'),
               warning: true,
             ),
             MetricCard(
@@ -289,10 +290,10 @@ class _TreasuryMovements extends StatelessWidget {
             ),
           ),
           if (entries.isEmpty)
-            const Padding(
+            Padding(
               padding: EdgeInsets.all(38),
               child: Text(
-                'لا توجد حركات مسجلة بعد',
+                tr(ar: 'لا توجد حركات مسجلة بعد', en: 'No movements recorded yet'),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: HesbaColors.muted),
               ),
@@ -312,13 +313,13 @@ class _TreasuryMovements extends StatelessWidget {
                     dataRowMaxHeight: 62,
                     horizontalMargin: 20,
                     columnSpacing: 30,
-                    columns: const [
-                      DataColumn(label: Text('التاريخ والوقت')),
-                      DataColumn(label: Text('الحركة')),
-                      DataColumn(label: Text('البيان')),
-                      DataColumn(label: Text('المبلغ')),
-                      DataColumn(label: Text('التصنيف')),
-                      DataColumn(label: Text('الأثر')),
+                    columns: [
+                      DataColumn(label: Text(tr(ar: 'التاريخ والوقت', en: 'Date & time'))),
+                      DataColumn(label: Text(tr(ar: 'الحركة', en: 'Entry'))),
+                      DataColumn(label: Text(tr(ar: 'البيان', en: 'Description'))),
+                      DataColumn(label: Text(tr(ar: 'المبلغ', en: 'Amount'))),
+                      DataColumn(label: Text(tr(ar: 'التصنيف', en: 'Category'))),
+                      DataColumn(label: Text(tr(ar: 'الأثر', en: 'Impact'))),
                     ],
                     rows: entries
                         .map((entry) => _row(entry as Map<String, dynamic>))
@@ -386,14 +387,14 @@ class _TreasuryMovements extends StatelessWidget {
   }
 
   String _categoryName(String category) => switch (category) {
-    'cash_receipt' => 'استلام كاش من مندوب',
-    'internal_transfer' => 'تحويل داخلي',
+    'cash_receipt' => tr(ar: 'استلام كاش من مندوب', en: 'Receive cash from agent'),
+    'internal_transfer' => tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
     'top_up' => 'شحن رصيد',
-    'machine_usage' => 'استخدام رصيد ماكينة',
-    'company_execution' => 'توريد وتسوية شركة',
-    'commission' => 'عمولة',
-    'daily_rollover' => 'ترحيل يومي',
-    'opening_balance' => 'رصيد افتتاحي',
+    'machine_usage' => tr(ar: 'استخدام رصيد ماكينة', en: 'Machine balance usage'),
+    'company_execution' => tr(ar: 'توريد وتسوية شركة', en: 'Company settlement'),
+    'commission' => tr(ar: 'عمولة', en: 'Commission'),
+    'daily_rollover' => tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
+    'opening_balance' => tr(ar: 'رصيد افتتاحي', en: 'Opening balance'),
     'reversal' => 'عكس حركة',
     _ => category,
   };
@@ -405,13 +406,13 @@ class _TreasuryMovements extends StatelessWidget {
         '${entry['reference']}'.startsWith('HLD-')
             ? 'دخل الخزنة مع التزام معلّق'
             : 'دخل الكاش الخزنة',
-      'internal_transfer' => 'حركة بين الأصول',
+      'internal_transfer' => tr(ar: 'حركة بين الأصول', en: 'Movement between assets'),
       'top_up' => 'زيادة رصيد أصل تشغيلي',
-      'machine_usage' => 'خفض رصيد الماكينة',
-      'company_execution' => 'خفض رصيد حساب الشركة',
-      'commission' => 'إضافة عمولة مستقلة',
-      'daily_rollover' => 'ترحيل أرصدة اليوم',
-      'opening_balance' => 'إثبات رصيد افتتاحي',
+      'machine_usage' => tr(ar: 'خفض رصيد الماكينة', en: 'Reduce machine balance'),
+      'company_execution' => tr(ar: 'خفض رصيد حساب الشركة', en: 'Reduce company account balance'),
+      'commission' => tr(ar: 'إضافة عمولة مستقلة', en: 'Add independent commission'),
+      'daily_rollover' => tr(ar: 'ترحيل أرصدة اليوم', en: 'Roll over today balances'),
+      'opening_balance' => tr(ar: 'إثبات رصيد افتتاحي', en: 'Record opening balance'),
       'reversal' => 'عكس أثر حركة سابقة',
       _ => '${entry['description'] ?? '—'}',
     };
@@ -441,10 +442,10 @@ class _MovementBadge extends StatelessWidget {
         ? const Color(0xFF50657D)
         : HesbaColors.tealSoft;
     final label = hold
-        ? 'معلّق'
+        ? tr(ar: 'معلّق', en: 'Pending')
         : internal
-        ? 'تحويل داخلي'
-        : 'تشغيل';
+        ? tr(ar: 'تحويل داخلي', en: 'Internal transfer')
+        : tr(ar: 'تشغيل', en: 'Operations');
 
     return Container(
       constraints: const BoxConstraints(minWidth: 76),
