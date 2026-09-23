@@ -386,7 +386,8 @@ describe('financial operations (e2e)', () => {
       }>
     ).find(
       (entry) =>
-        entry.category === 'machine_usage' && entry.entityId === machine.body.id,
+        entry.category === 'machine_usage' &&
+        entry.entityId === machine.body.id,
     );
     expect(usage).toBeTruthy();
 
@@ -475,14 +476,21 @@ describe('financial operations (e2e)', () => {
       .send({ reason: 'تحصيل مسجل بالخطأ' })
       .expect(201);
 
-    const collections = await request(app.getHttpServer())
-      .get('/api/collections')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-    const reversed = (
-      collections.body as Array<{ id: string; status: string }>
-    ).find((item) => item.id === receipt.body.id);
-    expect(reversed?.status).toBe('reversed');
+    const [reversed] = (await app
+      .get(DataSource)
+      .query(
+        `SELECT status, reversed_at, reversal_reason FROM collections WHERE id = $1`,
+        [receipt.body.id],
+      )) as Array<{
+      status: string;
+      reversed_at: Date | null;
+      reversal_reason: string | null;
+    }>;
+    expect(reversed).toMatchObject({
+      status: 'reversed',
+      reversal_reason: 'تحصيل مسجل بالخطأ',
+    });
+    expect(reversed.reversed_at).toBeTruthy();
   });
 
   it('reconciles the treasury and closes a business day only once', async () => {
