@@ -30,6 +30,7 @@ class PushNotificationsService {
       FlutterLocalNotificationsPlugin();
 
   bool _ready = false;
+  bool _initFailed = false;
   String? _token;
   PushArrivedCallback? onMessage;
   ApiClient? _api;
@@ -43,9 +44,10 @@ class PushNotificationsService {
   }
 
   Future<void> initialize() async {
-    if (_ready) return;
+    if (_ready || _initFailed) return;
     if (!isSupported) {
       debugPrint('FCM skipped: platform does not support desktop push');
+      _initFailed = true;
       return;
     }
 
@@ -56,7 +58,11 @@ class PushNotificationsService {
         );
       }
     } catch (error) {
-      debugPrint('Firebase.initializeApp failed: $error');
+      _initFailed = true;
+      debugPrint(
+        'Firebase.initializeApp failed (stop the app fully and run again, '
+        'do not use hot restart): $error',
+      );
       return;
     }
 
@@ -155,7 +161,9 @@ class PushNotificationsService {
 
   Future<void> registerWithBackend(ApiClient api) async {
     _api = api;
+    if (_initFailed) return;
     if (!_ready) await initialize();
+    if (_initFailed || !_ready) return;
     final current = _token ?? await _refreshToken();
     if (current == null || current.isEmpty) return;
 
