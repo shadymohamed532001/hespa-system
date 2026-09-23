@@ -6,6 +6,7 @@ import { getApps, initializeApp, cert, type App } from 'firebase-admin/app';
 import { getMessaging } from 'firebase-admin/messaging';
 import { Repository } from 'typeorm';
 import { DevicePushToken } from '../database/entities/device-push-token.entity.js';
+import { UserRole } from '../database/enums.js';
 
 @Injectable()
 export class FcmService implements OnModuleInit {
@@ -50,12 +51,16 @@ export class FcmService implements OnModuleInit {
   }
 
   private resolveServiceAccount(): Record<string, string> | null {
-    const json = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT_JSON')?.trim();
+    const json = this.config
+      .get<string>('FIREBASE_SERVICE_ACCOUNT_JSON')
+      ?.trim();
     if (json) {
       return JSON.parse(json) as Record<string, string>;
     }
 
-    const path = this.config.get<string>('FIREBASE_SERVICE_ACCOUNT_PATH')?.trim();
+    const path = this.config
+      .get<string>('FIREBASE_SERVICE_ACCOUNT_PATH')
+      ?.trim();
     if (path) {
       const raw = readFileSync(path, 'utf8');
       return JSON.parse(raw) as Record<string, string>;
@@ -98,14 +103,26 @@ export class FcmService implements OnModuleInit {
     return { ok: true };
   }
 
-  async sendPush(input: {
-    title: string;
-    body: string;
-    data?: Record<string, string>;
-  }) {
+  async sendPush(
+    input: {
+      title: string;
+      body: string;
+      data?: Record<string, string>;
+    },
+    audience?: UserRole,
+  ) {
     if (!this.enabled || !this.app) return { sent: 0, skipped: true };
 
-    const rows = await this.tokens.find({ order: { updatedAt: 'DESC' } });
+    const query = this.tokens
+      .createQueryBuilder('token')
+      .orderBy('token.updatedAt', 'DESC');
+    if (audience) {
+      query
+        .innerJoin('users', 'recipient', 'recipient.id = token.user_id')
+        .andWhere('recipient.role = :audience', { audience })
+        .andWhere('recipient.active = true');
+    }
+    const rows = await query.getMany();
     if (!rows.length) return { sent: 0 };
 
     const uniqueTokens = [...new Set(rows.map((row) => row.token))];

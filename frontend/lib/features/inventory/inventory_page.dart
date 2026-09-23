@@ -110,18 +110,22 @@ class _InventoryPageState extends State<InventoryPage> {
                         MetricCard(
                           label: 'بالمخزن الآن',
                           value: '${summary['stockUnits'] ?? 0}',
-                          note: tr(ar: 'إجمالي القطع المتبقية', en: 'Total remaining units'),
+                          note: tr(
+                            ar: 'إجمالي القطع المتبقية',
+                            en: 'Total remaining units',
+                          ),
                         ),
                         MetricCard(
                           label: tr(ar: 'إجمالي المباع', en: 'Total sold'),
                           value: '${summary['soldUnits'] ?? 0}',
                           note: 'كل المبيعات المسجّلة',
                         ),
-                        MetricCard(
-                          label: tr(ar: 'مجمل الربح', en: 'Gross profit'),
-                          value: money(summary['grossProfit']),
-                          note: 'المبيعات غير المعكوسة بعد تكلفة الشراء',
-                        ),
+                        if (widget.session.isAdmin)
+                          MetricCard(
+                            label: tr(ar: 'مجمل الربح', en: 'Gross profit'),
+                            value: money(summary['grossProfit']),
+                            note: 'المبيعات غير المعكوسة بعد تكلفة الشراء',
+                          ),
                         MetricCard(
                           label: 'مبيعات اليوم',
                           value: money(summary['todaySalesAmount']),
@@ -137,6 +141,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   products: products,
                   canManage: widget.session.can(AppPermissions.manageInventory),
                   canSell: widget.session.can(AppPermissions.sellInventory),
+                  showProfits: widget.session.isAdmin,
                   onSell: _sellProduct,
                   onStockIn: widget.session.can(AppPermissions.manageInventory)
                       ? _stockIn
@@ -145,6 +150,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 const SizedBox(height: 20),
                 _SalesCard(
                   sales: sales,
+                  showProfits: widget.session.isAdmin,
                   canReverse: widget.session.can(
                     AppPermissions.reverseOperations,
                   ),
@@ -189,14 +195,26 @@ class _InventoryPageState extends State<InventoryPage> {
                   initialValue: category,
                   decoration: const InputDecoration(),
                   items: [
-                    DropdownMenuItem(value: 'mobile', child: Text(tr(ar: 'موبايل', en: 'Mobile'))),
+                    DropdownMenuItem(
+                      value: 'mobile',
+                      child: Text(tr(ar: 'موبايل', en: 'Mobile')),
+                    ),
                     DropdownMenuItem(
                       value: 'accessory',
                       child: Text(tr(ar: 'إكسسوار', en: 'Accessory')),
                     ),
-                    DropdownMenuItem(value: 'case', child: Text(tr(ar: 'جراب', en: 'Case'))),
-                    DropdownMenuItem(value: 'screen', child: Text(tr(ar: 'شاشة', en: 'Screen'))),
-                    DropdownMenuItem(value: 'other', child: Text(tr(ar: 'أخرى', en: 'Other'))),
+                    DropdownMenuItem(
+                      value: 'case',
+                      child: Text(tr(ar: 'جراب', en: 'Case')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'screen',
+                      child: Text(tr(ar: 'شاشة', en: 'Screen')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'other',
+                      child: Text(tr(ar: 'أخرى', en: 'Other')),
+                    ),
                   ],
                   onChanged: (v) => setLocal(() => category = v!),
                 ),
@@ -262,7 +280,10 @@ class _InventoryPageState extends State<InventoryPage> {
       maxWidth: 460,
       builder: (ctx) => HesbaModalCard(
         title: 'توريد مخزون — ${product['name']}',
-        subtitle: tr(ar: 'أضف كمية جديدة إلى المخزن.', en: 'Add a new quantity to inventory.'),
+        subtitle: tr(
+          ar: 'أضف كمية جديدة إلى المخزن.',
+          en: 'Add a new quantity to inventory.',
+        ),
         actions: HesbaModalActions(
           primaryLabel: 'تأكيد التوريد',
           onPrimary: () => Navigator.pop(ctx, true),
@@ -473,6 +494,7 @@ class _ProductsCard extends StatelessWidget {
     required this.products,
     required this.canManage,
     required this.canSell,
+    required this.showProfits,
     required this.onSell,
     required this.onStockIn,
   });
@@ -480,6 +502,7 @@ class _ProductsCard extends StatelessWidget {
   final List<dynamic> products;
   final bool canManage;
   final bool canSell;
+  final bool showProfits;
   final Future<void> Function(Map<String, dynamic>) onSell;
   final Future<void> Function(Map<String, dynamic>)? onStockIn;
 
@@ -500,7 +523,10 @@ class _ProductsCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr(ar: 'أصناف المخزن', en: 'Inventory items'), style: HesbaText.sectionTitle),
+                Text(
+                  tr(ar: 'أصناف المخزن', en: 'Inventory items'),
+                  style: HesbaText.sectionTitle,
+                ),
                 SizedBox(height: 4),
                 Text(
                   'بالمخزن · المباع · المتبقي · وسعر البيع',
@@ -537,10 +563,16 @@ class _ProductsCard extends StatelessWidget {
                       dataRowMaxHeight: 64,
                       columns: [
                         DataColumn(
-                          label: Text(tr(ar: 'الصنف', en: 'Item'), style: HesbaText.tableHeader),
+                          label: Text(
+                            tr(ar: 'الصنف', en: 'Item'),
+                            style: HesbaText.tableHeader,
+                          ),
                         ),
                         DataColumn(
-                          label: Text(tr(ar: 'النوع', en: 'Type'), style: HesbaText.tableHeader),
+                          label: Text(
+                            tr(ar: 'النوع', en: 'Type'),
+                            style: HesbaText.tableHeader,
+                          ),
                         ),
                         DataColumn(
                           label: Text('بالمخزن', style: HesbaText.tableHeader),
@@ -551,9 +583,13 @@ class _ProductsCard extends StatelessWidget {
                         DataColumn(
                           label: Text('متبقي', style: HesbaText.tableHeader),
                         ),
-                        DataColumn(
-                          label: Text('التكلفة', style: HesbaText.tableHeader),
-                        ),
+                        if (showProfits)
+                          DataColumn(
+                            label: Text(
+                              'التكلفة',
+                              style: HesbaText.tableHeader,
+                            ),
+                          ),
                         DataColumn(
                           label: Text(
                             'سعر البيع',
@@ -561,7 +597,10 @@ class _ProductsCard extends StatelessWidget {
                           ),
                         ),
                         DataColumn(
-                          label: Text(tr(ar: 'إجراء', en: 'Action'), style: HesbaText.tableHeader),
+                          label: Text(
+                            tr(ar: 'إجراء', en: 'Action'),
+                            style: HesbaText.tableHeader,
+                          ),
                         ),
                       ],
                       rows: [
@@ -600,12 +639,13 @@ class _ProductsCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              DataCell(
-                                Text(
-                                  money(e['costPrice']),
-                                  style: HesbaText.tableCell,
+                              if (showProfits)
+                                DataCell(
+                                  Text(
+                                    money(e['costPrice']),
+                                    style: HesbaText.tableCell,
+                                  ),
                                 ),
-                              ),
                               DataCell(
                                 Text(
                                   money(e['defaultPrice']),
@@ -671,11 +711,13 @@ class _ProductsCard extends StatelessWidget {
 class _SalesCard extends StatelessWidget {
   const _SalesCard({
     required this.sales,
+    required this.showProfits,
     required this.canReverse,
     required this.onReverse,
   });
 
   final List<dynamic> sales;
+  final bool showProfits;
   final bool canReverse;
   final Future<void> Function(Map<String, dynamic>) onReverse;
 
@@ -696,7 +738,10 @@ class _SalesCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(tr(ar: 'آخر المبيعات', en: 'Latest sales'), style: HesbaText.sectionTitle),
+                Text(
+                  tr(ar: 'آخر المبيعات', en: 'Latest sales'),
+                  style: HesbaText.sectionTitle,
+                ),
                 SizedBox(height: 4),
                 Text(
                   'الكمية والسعر والمبلغ الداخل لخزنة المخزن',
@@ -739,7 +784,10 @@ class _SalesCard extends StatelessWidget {
                           ),
                         ),
                         DataColumn(
-                          label: Text(tr(ar: 'الصنف', en: 'Item'), style: HesbaText.tableHeader),
+                          label: Text(
+                            tr(ar: 'الصنف', en: 'Item'),
+                            style: HesbaText.tableHeader,
+                          ),
                         ),
                         DataColumn(
                           label: Text('الكمية', style: HesbaText.tableHeader),
@@ -753,17 +801,21 @@ class _SalesCard extends StatelessWidget {
                         DataColumn(
                           label: Text('الإجمالي', style: HesbaText.tableHeader),
                         ),
-                        DataColumn(
-                          label: Text(
-                            tr(ar: 'مجمل الربح', en: 'Gross profit'),
-                            style: HesbaText.tableHeader,
+                        if (showProfits)
+                          DataColumn(
+                            label: Text(
+                              tr(ar: 'مجمل الربح', en: 'Gross profit'),
+                              style: HesbaText.tableHeader,
+                            ),
                           ),
-                        ),
                         DataColumn(
                           label: Text('بواسطة', style: HesbaText.tableHeader),
                         ),
                         DataColumn(
-                          label: Text(tr(ar: 'الحالة', en: 'Status'), style: HesbaText.tableHeader),
+                          label: Text(
+                            tr(ar: 'الحالة', en: 'Status'),
+                            style: HesbaText.tableHeader,
+                          ),
                         ),
                       ],
                       rows: [
@@ -802,14 +854,15 @@ class _SalesCard extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              DataCell(
-                                Text(
-                                  money(e['grossProfit']),
-                                  style: HesbaText.tableCell.copyWith(
-                                    color: HesbaColors.teal,
+                              if (showProfits)
+                                DataCell(
+                                  Text(
+                                    money(e['grossProfit']),
+                                    style: HesbaText.tableCell.copyWith(
+                                      color: HesbaColors.teal,
+                                    ),
                                   ),
                                 ),
-                              ),
                               DataCell(
                                 Text(
                                   '${e['performedBy']}',
@@ -843,7 +896,6 @@ class _SalesCard extends StatelessWidget {
       ),
     );
   }
-
 }
 
 String _categoryLabel(String category) => switch (category) {

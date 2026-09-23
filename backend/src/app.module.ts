@@ -1,6 +1,6 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Schema1790087699416 } from './database/migrations/1790087699416-Schema.js';
@@ -19,6 +19,7 @@ import { PermissionsGuard } from './common/guards/permissions.guard.js';
 import { RolesGuard } from './common/guards/roles.guard.js';
 import { LocaleMiddleware } from './common/i18n/locale.middleware.js';
 import { SecurityModule } from './common/security.module.js';
+import { ProfitVisibilityInterceptor } from './common/interceptors/profit-visibility.interceptor.js';
 import { validateConfig } from './config/validate-config.js';
 import { CollectionsModule } from './collections/collections.module.js';
 import {
@@ -124,6 +125,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
     { provide: APP_GUARD, useClass: PermissionsGuard },
+    { provide: APP_INTERCEPTOR, useClass: ProfitVisibilityInterceptor },
   ],
 })
 export class AppModule implements NestModule {

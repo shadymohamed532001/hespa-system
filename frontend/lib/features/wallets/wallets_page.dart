@@ -33,10 +33,8 @@ class _WalletsPageState extends State<WalletsPage> {
   List<dynamic> get _active =>
       data.where((wallet) => wallet['active'] == true).toList();
 
-  List<dynamic> get _walletLedger => ledger
-      .where((entry) => entry['entityType'] == 'wallet')
-      .take(8)
-      .toList();
+  List<dynamic> get _walletLedger =>
+      ledger.where((entry) => entry['entityType'] == 'wallet').take(8).toList();
 
   @override
   void initState() {
@@ -66,8 +64,10 @@ class _WalletsPageState extends State<WalletsPage> {
   @override
   Widget build(BuildContext context) => PageFrame(
     title: 'المحافظ الإلكترونية وInstaPay',
-    subtitle:
-        tr(ar: 'أضف كل رقم أو حساب بشكل مستقل، ثم اشحنه أو استخدمه وسجّل العمولة', en: 'Add each number or account separately, then top it up or use it and record commission'),
+    subtitle: tr(
+      ar: 'أضف كل رقم أو حساب بشكل مستقل، ثم اشحنه أو استخدمه وسجّل العمولة',
+      en: 'Add each number or account separately, then top it up or use it and record commission',
+    ),
     actions: [
       if (widget.onOpenLedger != null)
         OutlinedButton.icon(
@@ -133,22 +133,26 @@ class _WalletsPageState extends State<WalletsPage> {
                         ),
                         note: 'كل المحافظ المسجلة',
                       ),
-                      MetricCard(
-                        label: tr(ar: 'إجمالي العمولات', en: 'Total commissions'),
-                        value: money(
-                          data.fold<num>(
-                            0,
-                            (total, wallet) =>
-                                total +
-                                (num.tryParse(
-                                      '${wallet['commissionBalance']}',
-                                    ) ??
-                                    0),
+                      if (widget.session.isAdmin)
+                        MetricCard(
+                          label: tr(
+                            ar: 'إجمالي العمولات',
+                            en: 'Total commissions',
                           ),
+                          value: money(
+                            data.fold<num>(
+                              0,
+                              (total, wallet) =>
+                                  total +
+                                  (num.tryParse(
+                                        '${wallet['commissionBalance']}',
+                                      ) ??
+                                      0),
+                            ),
+                          ),
+                          note: 'من عمليات استخدام المحافظ',
+                          accent: true,
                         ),
-                        note: 'من عمليات استخدام المحافظ',
-                        accent: true,
-                      ),
                       MetricCard(
                         label: 'الحد اليومي للشحن',
                         value: '60,000 ج.م',
@@ -167,11 +171,13 @@ class _WalletsPageState extends State<WalletsPage> {
               _WalletsTable(
                 rows: data,
                 canManage: widget.session.can(AppPermissions.manageAssets),
+                showProfits: widget.session.isAdmin,
                 onManage: _manageWallet,
               ),
               const SizedBox(height: 22),
               _WalletMovements(
                 entries: _walletLedger,
+                showProfits: widget.session.isAdmin,
                 onOpenLedger: widget.onOpenLedger,
               ),
             ],
@@ -385,15 +391,17 @@ class _WalletsPageState extends State<WalletsPage> {
     final active = wallet['active'] == true;
     final balance = num.tryParse('${wallet['balance']}') ?? 0;
     final commission = num.tryParse('${wallet['commissionBalance']}') ?? 0;
-    final canDelete = balance == 0 && commission == 0;
+    final canDelete = widget.session.isAdmin && balance == 0 && commission == 0;
     final result = await showHesbaModal<_WalletAction>(
       context: context,
       builder: (ctx) => HesbaModalCard(
         title: 'إدارة ${wallet['name']}',
         subtitle:
             '${_walletType('${wallet['type']}')} · باسم ${_ownerName(wallet)} · الرصيد ${money(balance)}',
-        footer: const Text(
-          'الحذف النهائي متاح فقط عندما يكون الرصيد والعمولة صفرًا ولا توجد حركات مرتبطة بالمحفظة.',
+        footer: Text(
+          widget.session.isAdmin
+              ? 'الحذف النهائي متاح فقط عندما يكون الرصيد والعمولة صفرًا ولا توجد حركات مرتبطة بالمحفظة.'
+              : 'إدارة حالة المحفظة مع الإبقاء على السجل والرصيد.',
           textAlign: TextAlign.center,
           style: HesbaText.caption,
         ),
@@ -421,11 +429,17 @@ class _WalletsPageState extends State<WalletsPage> {
                         context: ctx,
                         maxWidth: 460,
                         builder: (confirmCtx) => HesbaModalCard(
-                          title: tr(ar: 'تأكيد الحذف النهائي', en: 'Confirm permanent delete'),
+                          title: tr(
+                            ar: 'تأكيد الحذف النهائي',
+                            en: 'Confirm permanent delete',
+                          ),
                           subtitle:
                               'هل أنت متأكد من حذف «${wallet['name']}» نهائيًا؟',
                           child: HesbaModalActions(
-                            primaryLabel: tr(ar: 'تأكيد الحذف', en: 'Confirm delete'),
+                            primaryLabel: tr(
+                              ar: 'تأكيد الحذف',
+                              en: 'Confirm delete',
+                            ),
                             danger: true,
                             onPrimary: () => Navigator.pop(confirmCtx, true),
                             onCancel: () => Navigator.pop(confirmCtx, false),
@@ -441,7 +455,14 @@ class _WalletsPageState extends State<WalletsPage> {
                 foregroundColor: HesbaColors.red,
                 disabledForegroundColor: const Color(0xFFD4A0A0),
               ),
-              label: Text(canDelete ? tr(ar: 'حذف نهائي', en: 'Delete permanently') : tr(ar: 'الحذف النهائي غير متاح', en: 'Permanent delete unavailable')),
+              label: Text(
+                canDelete
+                    ? tr(ar: 'حذف نهائي', en: 'Delete permanently')
+                    : tr(
+                        ar: 'الحذف النهائي غير متاح',
+                        en: 'Permanent delete unavailable',
+                      ),
+              ),
             ),
           ],
         ),
@@ -543,7 +564,10 @@ class _WalletOperationFields extends StatelessWidget {
       ),
       SizedBox(height: 18),
       HesbaModalField(
-        label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
+        label: tr(
+          ar: 'رقم المرجع (اختياري)',
+          en: 'Reference number (optional)',
+        ),
         child: TextField(
           controller: reference,
           decoration: const InputDecoration(),
@@ -557,11 +581,13 @@ class _WalletsTable extends StatelessWidget {
   const _WalletsTable({
     required this.rows,
     required this.canManage,
+    required this.showProfits,
     required this.onManage,
   });
 
   final List<dynamic> rows;
   final bool canManage;
+  final bool showProfits;
   final Future<void> Function(Map<String, dynamic>) onManage;
 
   @override
@@ -587,13 +613,39 @@ class _WalletsTable extends StatelessWidget {
             columns: [
               DataColumn(label: Text('المحفظة', style: _headerStyle)),
               DataColumn(label: Text('باسم', style: _headerStyle)),
-              DataColumn(label: Text(tr(ar: 'النوع', en: 'Type'), style: _headerStyle)),
-              DataColumn(label: Text(tr(ar: 'الرصيد', en: 'Balance'), style: _headerStyle)),
+              DataColumn(
+                label: Text(
+                  tr(ar: 'النوع', en: 'Type'),
+                  style: _headerStyle,
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  tr(ar: 'الرصيد', en: 'Balance'),
+                  style: _headerStyle,
+                ),
+              ),
               DataColumn(label: Text('شحن اليوم', style: _headerStyle)),
               DataColumn(label: Text('الشحن الشهري', style: _headerStyle)),
-              DataColumn(label: Text(tr(ar: 'العمولات', en: 'Commissions'), style: _headerStyle)),
-              DataColumn(label: Text(tr(ar: 'الحالة', en: 'Status'), style: _headerStyle)),
-              DataColumn(label: Text(tr(ar: 'إدارة', en: 'Admin'), style: _headerStyle)),
+              if (showProfits)
+                DataColumn(
+                  label: Text(
+                    tr(ar: 'العمولات', en: 'Commissions'),
+                    style: _headerStyle,
+                  ),
+                ),
+              DataColumn(
+                label: Text(
+                  tr(ar: 'الحالة', en: 'Status'),
+                  style: _headerStyle,
+                ),
+              ),
+              DataColumn(
+                label: Text(
+                  tr(ar: 'إدارة', en: 'Admin'),
+                  style: _headerStyle,
+                ),
+              ),
             ],
             rows: [
               for (final raw in rows)
@@ -627,14 +679,15 @@ class _WalletsTable extends StatelessWidget {
                         style: HesbaText.tableCell,
                       ),
                     ),
-                    DataCell(
-                      Text(
-                        money(raw['commissionBalance']),
-                        style: HesbaText.tableEmphasis.copyWith(
-                          color: HesbaColors.tealDark,
+                    if (showProfits)
+                      DataCell(
+                        Text(
+                          money(raw['commissionBalance']),
+                          style: HesbaText.tableEmphasis.copyWith(
+                            color: HesbaColors.tealDark,
+                          ),
                         ),
                       ),
-                    ),
                     DataCell(SoftBadge.status(active: raw['active'] == true)),
                     DataCell(
                       canManage
@@ -659,9 +712,14 @@ class _WalletsTable extends StatelessWidget {
 enum _WalletAction { activate, deactivate, delete }
 
 class _WalletMovements extends StatelessWidget {
-  const _WalletMovements({required this.entries, this.onOpenLedger});
+  const _WalletMovements({
+    required this.entries,
+    required this.showProfits,
+    this.onOpenLedger,
+  });
 
   final List<dynamic> entries;
+  final bool showProfits;
   final VoidCallback? onOpenLedger;
 
   @override
@@ -687,7 +745,15 @@ class _WalletMovements extends StatelessWidget {
                       Text('سجل عمليات المحافظ', style: HesbaText.sectionTitle),
                       SizedBox(height: 2),
                       Text(
-                        tr(ar: 'آخر الشحن والاستخدام والعمولات', en: 'Latest top-ups, usage, and commissions'),
+                        showProfits
+                            ? tr(
+                                ar: 'آخر الشحن والاستخدام والعمولات',
+                                en: 'Latest top-ups, usage, and commissions',
+                              )
+                            : tr(
+                                ar: 'آخر عمليات الشحن والاستخدام',
+                                en: 'Latest top-ups and usage',
+                              ),
                         style: HesbaText.panelSub,
                       ),
                     ],
@@ -733,16 +799,28 @@ class _WalletMovements extends StatelessWidget {
                         ),
                       ),
                       DataColumn(
-                        label: Text(tr(ar: 'النوع', en: 'Type'), style: HesbaText.tableHeader),
+                        label: Text(
+                          tr(ar: 'النوع', en: 'Type'),
+                          style: HesbaText.tableHeader,
+                        ),
                       ),
                       DataColumn(
-                        label: Text(tr(ar: 'الوصف', en: 'Description'), style: HesbaText.tableHeader),
+                        label: Text(
+                          tr(ar: 'الوصف', en: 'Description'),
+                          style: HesbaText.tableHeader,
+                        ),
                       ),
                       DataColumn(
-                        label: Text(tr(ar: 'المبلغ', en: 'Amount'), style: HesbaText.tableHeader),
+                        label: Text(
+                          tr(ar: 'المبلغ', en: 'Amount'),
+                          style: HesbaText.tableHeader,
+                        ),
                       ),
                       DataColumn(
-                        label: Text(tr(ar: 'المستخدم', en: 'User'), style: HesbaText.tableHeader),
+                        label: Text(
+                          tr(ar: 'المستخدم', en: 'User'),
+                          style: HesbaText.tableHeader,
+                        ),
                       ),
                     ],
                     rows: [
@@ -813,7 +891,8 @@ const _walletTypes = {
 };
 
 String _walletType(String type) =>
-    _walletTypes[type] ?? (type == 'wallet' ? tr(ar: 'محفظة إلكترونية', en: 'E-wallet') : type);
+    _walletTypes[type] ??
+    (type == 'wallet' ? tr(ar: 'محفظة إلكترونية', en: 'E-wallet') : type);
 
 String _ownerName(dynamic wallet) {
   final value = '${wallet['ownerName'] ?? ''}'.trim();

@@ -48,4 +48,28 @@ describe('notificationContent', () => {
       body: 'عملية شحن عادية',
     });
   });
+
+  it('omits profit figures from employee machine alerts', () => {
+    const entry = {
+      category: LedgerCategory.MACHINE_USAGE,
+      amount: 125,
+      description: 'عملية من ماكينة وعمولتها 2.50 ج.م',
+      metadata: {
+        machineDepleted: true,
+        machineName: 'ماكينة رقم 2',
+        loadedBalance: 500,
+        usedBalance: 500,
+        remainingBalance: 0,
+        commissionBalance: 17.5,
+        commission: 2.5,
+      },
+    } as LedgerEntry;
+
+    const content = notificationContent(entry, false);
+
+    expect(content.body).not.toContain('عمولة');
+    expect(content.body).not.toContain('17.50');
+    expect(content.body).not.toContain('2.50');
+    expect(content.body).toContain('قيمة آخر عملية: 125.00 ج.م');
+  });
 });

@@ -80,7 +80,10 @@ class _DashboardPageState extends State<DashboardPage> {
       title: 'لوحة المتابعة',
       subtitle: 'ملخص الأرصدة والحركات الحالية',
       actions: [
-        FilledButton(onPressed: _receive, child: Text(tr(ar: 'استلام من مندوب', en: 'Receive from agent'))),
+        FilledButton(
+          onPressed: _receive,
+          child: Text(tr(ar: 'استلام من مندوب', en: 'Receive from agent')),
+        ),
       ],
       child: loading
           ? const Center(
@@ -98,6 +101,7 @@ class _DashboardPageState extends State<DashboardPage> {
               machines: machines,
               collections: collections,
               ledger: ledger,
+              showProfits: widget.session.isAdmin,
               onOpenCollections: widget.onOpenCollections,
               onOpenLedger: widget.onOpenLedger,
             ),
@@ -111,7 +115,12 @@ class _DashboardPageState extends State<DashboardPage> {
     );
     if (saved) {
       await load();
-      if (mounted) showAppSnack(context, tr(ar: 'تم تسجيل التحصيل', en: 'Collection recorded'));
+      if (mounted) {
+        showAppSnack(
+          context,
+          tr(ar: 'تم تسجيل التحصيل', en: 'Collection recorded'),
+        );
+      }
     }
   }
 }
@@ -124,6 +133,7 @@ class _DashboardContent extends StatelessWidget {
     required this.machines,
     required this.collections,
     required this.ledger,
+    required this.showProfits,
     required this.onOpenCollections,
     required this.onOpenLedger,
   });
@@ -134,6 +144,7 @@ class _DashboardContent extends StatelessWidget {
   final List<dynamic> machines;
   final List<dynamic> collections;
   final List<dynamic> ledger;
+  final bool showProfits;
   final VoidCallback onOpenCollections;
   final VoidCallback onOpenLedger;
 
@@ -149,7 +160,11 @@ class _DashboardContent extends StatelessWidget {
       children: [
         LayoutBuilder(
           builder: (context, constraints) {
-            final columnCount = constraints.maxWidth < 950 ? 2 : 4;
+            final columnCount = constraints.maxWidth < 950
+                ? 2
+                : showProfits
+                ? 4
+                : 3;
 
             return GridView(
               shrinkWrap: true,
@@ -178,11 +193,15 @@ class _DashboardContent extends StatelessWidget {
                   note: 'بعد خصم الالتزامات المعلّقة',
                   accent: true,
                 ),
-                MetricCard(
-                  label: tr(ar: 'إجمالي العمولات', en: 'Total commissions'),
-                  value: money(_commissionTotal()),
-                  note: tr(ar: 'مسجلة منفصلة عن أصل المبالغ', en: 'Recorded separately from principal amounts'),
-                ),
+                if (showProfits)
+                  MetricCard(
+                    label: tr(ar: 'إجمالي العمولات', en: 'Total commissions'),
+                    value: money(_commissionTotal()),
+                    note: tr(
+                      ar: 'مسجلة منفصلة عن أصل المبالغ',
+                      en: 'Recorded separately from principal amounts',
+                    ),
+                  ),
               ],
             );
           },
@@ -290,7 +309,10 @@ class _LedgerPanel extends StatelessWidget {
             Padding(
               padding: EdgeInsets.all(36),
               child: Text(
-                tr(ar: 'لا توجد حركات مسجلة بعد', en: 'No movements recorded yet'),
+                tr(
+                  ar: 'لا توجد حركات مسجلة بعد',
+                  en: 'No movements recorded yet',
+                ),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: HesbaColors.muted),
               ),
@@ -311,12 +333,26 @@ class _LedgerPanel extends StatelessWidget {
                     horizontalMargin: 20,
                     columnSpacing: 30,
                     columns: [
-                      DataColumn(label: Text(tr(ar: 'التاريخ والوقت', en: 'Date & time'))),
-                      DataColumn(label: Text(tr(ar: 'الحركة', en: 'Entry'))),
-                      DataColumn(label: Text(tr(ar: 'البيان', en: 'Description'))),
-                      DataColumn(label: Text(tr(ar: 'المبلغ', en: 'Amount'))),
-                      DataColumn(label: Text(tr(ar: 'التصنيف', en: 'Category'))),
-                      DataColumn(label: Text(tr(ar: 'الأثر', en: 'Impact'))),
+                      DataColumn(
+                        label: Text(
+                          tr(ar: 'التاريخ والوقت', en: 'Date & time'),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'الحركة', en: 'Entry')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'البيان', en: 'Description')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'المبلغ', en: 'Amount')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'التصنيف', en: 'Category')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'الأثر', en: 'Impact')),
+                      ),
                     ],
                     rows: ledger
                         .take(5)
@@ -380,7 +416,10 @@ class _AssetsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _PanelHeader(title: tr(ar: 'أرصدة التشغيل', en: 'Operating balances'), subtitle: 'كل أصل مستقل'),
+          _PanelHeader(
+            title: tr(ar: 'أرصدة التشغيل', en: 'Operating balances'),
+            subtitle: 'كل أصل مستقل',
+          ),
           if (assets.isEmpty)
             const Padding(
               padding: EdgeInsets.all(28),
@@ -522,7 +561,9 @@ class _PendingPanel extends StatelessWidget {
                   SizedBox(height: 16),
                   FilledButton(
                     onPressed: onOpenCollections,
-                    child: Text(tr(ar: 'تنفيذ العملية', en: 'Execute operation')),
+                    child: Text(
+                      tr(ar: 'تنفيذ العملية', en: 'Execute operation'),
+                    ),
                   ),
                 ],
               ),
@@ -655,7 +696,11 @@ class _Asset {
 num _number(dynamic value) => num.tryParse('$value') ?? 0;
 
 String _accountType(String value) {
-  return {'fawry': tr(ar: 'فوري', en: 'Fawry'), 'company': tr(ar: 'شركة', en: 'Company'), 'operating': tr(ar: 'تشغيلي', en: 'Operating')}[value] ??
+  return {
+        'fawry': tr(ar: 'فوري', en: 'Fawry'),
+        'company': tr(ar: 'شركة', en: 'Company'),
+        'operating': tr(ar: 'تشغيلي', en: 'Operating'),
+      }[value] ??
       value;
 }
 
@@ -685,10 +730,19 @@ String _categoryName(String category) {
         'opening_balance': tr(ar: 'رصيد افتتاحي', en: 'Opening balance'),
         'top_up': tr(ar: 'شحن مباشر', en: 'Direct top-up'),
         'internal_transfer': tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
-        'cash_receipt': tr(ar: 'استلام كاش من مندوب', en: 'Receive cash from agent'),
-        'company_execution': tr(ar: 'توريد وتسوية شركة', en: 'Company settlement'),
+        'cash_receipt': tr(
+          ar: 'استلام كاش من مندوب',
+          en: 'Receive cash from agent',
+        ),
+        'company_execution': tr(
+          ar: 'توريد وتسوية شركة',
+          en: 'Company settlement',
+        ),
         'commission': tr(ar: 'عمولة', en: 'Commission'),
-        'machine_usage': tr(ar: 'استخدام رصيد ماكينة', en: 'Machine balance usage'),
+        'machine_usage': tr(
+          ar: 'استخدام رصيد ماكينة',
+          en: 'Machine balance usage',
+        ),
         'wallet_usage': tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
         'daily_rollover': tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
       }[category] ??
@@ -697,15 +751,33 @@ String _categoryName(String category) {
 
 String _categoryEffect(String category) {
   return {
-        'opening_balance': tr(ar: 'إثبات رصيد الأصل', en: 'Record asset balance'),
+        'opening_balance': tr(
+          ar: 'إثبات رصيد الأصل',
+          en: 'Record asset balance',
+        ),
         'top_up': 'زيادة رصيد التشغيل',
-        'internal_transfer': tr(ar: 'حركة بين الأصول', en: 'Movement between assets'),
+        'internal_transfer': tr(
+          ar: 'حركة بين الأصول',
+          en: 'Movement between assets',
+        ),
         'cash_receipt': 'دخل الخزنة مع التزام',
-        'company_execution': tr(ar: 'خفض رصيد حساب الشركة', en: 'Reduce company account balance'),
-        'commission': tr(ar: 'إضافة عمولة مستقلة', en: 'Add independent commission'),
-        'machine_usage': tr(ar: 'خفض رصيد الماكينة', en: 'Reduce machine balance'),
+        'company_execution': tr(
+          ar: 'خفض رصيد حساب الشركة',
+          en: 'Reduce company account balance',
+        ),
+        'commission': tr(
+          ar: 'إضافة عمولة مستقلة',
+          en: 'Add independent commission',
+        ),
+        'machine_usage': tr(
+          ar: 'خفض رصيد الماكينة',
+          en: 'Reduce machine balance',
+        ),
         'wallet_usage': 'خفض رصيد المحفظة',
-        'daily_rollover': tr(ar: 'ترحيل أرصدة اليوم', en: 'Roll over today balances'),
+        'daily_rollover': tr(
+          ar: 'ترحيل أرصدة اليوم',
+          en: 'Roll over today balances',
+        ),
       }[category] ??
       'حركة مالية';
 }

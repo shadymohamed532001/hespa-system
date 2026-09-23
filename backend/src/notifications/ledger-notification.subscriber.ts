@@ -9,6 +9,8 @@ import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AppNotification } from '../database/entities/notification.entity.js';
 import { notificationContent } from './notifications.service.js';
 import { FcmService } from './fcm.service.js';
+import { isProfitLedgerEntry } from '../common/interceptors/profit-visibility.interceptor.js';
+import { UserRole } from '../database/enums.js';
 
 @Injectable()
 @EventSubscriber()
@@ -53,16 +55,35 @@ export class LedgerNotificationSubscriber
     );
 
     try {
-      await this.fcm.sendPush({
-        title: mapped.title,
-        body: mapped.body,
-        data: {
-          notificationId: saved.id,
-          kind: mapped.kind,
-          ledgerEntryId: entry.id,
-          category: entry.category,
+      await this.fcm.sendPush(
+        {
+          title: mapped.title,
+          body: mapped.body,
+          data: {
+            notificationId: saved.id,
+            kind: mapped.kind,
+            ledgerEntryId: entry.id,
+            category: entry.category,
+          },
         },
-      });
+        UserRole.ADMIN,
+      );
+      if (!isProfitLedgerEntry(entry)) {
+        const employeeContent = notificationContent(entry, false);
+        await this.fcm.sendPush(
+          {
+            title: employeeContent.title,
+            body: employeeContent.body,
+            data: {
+              notificationId: saved.id,
+              kind: employeeContent.kind,
+              ledgerEntryId: entry.id,
+              category: entry.category,
+            },
+          },
+          UserRole.EMPLOYEE,
+        );
+      }
     } catch (error) {
       this.logger.warn(
         `Push notification failed: ${error instanceof Error ? error.message : error}`,

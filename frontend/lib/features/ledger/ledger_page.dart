@@ -18,7 +18,12 @@ class LedgerPage extends StatelessWidget {
   Widget build(BuildContext context) => _AsyncListFrame(
     session: session,
     title: tr(ar: 'سجل العمليات', en: 'Ledger'),
-    subtitle: tr(ar: 'سجل مركزي غير مختلط بين أصل المبالغ والعمولات', en: 'Central ledger separating principal amounts from commissions'),
+    subtitle: session.isAdmin
+        ? tr(
+            ar: 'سجل مركزي غير مختلط بين أصل المبالغ والعمولات',
+            en: 'Central ledger separating principal amounts from commissions',
+          )
+        : tr(ar: 'سجل مركزي لحركات التشغيل', en: 'Central operating ledger'),
     endpoint: ApiEndpoints.ledgerList(limit: 200),
     columns: [
       tr(ar: 'التاريخ والوقت', en: 'Date & time'),
@@ -158,7 +163,10 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
                   .whereType<String>()
                   .toSet();
               return DataCard(
-                columns: [...widget.columns, if (widget.allowReversal) tr(ar: 'إجراء', en: 'Action')],
+                columns: [
+                  ...widget.columns,
+                  if (widget.allowReversal) tr(ar: 'إجراء', en: 'Action'),
+                ],
                 rows: data.map((raw) {
                   final entry = raw as Map<String, dynamic>;
                   return <Object>[

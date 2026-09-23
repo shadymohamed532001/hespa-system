@@ -68,7 +68,7 @@ class _AppShellState extends State<AppShell> {
     if (widget.session.can(AppPermissions.receiveCollections))
       _NavItem(t.settlement, () => CollectionsPage(session: widget.session)),
     _NavItem(t.ledger, () => LedgerPage(session: widget.session)),
-    if (widget.session.can(AppPermissions.viewBalances))
+    if (widget.session.isAdmin)
       _NavItem(t.reports, () => ReportsPage(session: widget.session)),
     if (widget.session.can(AppPermissions.manageUsers))
       _NavItem(t.users, () => AdminPage(session: widget.session)),

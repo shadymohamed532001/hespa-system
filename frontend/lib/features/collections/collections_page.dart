@@ -53,7 +53,10 @@ class _CollectionsPageState extends State<CollectionsPage> {
       title: 'التحصيل والمعلّقات',
       subtitle: 'استلام المندوب يمكن تنفيذه فورًا أو حفظه كمعلّق',
       actions: [
-        FilledButton(onPressed: _receive, child: Text(tr(ar: 'استلام من مندوب', en: 'Receive from agent'))),
+        FilledButton(
+          onPressed: _receive,
+          child: Text(tr(ar: 'استلام من مندوب', en: 'Receive from agent')),
+        ),
       ],
       child: loading
           ? const Center(
@@ -68,6 +71,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
               rows: data,
               onExecute: (row) => _execute(row),
               canReverse: widget.session.can(AppPermissions.reverseOperations),
+              showProfits: widget.session.isAdmin,
               onReverse: _reverse,
             ),
     );
@@ -80,7 +84,12 @@ class _CollectionsPageState extends State<CollectionsPage> {
     );
     if (saved) {
       await load();
-      if (mounted) showAppSnack(context, tr(ar: 'تم تسجيل التحصيل', en: 'Collection recorded'));
+      if (mounted) {
+        showAppSnack(
+          context,
+          tr(ar: 'تم تسجيل التحصيل', en: 'Collection recorded'),
+        );
+      }
     }
   }
 
@@ -199,12 +208,14 @@ class _CollectionsTable extends StatelessWidget {
     required this.rows,
     required this.onExecute,
     required this.canReverse,
+    required this.showProfits,
     required this.onReverse,
   });
 
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onExecute;
   final bool canReverse;
+  final bool showProfits;
   final Future<void> Function(Map<String, dynamic> row) onReverse;
 
   @override
@@ -242,25 +253,25 @@ class _CollectionsTable extends StatelessWidget {
                     label: Text('الشركة', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text(tr(ar: 'المبلغ', en: 'Amount'), style: HesbaText.tableHeader),
-                  ),
-                  DataColumn(
                     label: Text(
-                      'تاريخ الاستلام',
+                      tr(ar: 'المبلغ', en: 'Amount'),
                       style: HesbaText.tableHeader,
                     ),
+                  ),
+                  DataColumn(
+                    label: Text('تاريخ الاستلام', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
                     label: Text('طريقة التنفيذ', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text(tr(ar: 'الحالة', en: 'Status'), style: HesbaText.tableHeader),
-                  ),
-                  DataColumn(
                     label: Text(
-                      'تاريخ التنفيذ',
+                      tr(ar: 'الحالة', en: 'Status'),
                       style: HesbaText.tableHeader,
                     ),
+                  ),
+                  DataColumn(
+                    label: Text('تاريخ التنفيذ', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
                     label: Text(
@@ -268,9 +279,13 @@ class _CollectionsTable extends StatelessWidget {
                       style: HesbaText.tableHeader,
                     ),
                   ),
-                  DataColumn(
-                    label: Text(tr(ar: 'العمولة', en: 'Commission'), style: HesbaText.tableHeader),
-                  ),
+                  if (showProfits)
+                    DataColumn(
+                      label: Text(
+                        tr(ar: 'العمولة', en: 'Commission'),
+                        style: HesbaText.tableHeader,
+                      ),
+                    ),
                   DataColumn(label: Text('', style: HesbaText.tableHeader)),
                 ],
                 rows: [
@@ -327,14 +342,15 @@ class _CollectionsTable extends StatelessWidget {
                             style: HesbaText.tableCell,
                           ),
                         ),
-                        DataCell(
-                          Text(
-                            money(e['commission'] ?? 0),
-                            style: HesbaText.tableCell.copyWith(
-                              color: HesbaColors.teal,
+                        if (showProfits)
+                          DataCell(
+                            Text(
+                              money(e['commission'] ?? 0),
+                              style: HesbaText.tableCell.copyWith(
+                                color: HesbaColors.teal,
+                              ),
                             ),
                           ),
-                        ),
                         DataCell(
                           Row(
                             mainAxisSize: MainAxisSize.min,
@@ -369,5 +385,4 @@ class _CollectionsTable extends StatelessWidget {
       ),
     );
   }
-
 }

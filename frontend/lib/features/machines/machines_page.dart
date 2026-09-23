@@ -87,6 +87,7 @@ class _MachinesPageState extends State<MachinesPage> {
           : _MachinesTable(
               rows: data,
               canManage: widget.session.can(AppPermissions.manageAssets),
+              showProfits: widget.session.isAdmin,
               onManage: _manageMachine,
             ),
     );
@@ -98,13 +99,16 @@ class _MachinesPageState extends State<MachinesPage> {
     final used = num.tryParse('${machine['usedBalance']}') ?? 0;
     final remaining = num.tryParse('${machine['remainingBalance']}') ?? 0;
     final commission = num.tryParse('${machine['commissionBalance']}') ?? 0;
-    final canDelete = loaded == 0 && used == 0 && commission == 0;
+    final canDelete =
+        widget.session.isAdmin && loaded == 0 && used == 0 && commission == 0;
 
     final result = await showHesbaModal<_MachineAction>(
       context: context,
       builder: (ctx) => HesbaModalCard(
         title: 'إدارة ${machine['name']}',
-        subtitle: 'المتبقي ${money(remaining)} · العمولات ${money(commission)}',
+        subtitle: widget.session.isAdmin
+            ? 'المتبقي ${money(remaining)} · العمولات ${money(commission)}'
+            : 'المتبقي ${money(remaining)}',
         footer: const Text(
           'الحذف النهائي متاح فقط عندما تكون كل الأرصدة صفرًا ولا توجد أي حركات مرتبطة بالماكينة.',
           textAlign: TextAlign.center,
@@ -129,7 +133,9 @@ class _MachinesPageState extends State<MachinesPage> {
                 size: 18,
               ),
               label: Text(
-                active ? 'إيقاف وإخفاء الماكينة' : tr(ar: 'إعادة تفعيل الماكينة', en: 'Reactivate machine'),
+                active
+                    ? 'إيقاف وإخفاء الماكينة'
+                    : tr(ar: 'إعادة تفعيل الماكينة', en: 'Reactivate machine'),
               ),
             ),
             const SizedBox(height: 12),
@@ -141,11 +147,17 @@ class _MachinesPageState extends State<MachinesPage> {
                         context: ctx,
                         maxWidth: 460,
                         builder: (confirmCtx) => HesbaModalCard(
-                          title: tr(ar: 'تأكيد الحذف النهائي', en: 'Confirm permanent delete'),
+                          title: tr(
+                            ar: 'تأكيد الحذف النهائي',
+                            en: 'Confirm permanent delete',
+                          ),
                           subtitle:
                               'هل أنت متأكد من حذف «${machine['name']}» نهائيًا؟ هذا الإجراء لا يمكن التراجع عنه.',
                           child: HesbaModalActions(
-                            primaryLabel: tr(ar: 'تأكيد الحذف', en: 'Confirm delete'),
+                            primaryLabel: tr(
+                              ar: 'تأكيد الحذف',
+                              en: 'Confirm delete',
+                            ),
                             danger: true,
                             onPrimary: () => Navigator.pop(confirmCtx, true),
                             onCancel: () => Navigator.pop(confirmCtx, false),
@@ -166,7 +178,14 @@ class _MachinesPageState extends State<MachinesPage> {
                       : HesbaColors.border,
                 ),
               ),
-              label: Text(canDelete ? tr(ar: 'حذف نهائي', en: 'Delete permanently') : tr(ar: 'الحذف النهائي غير متاح', en: 'Permanent delete unavailable')),
+              label: Text(
+                canDelete
+                    ? tr(ar: 'حذف نهائي', en: 'Delete permanently')
+                    : tr(
+                        ar: 'الحذف النهائي غير متاح',
+                        en: 'Permanent delete unavailable',
+                      ),
+              ),
             ),
           ],
         ),
@@ -267,7 +286,10 @@ class _MachinesPageState extends State<MachinesPage> {
       maxWidth: 520,
       builder: (ctx) => HesbaModalCard(
         title: tr(ar: 'إضافة ماكينة شحن', en: 'Add top-up machine'),
-        subtitle: tr(ar: 'أنشئ ماكينة جديدة ومتابعة رصيدها بشكل مستقل.', en: 'Create a new machine and track its balance independently.'),
+        subtitle: tr(
+          ar: 'أنشئ ماكينة جديدة ومتابعة رصيدها بشكل مستقل.',
+          en: 'Create a new machine and track its balance independently.',
+        ),
         actions: HesbaModalActions(
           primaryLabel: tr(ar: 'إضافة', en: 'Add'),
           onPrimary: () => Navigator.pop(ctx, true),
@@ -368,7 +390,10 @@ class _MachinesPageState extends State<MachinesPage> {
               ),
               SizedBox(height: 18),
               HesbaModalField(
-                label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
+                label: tr(
+                  ar: 'رقم المرجع (اختياري)',
+                  en: 'Reference number (optional)',
+                ),
                 child: TextField(
                   controller: reference,
                   decoration: const InputDecoration(),
@@ -490,7 +515,10 @@ class _MachinesPageState extends State<MachinesPage> {
               ),
               SizedBox(height: 18),
               HesbaModalField(
-                label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
+                label: tr(
+                  ar: 'رقم المرجع (اختياري)',
+                  en: 'Reference number (optional)',
+                ),
                 child: TextField(
                   controller: reference,
                   decoration: const InputDecoration(
@@ -548,11 +576,13 @@ class _MachinesTable extends StatelessWidget {
   const _MachinesTable({
     required this.rows,
     required this.canManage,
+    required this.showProfits,
     required this.onManage,
   });
 
   final List<dynamic> rows;
   final bool canManage;
+  final bool showProfits;
   final Future<void> Function(Map<String, dynamic> machine) onManage;
 
   @override
@@ -587,19 +617,32 @@ class _MachinesTable extends StatelessWidget {
                     label: Text('المبلغ المشحون', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text(tr(ar: 'المستخدم', en: 'User'), style: HesbaText.tableHeader),
+                    label: Text(
+                      tr(ar: 'المستخدم', en: 'User'),
+                      style: HesbaText.tableHeader,
+                    ),
                   ),
                   DataColumn(
                     label: Text('المتبقي', style: HesbaText.tableHeader),
                   ),
+                  if (showProfits)
+                    DataColumn(
+                      label: Text(
+                        tr(ar: 'العمولات', en: 'Commissions'),
+                        style: HesbaText.tableHeader,
+                      ),
+                    ),
                   DataColumn(
-                    label: Text(tr(ar: 'العمولات', en: 'Commissions'), style: HesbaText.tableHeader),
+                    label: Text(
+                      tr(ar: 'الحالة', en: 'Status'),
+                      style: HesbaText.tableHeader,
+                    ),
                   ),
                   DataColumn(
-                    label: Text(tr(ar: 'الحالة', en: 'Status'), style: HesbaText.tableHeader),
-                  ),
-                  DataColumn(
-                    label: Text(tr(ar: 'إدارة', en: 'Admin'), style: HesbaText.tableHeader),
+                    label: Text(
+                      tr(ar: 'إدارة', en: 'Admin'),
+                      style: HesbaText.tableHeader,
+                    ),
                   ),
                 ],
                 rows: [
@@ -629,12 +672,13 @@ class _MachinesTable extends StatelessWidget {
                             ),
                           ),
                         ),
-                        DataCell(
-                          Text(
-                            money(e['commissionBalance']),
-                            style: HesbaText.tableCell,
+                        if (showProfits)
+                          DataCell(
+                            Text(
+                              money(e['commissionBalance']),
+                              style: HesbaText.tableCell,
+                            ),
                           ),
-                        ),
                         DataCell(SoftBadge.status(active: e['active'] == true)),
                         DataCell(
                           canManage
