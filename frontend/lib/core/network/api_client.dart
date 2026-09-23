@@ -10,7 +10,7 @@ import 'package:uuid/uuid.dart';
 import 'api_endpoints.dart';
 
 final _sensitiveNetworkLogValue = RegExp(
-  r'''^(\s*[║╟]?\s*(?:"|')?(?:authorization|proxy-authorization|cookie|set-cookie|password|passcode|access[_-]?token|refresh[_-]?token|id[_-]?token|token|api[_-]?key|client[_-]?secret|secret)(?:"|')?\s*:\s*).*$''',
+  r'''^(\s*[║╟]?\s*(?:"|')?(?:authorization|proxy-authorization|cookie|set-cookie|password|passcode|access[_-]?token|refresh[_-]?token|id[_-]?token|token|api[_-]?key|recovery[_-]?key|client[_-]?secret|secret)(?:"|')?\s*:\s*).*$''',
   caseSensitive: false,
 );
 
@@ -89,7 +89,9 @@ class ApiClient {
       PrettyDioLogger(
         enabled: kDebugMode,
         requestHeader: true,
-        requestBody: true,
+        // Request bodies can contain passwords, recovery keys, financial
+        // details, and other secrets. Never print them, even in debug builds.
+        requestBody: false,
         responseHeader: true,
         responseBody: true,
         error: true,
@@ -155,6 +157,7 @@ class ApiClient {
     if (error.response?.statusCode != 401) return false;
     final path = error.requestOptions.path;
     if (path == ApiEndpoints.login ||
+        path == ApiEndpoints.recoverAdmin ||
         path == ApiEndpoints.refresh ||
         path == ApiEndpoints.logout) {
       return false;
@@ -222,6 +225,25 @@ class ApiClient {
       options: Options(extra: const {'skipAuthRefresh': true}),
     );
 
+    return response.data ?? <String, dynamic>{};
+  }
+
+  Future<Map<String, dynamic>> recoverAdmin({
+    required String recoveryKey,
+    required String username,
+    required String displayName,
+    required String password,
+  }) async {
+    final response = await dio.post<Map<String, dynamic>>(
+      ApiEndpoints.recoverAdmin,
+      data: {
+        'recoveryKey': recoveryKey,
+        'username': username,
+        'displayName': displayName,
+        'password': password,
+      },
+      options: Options(extra: const {'skipAuthRefresh': true}),
+    );
     return response.data ?? <String, dynamic>{};
   }
 

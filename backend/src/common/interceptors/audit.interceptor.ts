@@ -27,6 +27,7 @@ const REDACTED_KEYS = new Set([
   'token',
   'accessToken',
   'refreshToken',
+  'recoveryKey',
   'authorization',
   'secret',
 ]);
