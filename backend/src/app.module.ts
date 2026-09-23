@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Schema1790087699416 } from './database/migrations/1790087699416-Schema.js';
 import { LegacySchemaRepair1790087699417 } from './database/migrations/1790087699417-LegacySchemaRepair.js';
 import { OperationsHardening1790087699418 } from './database/migrations/1790087699418-OperationsHardening.js';
+import { RefreshTokens1790087699419 } from './database/migrations/1790087699419-RefreshTokens.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -29,6 +30,7 @@ import {
   IdempotencyRecord,
   LedgerEntry,
   Machine,
+  RefreshToken,
   Treasury,
   User,
   Wallet,
@@ -78,6 +80,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           AuditEvent,
           DailyClose,
           InventoryStockMovement,
+          RefreshToken,
         ],
         synchronize:
           config.get('NODE_ENV', 'development') !== 'production' &&
@@ -86,6 +89,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           Schema1790087699416,
           LegacySchemaRepair1790087699417,
           OperationsHardening1790087699418,
+          RefreshTokens1790087699419,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

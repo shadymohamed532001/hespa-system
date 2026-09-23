@@ -14,5 +14,6 @@ export { LedgerEntry } from './ledger-entry.entity.js';
 export { Machine } from './machine.entity.js';
 export { AppNotification } from './notification.entity.js';
 export { Treasury } from './treasury.entity.js';
+export { RefreshToken } from './refresh-token.entity.js';
 export { User } from './user.entity.js';
 export { Wallet } from './wallet.entity.js';

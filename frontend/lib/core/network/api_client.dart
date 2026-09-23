@@ -30,12 +30,38 @@ class ApiClient {
     if (adapter != null) dio.httpClientAdapter = adapter;
     dio.interceptors.add(
       InterceptorsWrapper(
-        onError: (error, handler) {
-          if (error.response?.statusCode == 401 &&
-              error.requestOptions.path != ApiEndpoints.login) {
-            onUnauthorized?.call();
+        onError: (error, handler) async {
+          if (!_shouldAttemptRefresh(error)) {
+            handler.next(error);
+            return;
           }
-          handler.next(error);
+
+          final refreshed = await _refreshSession();
+          if (!refreshed) {
+            onUnauthorized?.call();
+            handler.next(error);
+            return;
+          }
+
+          try {
+            final request = error.requestOptions;
+            final auth = dio.options.headers['Authorization'];
+            if (auth != null) {
+              request.headers['Authorization'] = auth;
+            } else {
+              request.headers.remove('Authorization');
+            }
+            request.extra['authRetry'] = true;
+            final response = await dio.fetch<dynamic>(request);
+            handler.resolve(response);
+          } on DioException catch (retryError) {
+            if (retryError.response?.statusCode == 401) {
+              onUnauthorized?.call();
+            }
+            handler.next(retryError);
+          } catch (_) {
+            handler.next(error);
+          }
         },
       ),
     );
@@ -46,12 +72,15 @@ class ApiClient {
   final int maxMutationAttempts;
   final Future<void> Function(Duration) _delay;
   void Function()? onUnauthorized;
+  Future<void> Function(String accessToken, String refreshToken)?
+  onTokensUpdated;
   static const _uuid = Uuid();
   static const _pendingMutationStoragePrefix = 'pending_idempotency_keys_v1';
   final Map<String, Future<String>> _pendingMutationKeys = {};
   Future<void> _storageTail = Future<void>.value();
   String? _currentToken;
-  String? _mutationScope;
+  String? _refreshToken;
+  Completer<bool>? _refreshCompleter;
 
   // =========================
   // Authentication Token
@@ -72,23 +101,109 @@ class ApiClient {
     }
   }
 
+  void setRefreshToken(String? token) {
+    _refreshToken = token;
+  }
+
+  void setTokens({String? accessToken, String? refreshToken}) {
+    setToken(accessToken);
+    setRefreshToken(refreshToken);
+  }
+
   void setMutationScope(String? userId) {
     if (_mutationScope == userId) return;
     _pendingMutationKeys.clear();
     _mutationScope = userId;
   }
 
+  String? _mutationScope;
+
+  bool _shouldAttemptRefresh(DioException error) {
+    if (error.response?.statusCode != 401) return false;
+    final path = error.requestOptions.path;
+    if (path == ApiEndpoints.login ||
+        path == ApiEndpoints.refresh ||
+        path == ApiEndpoints.logout) {
+      return false;
+    }
+    if (error.requestOptions.extra['skipAuthRefresh'] == true) return false;
+    if (error.requestOptions.extra['authRetry'] == true) return false;
+    if (_refreshToken == null || _refreshToken!.isEmpty) return false;
+    return true;
+  }
+
+  Future<bool> _refreshSession() async {
+    final inFlight = _refreshCompleter;
+    if (inFlight != null) return inFlight.future;
+
+    final completer = Completer<bool>();
+    _refreshCompleter = completer;
+    try {
+      final refresh = _refreshToken;
+      if (refresh == null || refresh.isEmpty) {
+        completer.complete(false);
+        return false;
+      }
+
+      final response = await dio.post<Map<String, dynamic>>(
+        ApiEndpoints.refresh,
+        data: {'refreshToken': refresh},
+        options: Options(extra: const {'skipAuthRefresh': true}),
+      );
+      final data = response.data ?? <String, dynamic>{};
+      final accessToken = data['accessToken'] as String?;
+      final refreshToken = data['refreshToken'] as String?;
+      if (accessToken == null ||
+          accessToken.isEmpty ||
+          refreshToken == null ||
+          refreshToken.isEmpty) {
+        completer.complete(false);
+        return false;
+      }
+
+      setTokens(accessToken: accessToken, refreshToken: refreshToken);
+      await onTokensUpdated?.call(accessToken, refreshToken);
+      completer.complete(true);
+      return true;
+    } catch (_) {
+      completer.complete(false);
+      return false;
+    } finally {
+      if (identical(_refreshCompleter, completer)) {
+        _refreshCompleter = null;
+      }
+    }
+  }
+
+  /// Attempts a proactive token refresh (e.g. during session restore).
+  Future<bool> tryRefresh() => _refreshSession();
+
   // =========================
-  // Login
+  // Login / Logout
   // =========================
 
   Future<Map<String, dynamic>> login(String username, String password) async {
     final response = await dio.post<Map<String, dynamic>>(
       ApiEndpoints.login,
       data: {'username': username, 'password': password},
+      options: Options(extra: const {'skipAuthRefresh': true}),
     );
 
     return response.data ?? <String, dynamic>{};
+  }
+
+  Future<void> logoutRemote() async {
+    final refresh = _refreshToken;
+    if (refresh == null || refresh.isEmpty) return;
+    try {
+      await dio.post<Map<String, dynamic>>(
+        ApiEndpoints.logout,
+        data: {'refreshToken': refresh},
+        options: Options(extra: const {'skipAuthRefresh': true}),
+      );
+    } catch (_) {
+      // Local logout must still succeed if the server is unreachable.
+    }
   }
 
   // =========================

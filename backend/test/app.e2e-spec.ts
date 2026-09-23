@@ -93,6 +93,21 @@ describe('financial operations (e2e)', () => {
       .send({ username: 'e2e-admin', password: 'e2e-password-123' })
       .expect(201);
     token = login.body.accessToken as string;
+    expect(login.body.refreshToken).toEqual(expect.any(String));
+
+    const refreshed = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken })
+      .expect(200);
+    expect(refreshed.body.accessToken).toEqual(expect.any(String));
+    expect(refreshed.body.refreshToken).toEqual(expect.any(String));
+    expect(refreshed.body.refreshToken).not.toBe(login.body.refreshToken);
+    token = refreshed.body.accessToken as string;
+
+    await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .send({ refreshToken: login.body.refreshToken })
+      .expect(401);
   }, 30_000);
 
   afterAll(async () => {

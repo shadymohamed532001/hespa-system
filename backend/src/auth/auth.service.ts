@@ -7,7 +7,9 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { compare, hash } from 'bcryptjs';
-import { Repository } from 'typeorm';
+import { createHash, randomBytes } from 'node:crypto';
+import { IsNull, Repository } from 'typeorm';
+import { RefreshToken } from '../database/entities/refresh-token.entity.js';
 import { User } from '../database/entities/user.entity.js';
 import {
   ALL_PERMISSIONS,
@@ -18,10 +20,14 @@ import {
 import { UsersService } from '../users/users.service.js';
 import { LoginDto } from './dto/login.dto.js';
 
+const DAY_MS = 86_400_000;
+
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
+    @InjectRepository(RefreshToken)
+    private readonly refreshTokens: Repository<RefreshToken>,
     private readonly usersService: UsersService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
@@ -63,6 +69,7 @@ export class AuthService implements OnModuleInit {
         user.active = false;
         user.tokenVersion = Number(user.tokenVersion ?? 0) + 1;
         await this.users.save(user);
+        await this.revokeAllRefreshTokens(user.id);
       }
     }
   }
@@ -98,6 +105,7 @@ export class AuthService implements OnModuleInit {
       existing.active = true;
       existing.tokenVersion = Number(existing.tokenVersion ?? 0) + 1;
       await this.users.save(existing);
+      await this.revokeAllRefreshTokens(existing.id);
       return;
     }
 
@@ -145,20 +153,117 @@ export class AuthService implements OnModuleInit {
     if (!user || !(await compare(dto.password, user.passwordHash))) {
       throw new UnauthorizedException('اسم المستخدم أو كلمة المرور غير صحيحة');
     }
-    const publicUser = this.usersService.toPublic(user);
-    return {
-      accessToken: await this.jwt.signAsync({
-        sub: user.id,
-        username: user.username,
-        role: user.role,
-        ver: Number(user.tokenVersion ?? 0),
-      }),
-      user: publicUser,
-    };
+    return this.issueSession(user);
+  }
+
+  async refresh(rawRefreshToken: string) {
+    const tokenHash = this.hashRefreshToken(rawRefreshToken);
+    const stored = await this.refreshTokens.findOne({ where: { tokenHash } });
+    if (!stored) {
+      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+    }
+
+    if (stored.revokedAt) {
+      // Suspected reuse of a rotated token — revoke the whole family.
+      await this.revokeAllRefreshTokens(stored.userId);
+      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+    }
+
+    if (stored.expiresAt.getTime() <= Date.now()) {
+      stored.revokedAt = new Date();
+      await this.refreshTokens.save(stored);
+      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+    }
+
+    const user = await this.users.findOne({
+      where: { id: stored.userId, active: true },
+    });
+    if (
+      !user ||
+      Number(user.tokenVersion ?? 0) !== Number(stored.tokenVersion)
+    ) {
+      await this.revokeAllRefreshTokens(stored.userId);
+      throw new UnauthorizedException('انتهت الجلسة، سجل الدخول مرة أخرى');
+    }
+
+    const session = await this.issueSession(user, stored);
+    return session;
+  }
+
+  async logout(rawRefreshToken: string) {
+    const tokenHash = this.hashRefreshToken(rawRefreshToken);
+    const stored = await this.refreshTokens.findOne({ where: { tokenHash } });
+    if (stored && !stored.revokedAt) {
+      stored.revokedAt = new Date();
+      await this.refreshTokens.save(stored);
+    }
+    return { ok: true };
   }
 
   async me(userId: string) {
     const user = await this.usersService.findActiveById(userId);
     return this.usersService.toPublic(user);
+  }
+
+  private async issueSession(user: User, previous?: RefreshToken) {
+    const publicUser = this.usersService.toPublic(user);
+    const accessToken = await this.jwt.signAsync({
+      sub: user.id,
+      username: user.username,
+      role: user.role,
+      ver: Number(user.tokenVersion ?? 0),
+    });
+    const { raw: refreshToken, id: refreshTokenId } =
+      await this.createRefreshToken(user);
+    if (previous) {
+      previous.revokedAt = new Date();
+      previous.replacedById = refreshTokenId;
+      await this.refreshTokens.save(previous);
+    }
+    return { accessToken, refreshToken, user: publicUser };
+  }
+
+  private async createRefreshToken(user: User) {
+    const raw = randomBytes(48).toString('base64url');
+    const expiresIn = this.config.get('REFRESH_TOKEN_EXPIRES_IN', '30d');
+    const expiresAt = new Date(
+      Date.now() + this.parseDurationMs(expiresIn, 30 * DAY_MS),
+    );
+    const saved = await this.refreshTokens.save(
+      this.refreshTokens.create({
+        userId: user.id,
+        tokenHash: this.hashRefreshToken(raw),
+        tokenVersion: Number(user.tokenVersion ?? 0),
+        expiresAt,
+        revokedAt: null,
+        replacedById: null,
+      }),
+    );
+    return { raw, id: saved.id };
+  }
+
+  private async revokeAllRefreshTokens(userId: string) {
+    await this.refreshTokens.update(
+      { userId, revokedAt: IsNull() },
+      { revokedAt: new Date() },
+    );
+  }
+
+  private hashRefreshToken(raw: string) {
+    return createHash('sha256').update(raw).digest('hex');
+  }
+
+  private parseDurationMs(value: string, fallbackMs: number) {
+    const match = /^(\d+)\s*([smhd])$/i.exec(value.trim());
+    if (!match) return fallbackMs;
+    const amount = Number(match[1]);
+    const unit = match[2].toLowerCase();
+    const multipliers: Record<string, number> = {
+      s: 1000,
+      m: 60_000,
+      h: 3_600_000,
+      d: DAY_MS,
+    };
+    return amount * (multipliers[unit] ?? 1);
   }
 }

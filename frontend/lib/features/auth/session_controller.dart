@@ -26,7 +26,8 @@ abstract final class AppPermissions {
 
 class SessionController extends ChangeNotifier {
   SessionController(this.api) {
-    api.onUnauthorized = () => unawaited(logout());
+    api.onUnauthorized = () => unawaited(logout(remote: false));
+    api.onTokensUpdated = _persistTokens;
   }
 
   final ApiClient api;
@@ -34,10 +35,12 @@ class SessionController extends ChangeNotifier {
     mOptions: MacOsOptions(usesDataProtectionKeychain: false),
   );
   static const _tokenKey = 'access_token';
+  static const _refreshTokenKey = 'refresh_token';
   static const _loggedOutKey = 'auth_logged_out';
   bool ready = false;
   bool busy = false;
   String? token;
+  String? refreshToken;
   String? userId;
   String? username;
   String? displayName;
@@ -66,8 +69,10 @@ class SessionController extends ChangeNotifier {
     try {
       if (explicitlyLoggedOut) {
         await _secureStorage.delete(key: _tokenKey);
+        await _secureStorage.delete(key: _refreshTokenKey);
       } else {
         token = await _secureStorage.read(key: _tokenKey);
+        refreshToken = await _secureStorage.read(key: _refreshTokenKey);
         final legacyToken = prefs.getString('token');
         if (token == null && legacyToken != null) {
           await _secureStorage.write(key: _tokenKey, value: legacyToken);
@@ -78,6 +83,7 @@ class SessionController extends ChangeNotifier {
       // Never keep the splash screen or restore an uncertain session when the
       // platform keychain is unavailable.
       token = null;
+      refreshToken = null;
     }
     await prefs.remove('token');
     userId = prefs.getString('userId');
@@ -86,14 +92,27 @@ class SessionController extends ChangeNotifier {
     role = prefs.getString('role');
     permissions = prefs.getStringList('permissions') ?? const [];
     api.setMutationScope(userId);
-    api.setToken(token);
+    api.setTokens(accessToken: token, refreshToken: refreshToken);
     ready = true;
     notifyListeners();
-    if (token != null) {
+    if (token != null || refreshToken != null) {
       try {
+        if (token == null && refreshToken != null) {
+          final refreshed = await api.tryRefresh();
+          if (!refreshed) {
+            await logout(remote: false);
+            return;
+          }
+          token = await _secureStorage.read(key: _tokenKey);
+          refreshToken = await _secureStorage.read(key: _refreshTokenKey);
+        }
         await refreshProfile();
       } on DioException catch (error) {
-        if (error.response?.statusCode == 401) await logout();
+        // The API client already attempts one refresh on 401; if we still
+        // land here the session is unrecoverable.
+        if (error.response?.statusCode == 401) {
+          await logout(remote: false);
+        }
       }
     }
   }
@@ -105,13 +124,17 @@ class SessionController extends ChangeNotifier {
     try {
       final result = await api.login(user.trim(), password);
       final currentUser = result['user'] as Map<String, dynamic>;
-      token = result['accessToken'] as String;
-      api.setToken(token);
+      token = result['accessToken'] as String?;
+      refreshToken = result['refreshToken'] as String?;
+      if (token == null || refreshToken == null) {
+        throw StateError('Login response missing tokens');
+      }
+      api.setTokens(accessToken: token, refreshToken: refreshToken);
       await _applyUser(currentUser);
       return true;
     } catch (e) {
       try {
-        await logout();
+        await logout(remote: false);
       } catch (_) {
         // The logout marker is written before keychain deletion, so an old
         // token will still not be restored on the next launch.
@@ -127,6 +150,22 @@ class SessionController extends ChangeNotifier {
   Future<void> refreshProfile() async {
     final me = await api.getMap(ApiEndpoints.currentUser);
     await _applyUser(me);
+    notifyListeners();
+  }
+
+  Future<void> _persistTokens(String accessToken, String refresh) async {
+    token = accessToken;
+    refreshToken = refresh;
+    api.setTokens(accessToken: accessToken, refreshToken: refresh);
+    try {
+      await _secureStorage.write(key: _tokenKey, value: accessToken);
+      await _secureStorage.write(key: _refreshTokenKey, value: refresh);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_loggedOutKey);
+      await prefs.remove('token');
+    } catch (_) {
+      // Memory tokens still work for this process even if keychain fails.
+    }
     notifyListeners();
   }
 
@@ -146,9 +185,8 @@ class SessionController extends ChangeNotifier {
     );
     api.setMutationScope(userId);
     final prefs = await SharedPreferences.getInstance();
-    if (token != null) {
-      await _secureStorage.write(key: _tokenKey, value: token);
-      await prefs.remove(_loggedOutKey);
+    if (token != null && refreshToken != null) {
+      await _persistTokens(token!, refreshToken!);
     }
     await prefs.remove('token');
     if (userId != null) await prefs.setString('userId', userId!);
@@ -160,8 +198,12 @@ class SessionController extends ChangeNotifier {
     await prefs.setStringList('permissions', permissions);
   }
 
-  Future<void> logout() async {
+  Future<void> logout({bool remote = true}) async {
+    if (remote) {
+      await api.logoutRemote();
+    }
     token = null;
+    refreshToken = null;
     userId = null;
     username = null;
     displayName = null;
@@ -169,12 +211,13 @@ class SessionController extends ChangeNotifier {
     permissions = const [];
     limits = const {};
     api.setMutationScope(null);
-    api.setToken(null);
+    api.setTokens(accessToken: null, refreshToken: null);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_loggedOutKey, true);
     try {
       await _secureStorage.delete(key: _tokenKey);
+      await _secureStorage.delete(key: _refreshTokenKey);
     } catch (_) {
       // The persistent logout marker prevents restoration until a later
       // successful login even if the platform keychain is temporarily down.

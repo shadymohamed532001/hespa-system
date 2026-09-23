@@ -26,10 +26,10 @@ const REDACTED_KEYS = new Set([
   'passwordHash',
   'token',
   'accessToken',
+  'refreshToken',
   'authorization',
   'secret',
 ]);
-
 function sanitize(value: unknown, depth = 0): unknown {
   if (depth > 4) return '[truncated]';
   if (Array.isArray(value))

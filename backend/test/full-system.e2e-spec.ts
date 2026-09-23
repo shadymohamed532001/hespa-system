@@ -116,6 +116,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       })
       .expect(201);
     adminToken = login.body.accessToken as string;
+    expect(login.body.refreshToken).toEqual(expect.any(String));
     expect(login.body.user.role).toBe('admin');
     expect(login.body.user.permissions).toEqual(
       expect.arrayContaining([
