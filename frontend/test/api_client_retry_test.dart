@@ -82,6 +82,35 @@ void main() {
       firstAdapter.idempotencyKeys.single,
     );
   });
+
+  test('refreshes an expired access token and retries the request', () async {
+    final adapter = _QueueAdapter([
+      const _StubResponse(401, {'message': 'expired'}),
+      const _StubResponse(200, {
+        'accessToken': 'access-new',
+        'refreshToken': 'refresh-new',
+      }),
+      const _StubResponse(200, {'id': 'user-1'}),
+    ]);
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api',
+      adapter: adapter,
+    )..setTokens(accessToken: 'access-old', refreshToken: 'refresh-old');
+    String? persistedAccess;
+    String? persistedRefresh;
+    client.onTokensUpdated = (access, refresh) async {
+      persistedAccess = access;
+      persistedRefresh = refresh;
+    };
+
+    final result = await client.getMap('/auth/me');
+
+    expect(result, {'id': 'user-1'});
+    expect(adapter.paths, ['/auth/me', '/auth/refresh', '/auth/me']);
+    expect(adapter.authorizationHeaders.last, 'Bearer access-new');
+    expect(persistedAccess, 'access-new');
+    expect(persistedRefresh, 'refresh-new');
+  });
 }
 
 ApiClient _client(_QueueAdapter adapter, {required int maxAttempts}) {
@@ -108,6 +137,8 @@ class _QueueAdapter implements HttpClientAdapter {
 
   final List<_StubResponse> responses;
   final List<String> idempotencyKeys = [];
+  final List<String> paths = [];
+  final List<String?> authorizationHeaders = [];
 
   @override
   Future<ResponseBody> fetch(
@@ -115,6 +146,8 @@ class _QueueAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    paths.add(options.path);
+    authorizationHeaders.add(options.headers['Authorization'] as String?);
     idempotencyKeys.add('${options.headers['Idempotency-Key']}');
     final response = responses.removeAt(0);
     return ResponseBody.fromString(

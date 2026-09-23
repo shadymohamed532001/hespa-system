@@ -3,10 +3,30 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'api_endpoints.dart';
+
+final _sensitiveNetworkLogValue = RegExp(
+  r'''^(\s*[║╟]?\s*(?:"|')?(?:authorization|proxy-authorization|cookie|set-cookie|password|passcode|access[_-]?token|refresh[_-]?token|id[_-]?token|token|api[_-]?key|client[_-]?secret|secret)(?:"|')?\s*:\s*).*$''',
+  caseSensitive: false,
+);
+
+void _printNetworkLog(Object message) {
+  final logLine = message.toString();
+
+  // PrettyDioLogger prints map request bodies twice. Skip the compact copy so
+  // sensitive fields cannot reappear after being masked in the table above.
+  if (logLine.startsWith('║ {') && logLine.endsWith('}')) return;
+
+  final sanitizedMessage = logLine.replaceFirstMapped(
+    _sensitiveNetworkLogValue,
+    (match) => '${match.group(1)}***',
+  );
+  debugPrint(sanitizedMessage);
+}
 
 class ApiClient {
   ApiClient({
@@ -63,6 +83,19 @@ class ApiClient {
             handler.next(error);
           }
         },
+      ),
+    );
+    dio.interceptors.add(
+      PrettyDioLogger(
+        enabled: kDebugMode,
+        requestHeader: true,
+        requestBody: true,
+        responseHeader: true,
+        responseBody: true,
+        error: true,
+        compact: true,
+        maxWidth: 120,
+        logPrint: _printNetworkLog,
       ),
     );
   }
