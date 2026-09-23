@@ -6,6 +6,7 @@ backend/dist/
 backend/coverage/
 backend/*.tsbuildinfo
 backend/.env
+backend/secrets/
 .env*.local
 .env.production
 *.sql.gz
