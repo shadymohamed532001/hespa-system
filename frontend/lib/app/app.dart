@@ -5,6 +5,8 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../core/network/api_client.dart';
 import '../core/notifications/push_notifications_service.dart';
 import '../core/settings/app_settings.dart';
+import '../core/system/system_availability_service.dart';
+import '../core/system/system_unavailable_page.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/login_page.dart';
 import '../features/auth/session_controller.dart';
@@ -20,6 +22,9 @@ class HesbaApp extends StatefulWidget {
 class _HesbaAppState extends State<HesbaApp> {
   late final SessionController session;
   late final AppSettings settings;
+  final SystemAvailabilityService availability =
+      SystemAvailabilityService.instance;
+  bool _availabilityChecking = true;
 
   @override
   void initState() {
@@ -29,6 +34,14 @@ class _HesbaAppState extends State<HesbaApp> {
     initializeDateFormatting('ar');
     initializeDateFormatting('en');
     session.addListener(_onSessionChanged);
+    _refreshAvailability();
+  }
+
+  Future<void> _refreshAvailability() async {
+    setState(() => _availabilityChecking = true);
+    await availability.check();
+    if (!mounted) return;
+    setState(() => _availabilityChecking = false);
   }
 
   void _onSessionChanged() {
@@ -69,13 +82,25 @@ class _HesbaAppState extends State<HesbaApp> {
               child: child ?? const SizedBox.shrink(),
             );
           },
-          home: !session.ready || !settings.ready
-              ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-              : session.signedIn
-              ? AppShell(session: session, settings: settings)
-              : LoginPage(session: session),
+          home: _buildHome(),
         );
       },
     );
+  }
+
+  Widget _buildHome() {
+    if (_availabilityChecking || !availability.ready) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (!availability.isSystemWork) {
+      return SystemUnavailablePage(onRetry: _refreshAvailability);
+    }
+    if (!session.ready || !settings.ready) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (session.signedIn) {
+      return AppShell(session: session, settings: settings);
+    }
+    return LoginPage(session: session);
   }
 }

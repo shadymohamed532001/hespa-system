@@ -57,77 +57,90 @@ class PushNotificationsService {
           options: DefaultFirebaseOptions.currentPlatform,
         );
       }
+
+      const darwinSettings = DarwinInitializationSettings(
+        requestAlertPermission: true,
+        requestBadgePermission: true,
+        requestSoundPermission: true,
+      );
+      await _local.initialize(
+        settings: const InitializationSettings(
+          macOS: darwinSettings,
+          iOS: darwinSettings,
+        ),
+      );
+
+      final messaging = FirebaseMessaging.instance;
+      final settings = await messaging.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+      if (settings.authorizationStatus == AuthorizationStatus.denied) {
+        debugPrint('Push permission denied');
+        _ready = true;
+        return;
+      }
+
+      // macOS needs the APNs token before an FCM token is issued.
+      // getAPNSToken() throws when APNs is not ready yet — never let that abort bootstrap.
+      await _waitForApnsToken(messaging);
+
+      try {
+        _token = await messaging.getToken();
+      } catch (error) {
+        debugPrint('FCM getToken skipped (APNs not ready): $error');
+      }
+
+      messaging.onTokenRefresh.listen((value) {
+        _token = value;
+        final api = _api;
+        if (api != null) {
+          registerWithBackend(api);
+        }
+      });
+
+      FirebaseMessaging.onMessage.listen((message) async {
+        await showLocalFromRemote(message);
+        onMessage?.call(message);
+      });
+
+      FirebaseMessaging.onMessageOpenedApp.listen((message) {
+        onMessage?.call(message);
+      });
+
+      try {
+        final initial = await messaging.getInitialMessage();
+        if (initial != null) {
+          onMessage?.call(initial);
+        }
+      } catch (error) {
+        debugPrint('FCM getInitialMessage skipped: $error');
+      }
+
+      _ready = true;
+      if (_token != null && _token!.length > 12) {
+        debugPrint('FCM ready. token=${_token!.substring(0, 12)}…');
+      } else {
+        debugPrint('FCM ready but token is empty (check APNs in Firebase).');
+      }
     } catch (error) {
       _initFailed = true;
-      debugPrint(
-        'Firebase.initializeApp failed (stop the app fully and run again, '
-        'do not use hot restart): $error',
-      );
-      return;
+      debugPrint('FCM initialize failed (app continues without push): $error');
     }
+  }
 
-    const darwinSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-    await _local.initialize(
-      settings: const InitializationSettings(
-        macOS: darwinSettings,
-        iOS: darwinSettings,
-      ),
-    );
-
-    final messaging = FirebaseMessaging.instance;
-    final settings = await messaging.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
-    if (settings.authorizationStatus == AuthorizationStatus.denied) {
-      debugPrint('Push permission denied');
-      _ready = true;
-      return;
-    }
-
-    // macOS needs the APNs token before an FCM token is issued.
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.macOS) {
-      for (var i = 0; i < 5; i++) {
+  Future<void> _waitForApnsToken(FirebaseMessaging messaging) async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.macOS) return;
+    for (var i = 0; i < 5; i++) {
+      try {
         final apns = await messaging.getAPNSToken();
-        if (apns != null) break;
-        await Future<void>.delayed(const Duration(milliseconds: 500));
+        if (apns != null) return;
+      } catch (_) {
+        // APNs not set yet — keep waiting.
       }
-    }
-
-    _token = await messaging.getToken();
-    messaging.onTokenRefresh.listen((value) {
-      _token = value;
-      final api = _api;
-      if (api != null) {
-        registerWithBackend(api);
-      }
-    });
-
-    FirebaseMessaging.onMessage.listen((message) async {
-      await showLocalFromRemote(message);
-      onMessage?.call(message);
-    });
-
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
-      onMessage?.call(message);
-    });
-
-    final initial = await messaging.getInitialMessage();
-    if (initial != null) {
-      onMessage?.call(initial);
-    }
-
-    _ready = true;
-    if (_token != null && _token!.length > 12) {
-      debugPrint('FCM ready. token=${_token!.substring(0, 12)}…');
-    } else {
-      debugPrint('FCM ready but token is empty (check APNs in Firebase).');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
     }
   }
 
@@ -162,12 +175,12 @@ class PushNotificationsService {
   Future<void> registerWithBackend(ApiClient api) async {
     _api = api;
     if (_initFailed) return;
-    if (!_ready) await initialize();
-    if (_initFailed || !_ready) return;
-    final current = _token ?? await _refreshToken();
-    if (current == null || current.isEmpty) return;
-
     try {
+      if (!_ready) await initialize();
+      if (_initFailed || !_ready) return;
+      final current = _token ?? await _refreshToken();
+      if (current == null || current.isEmpty) return;
+
       await api.post(ApiEndpoints.notificationDeviceToken, {
         'token': current,
         'platform': _platformName(),
