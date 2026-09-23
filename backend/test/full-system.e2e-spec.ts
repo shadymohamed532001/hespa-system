@@ -139,6 +139,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'Schema1790087699416',
       'LegacySchemaRepair1790087699417',
       'OperationsHardening1790087699418',
+      'RefreshTokens1790087699419',
     ]);
   });
 

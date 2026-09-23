@@ -56,17 +56,51 @@ export class NotificationsService implements OnModuleInit {
   }
 
   buildFromLedger(entry: LedgerEntry): AppNotification {
-    const mapped = mapLedgerCategory(entry.category);
+    const mapped = notificationContent(entry);
     return this.notifications.create({
       kind: mapped.kind,
       title: mapped.title,
-      body: entry.description,
+      body: mapped.body,
       amount: entry.amount > 0 ? entry.amount : null,
       ledgerEntryId: entry.id,
       isRead: false,
       createdAt: entry.createdAt,
     });
   }
+}
+
+export function notificationContent(entry: LedgerEntry): {
+  kind: NotificationKind;
+  title: string;
+  body: string;
+} {
+  const metadata = entry.metadata ?? {};
+  if (
+    entry.category === LedgerCategory.MACHINE_USAGE &&
+    metadata['machineDepleted'] === true
+  ) {
+    const value = (key: string) => Number(metadata[key] ?? 0).toFixed(2);
+    const rawMachineName = metadata['machineName'];
+    const machineName =
+      typeof rawMachineName === 'string' && rawMachineName.trim()
+        ? rawMachineName
+        : 'غير معروفة';
+    return {
+      kind: NotificationKind.WITHDRAWAL,
+      title: `نفاد رصيد الماكينة — ${machineName}`,
+      body:
+        `نفد رصيد الماكينة «${machineName}». ` +
+        `إجمالي المشحون: ${value('loadedBalance')} ج.م، ` +
+        `إجمالي المستخدم: ${value('usedBalance')} ج.م، ` +
+        `المتبقي: ${value('remainingBalance')} ج.م، ` +
+        `إجمالي العمولات: ${value('commissionBalance')} ج.م، ` +
+        `قيمة آخر عملية: ${Number(entry.amount).toFixed(2)} ج.م، ` +
+        `عمولة آخر عملية: ${value('commission')} ج.م. يرجى شحن الماكينة.`,
+    };
+  }
+
+  const mapped = mapLedgerCategory(entry.category);
+  return { ...mapped, body: entry.description };
 }
 
 export function mapLedgerCategory(category: LedgerCategory): {

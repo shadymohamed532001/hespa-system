@@ -349,7 +349,7 @@ class _NotificationTile extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${item['body']}',
-                    maxLines: 2,
+                    maxLines: 6,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: muted, fontSize: 12, height: 1.45),
                   ),

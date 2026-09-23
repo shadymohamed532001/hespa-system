@@ -341,6 +341,67 @@ describe('financial operations (e2e)', () => {
     expect(saved?.remainingBalance).toBe(20);
   });
 
+  it('lets an admin manage machines and alerts when a balance is depleted', async () => {
+    const suffix = randomUUID();
+    const disposable = await request(app.getHttpServer())
+      .post('/api/machines')
+      .set(mutation(`create-disposable-machine-${suffix}`))
+      .send({ name: `Disposable machine ${suffix}`, openingBalance: 0 })
+      .expect(201);
+
+    const renamed = `Renamed machine ${suffix}`;
+    await request(app.getHttpServer())
+      .patch(`/api/machines/${disposable.body.id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ name: renamed })
+      .expect(200)
+      .expect(({ body }) => expect(body.name).toBe(renamed));
+
+    await request(app.getHttpServer())
+      .patch(`/api/machines/${disposable.body.id}/status`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ active: false })
+      .expect(200)
+      .expect(({ body }) => expect(body.active).toBe(false));
+
+    await request(app.getHttpServer())
+      .delete(`/api/machines/${disposable.body.id}`)
+      .set(mutation(`delete-disposable-machine-${suffix}`))
+      .expect(200)
+      .expect(({ body }) => expect(body.deleted).toBe(true));
+
+    const depletedName = `Depleted machine ${suffix}`;
+    const funded = await request(app.getHttpServer())
+      .post('/api/machines')
+      .set(mutation(`create-depleted-machine-${suffix}`))
+      .send({ name: depletedName, openingBalance: 75 })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/machines/${funded.body.id}/use`)
+      .set(mutation(`deplete-machine-${suffix}`))
+      .send({ amount: 75, commission: 3.5, reference: `EMPTY-${suffix}` })
+      .expect(201)
+      .expect(({ body }) => expect(body.remainingBalance).toBe(0));
+
+    const notifications = await request(app.getHttpServer())
+      .get('/api/notifications?limit=100')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const alert = (
+      notifications.body as Array<{ title: string; body: string }>
+    ).find((item) => item.title.includes(depletedName));
+    expect(alert?.title).toContain('نفاد رصيد الماكينة');
+    expect(alert?.body).toContain('إجمالي المشحون: 75.00 ج.م');
+    expect(alert?.body).toContain('إجمالي العمولات: 3.50 ج.م');
+    expect(alert?.body).toContain('يرجى شحن الماكينة');
+
+    await request(app.getHttpServer())
+      .delete(`/api/machines/${funded.body.id}`)
+      .set(mutation(`reject-used-machine-delete-${suffix}`))
+      .expect(400);
+  });
+
   it('prevents two concurrent sales from consuming the same stock unit', async () => {
     const suffix = randomUUID();
     const product = await request(app.getHttpServer())

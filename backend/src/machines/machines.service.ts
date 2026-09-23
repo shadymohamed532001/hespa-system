@@ -14,6 +14,7 @@ import { LedgerCategory } from '../database/enums.js';
 import { CreateMachineDto } from './dto/create-machine.dto.js';
 import { LoadMachineDto } from './dto/load-machine.dto.js';
 import { UseMachineDto } from './dto/use-machine.dto.js';
+import { UpdateMachineDto } from './dto/update-machine.dto.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 
 @Injectable()
@@ -83,6 +84,21 @@ export class MachinesService implements OnModuleInit {
     });
   }
 
+  async update(id: string, dto: UpdateMachineDto) {
+    const machine = await this.machines.findOne({ where: { id } });
+    if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+
+    const name = dto.name.trim();
+    if (!name) throw new BadRequestException('اسم الماكينة مطلوب');
+    const duplicate = await this.machines.findOne({ where: { name } });
+    if (duplicate && duplicate.id !== id) {
+      throw new ConflictException('يوجد ماكينة بنفس الاسم بالفعل');
+    }
+
+    machine.name = name;
+    return this.withRemaining(await this.machines.save(machine));
+  }
+
   async load(id: string, dto: LoadMachineDto, username: string) {
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Machine);
@@ -125,6 +141,10 @@ export class MachinesService implements OnModuleInit {
       machine.usedBalance = Number(machine.usedBalance) + Number(dto.amount);
       machine.commissionBalance =
         Number(machine.commissionBalance) + Number(dto.commission);
+      const remainingAfter = Math.max(
+        0,
+        Number(machine.loadedBalance) - Number(machine.usedBalance),
+      );
       await repo.save(machine);
       const usageEntry = await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.MACHINE_USAGE,
@@ -134,7 +154,15 @@ export class MachinesService implements OnModuleInit {
         reference: dto.reference ?? null,
         description: `عملية شحن من ${machine.name} وعمولتها ${dto.commission}`,
         performedBy: username,
-        metadata: { commission: Number(dto.commission) },
+        metadata: {
+          commission: Number(dto.commission),
+          machineName: machine.name,
+          loadedBalance: Number(machine.loadedBalance),
+          usedBalance: Number(machine.usedBalance),
+          remainingBalance: remainingAfter,
+          commissionBalance: Number(machine.commissionBalance),
+          machineDepleted: remainingAfter <= 0.000001,
+        },
       });
       if (Number(dto.commission) > 0) {
         await manager.getRepository(LedgerEntry).save({
@@ -157,5 +185,48 @@ export class MachinesService implements OnModuleInit {
     if (!machine) throw new NotFoundException('الماكينة غير موجودة');
     machine.active = active;
     return this.withRemaining(await this.machines.save(machine));
+  }
+
+  async remove(id: string, username: string) {
+    const machine = await this.machines.findOne({ where: { id } });
+    if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+
+    const history = await this.dataSource
+      .getRepository(LedgerEntry)
+      .createQueryBuilder('entry')
+      .where('(entry.entity_type = :type AND entry.entity_id = :id)', {
+        type: 'machine',
+        id,
+      })
+      .orWhere('(entry.source_type = :type AND entry.source_id = :id)', {
+        type: 'machine',
+        id,
+      })
+      .orWhere('(entry.target_type = :type AND entry.target_id = :id)', {
+        type: 'machine',
+        id,
+      })
+      .getCount();
+
+    if (
+      Number(machine.loadedBalance) !== 0 ||
+      Number(machine.usedBalance) !== 0 ||
+      Number(machine.commissionBalance) !== 0 ||
+      history > 0
+    ) {
+      throw new BadRequestException(
+        'لا يمكن الحذف النهائي إلا إذا كانت كل أرصدة الماكينة صفرًا ولا توجد أي حركات مرتبطة بها؛ يمكنك إيقافها بدلًا من ذلك',
+      );
+    }
+
+    const name = machine.name;
+    await this.machines.remove(machine);
+    return {
+      deleted: true,
+      id,
+      name,
+      deletedBy: username,
+      message: `تم الحذف النهائي للماكينة «${name}» بنجاح`,
+    };
   }
 }

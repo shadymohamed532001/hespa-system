@@ -38,6 +38,7 @@ abstract final class ApiEndpoints {
   static String machinesList({bool includeInactive = false}) =>
       includeInactive ? '$machines?includeInactive=true' : machines;
 
+  static String machine(String id) => '$machines/$id';
   static String machineLoad(String id) => '$machines/$id/load';
   static String machineUse(String id) => '$machines/$id/use';
   static String machineStatus(String id) => '$machines/$id/status';
