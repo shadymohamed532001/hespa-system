@@ -172,8 +172,8 @@ export class AuthService implements OnModuleInit {
               en: 'This account can only sign in from the staff portal',
             })
           : msg({
-              ar: 'هذا الحساب يدخل من مدخل الأمن فقط',
-              en: 'This account can only sign in from the security portal',
+              ar: 'هذا الحساب يدخل من مدخل الأدمن فقط',
+              en: 'This account can only sign in from the admin portal',
             }),
       );
     }

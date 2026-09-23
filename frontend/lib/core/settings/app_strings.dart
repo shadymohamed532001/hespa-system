@@ -70,7 +70,7 @@ class AppStrings {
   String get choosePortalSubtitle => _ar
       ? 'كل مدخل مخصص لنوع حساب مختلف. بعد الدخول تظهر لك الصلاحيات المتاحة فقط.'
       : 'Each portal is for a different account type. After sign-in you only see what you are allowed to use.';
-  String get securityPortal => _ar ? 'مدخل الأمن' : 'Security portal';
+  String get securityPortal => _ar ? 'مدخل الأدمن' : 'Admin portal';
   String get staffPortal => _ar ? 'مدخل الموظفين' : 'Staff portal';
   String get securityPortalSubtitle =>
       _ar ? 'دخول مديري النظام والإدارة' : 'For system admins and management';
@@ -78,19 +78,13 @@ class AppStrings {
       ? 'دخول موظفي المحل والتشغيل اليومي'
       : 'For branch staff and daily operations';
   String get securitySignIn =>
-      _ar ? 'دخول مدخل الأمن' : 'Sign in to security portal';
+      _ar ? 'دخول مدخل الأدمن' : 'Sign in to admin portal';
   String get staffSignIn =>
       _ar ? 'دخول مدخل الموظفين' : 'Sign in to staff portal';
   String get username => _ar ? 'اسم المستخدم' : 'Username';
   String get password => _ar ? 'كلمة المرور' : 'Password';
   String get backToPortals =>
       _ar ? 'العودة لاختيار المدخل' : 'Back to portal selection';
-  String get demoAccounts =>
-      _ar ? 'حسابات النسخة التجريبية' : 'Demo accounts';
-  String get demoSecurityAccount =>
-      _ar ? 'الأمن: demo / demo' : 'Security: demo / demo';
-  String get demoStaffAccount =>
-      _ar ? 'موظف المحل: shix / shix' : 'Branch staff: shix / shix';
   String get adminCreated =>
       _ar ? 'تم إنشاء المدير. يمكنك تسجيل الدخول الآن' : 'Admin created. You can sign in now';
   String get recoverAdminTitle =>

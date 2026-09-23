@@ -118,7 +118,7 @@ class SessionController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// `portal` is `admin` (مدخل الأمن) or `employee` (مدخل الموظفين).
+  /// `portal` is `admin` (مدخل الأدمن) or `employee` (مدخل الموظفين).
   Future<bool> login(String user, String password, {required String portal}) async {
     busy = true;
     error = null;

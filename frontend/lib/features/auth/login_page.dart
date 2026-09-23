@@ -658,8 +658,6 @@ class _LoginForm extends StatelessWidget {
                         ),
                 ),
               ),
-              const SizedBox(height: 19),
-              _DemoAccounts(portal: portal, strings: strings),
             ],
           );
         },
@@ -769,55 +767,6 @@ class _LoginTextFieldState extends State<_LoginTextField> {
     return OutlineInputBorder(
       borderRadius: BorderRadius.circular(11),
       borderSide: BorderSide(color: color, width: width),
-    );
-  }
-}
-
-class _DemoAccounts extends StatelessWidget {
-  const _DemoAccounts({required this.portal, required this.strings});
-
-  final LoginPortal portal;
-  final AppStrings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    final isAdmin = portal == LoginPortal.admin;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F9FA),
-        borderRadius: BorderRadius.circular(11),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              strings.demoAccounts,
-              style: const TextStyle(
-                color: HesbaColors.navy,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-          const SizedBox(height: 2),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Text(
-              isAdmin ? strings.demoSecurityAccount : strings.demoStaffAccount,
-              style: const TextStyle(
-                color: HesbaColors.muted,
-                fontSize: 12,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }
