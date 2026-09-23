@@ -12,6 +12,7 @@ export declare class TreasuryService {
         pendingAmount: number;
         availableBalance: number;
     }>;
+    private assetKey;
     private asset;
     transfer(dto: InternalTransferDto, username: string): Promise<{
         from: string;

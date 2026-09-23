@@ -15,6 +15,8 @@ export enum AppPermission {
   SELL_INVENTORY = 'sell_inventory',
   MANAGE_INVENTORY = 'manage_inventory',
   USE_MACHINES = 'use_machines',
+  REVERSE_OPERATIONS = 'reverse_operations',
+  RECONCILE_BALANCES = 'reconcile_balances',
 }
 
 export const ALL_PERMISSIONS = Object.values(AppPermission);
@@ -53,6 +55,7 @@ export enum AccountType {
 export enum CollectionStatus {
   PENDING = 'pending',
   DONE = 'done',
+  REVERSED = 'reversed',
 }
 
 export enum ExecutionMode {
@@ -69,6 +72,14 @@ export enum LedgerCategory {
   COMMISSION = 'commission',
   MACHINE_USAGE = 'machine_usage',
   DAILY_ROLLOVER = 'daily_rollover',
+  REVERSAL = 'reversal',
+  RECONCILIATION = 'reconciliation',
+}
+
+export enum InventoryMovementType {
+  OPENING = 'opening',
+  STOCK_IN = 'stock_in',
+  SALE = 'sale',
   REVERSAL = 'reversal',
 }
 

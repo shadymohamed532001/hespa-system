@@ -43,6 +43,16 @@ export class InventoryProduct {
   })
   defaultPrice: number;
 
+  @Column({
+    name: 'cost_price',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  costPrice: number;
+
   @Column({ default: true })
   active: boolean;
 

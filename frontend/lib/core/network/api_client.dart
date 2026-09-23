@@ -1,22 +1,33 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'api_endpoints.dart';
 
 class ApiClient {
-  ApiClient({String? baseUrl})
-    : dio = Dio(
-        BaseOptions(
-          baseUrl: _resolveBaseUrl(baseUrl),
-          connectTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 12),
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-          },
-        ),
-      ) {
+  ApiClient({
+    String? baseUrl,
+    HttpClientAdapter? adapter,
+    this.retryBaseDelay = const Duration(milliseconds: 250),
+    this.maxMutationAttempts = 4,
+    Future<void> Function(Duration)? delay,
+  }) : _delay = delay ?? ((duration) => Future<void>.delayed(duration)),
+       dio = Dio(
+         BaseOptions(
+           baseUrl: _resolveBaseUrl(baseUrl),
+           connectTimeout: const Duration(seconds: 8),
+           receiveTimeout: const Duration(seconds: 12),
+           headers: {
+             'Content-Type': 'application/json',
+             'Accept': 'application/json',
+           },
+         ),
+       ) {
+    if (adapter != null) dio.httpClientAdapter = adapter;
     dio.interceptors.add(
       InterceptorsWrapper(
         onError: (error, handler) {
@@ -31,19 +42,40 @@ class ApiClient {
   }
 
   final Dio dio;
+  final Duration retryBaseDelay;
+  final int maxMutationAttempts;
+  final Future<void> Function(Duration) _delay;
   void Function()? onUnauthorized;
   static const _uuid = Uuid();
+  static const _pendingMutationStoragePrefix = 'pending_idempotency_keys_v1';
+  final Map<String, Future<String>> _pendingMutationKeys = {};
+  Future<void> _storageTail = Future<void>.value();
+  String? _currentToken;
+  String? _mutationScope;
 
   // =========================
   // Authentication Token
   // =========================
 
   void setToken(String? token) {
+    if (_currentToken != token) {
+      // Never carry an uncertain operation from one authenticated session to
+      // another. Within the same session its key remains available for a
+      // manual retry after a timeout.
+      _pendingMutationKeys.clear();
+      _currentToken = token;
+    }
     if (token == null || token.isEmpty) {
       dio.options.headers.remove('Authorization');
     } else {
       dio.options.headers['Authorization'] = 'Bearer $token';
     }
+  }
+
+  void setMutationScope(String? userId) {
+    if (_mutationScope == userId) return;
+    _pendingMutationKeys.clear();
+    _mutationScope = userId;
   }
 
   // =========================
@@ -84,13 +116,7 @@ class ApiClient {
   // =========================
 
   Future<dynamic> post(String path, [Map<String, dynamic>? data]) async {
-    final response = await dio.post<dynamic>(
-      path,
-      data: data ?? <String, dynamic>{},
-      options: _mutationOptions(),
-    );
-
-    return response.data;
+    return _mutate('POST', path, data ?? <String, dynamic>{});
   }
 
   // =========================
@@ -98,13 +124,7 @@ class ApiClient {
   // =========================
 
   Future<dynamic> patch(String path, Map<String, dynamic> data) async {
-    final response = await dio.patch<dynamic>(
-      path,
-      data: data,
-      options: _mutationOptions(),
-    );
-
-    return response.data;
+    return _mutate('PATCH', path, data);
   }
 
   // =========================
@@ -112,16 +132,148 @@ class ApiClient {
   // =========================
 
   Future<dynamic> delete(String path) async {
-    final response = await dio.delete<dynamic>(
-      path,
-      options: _mutationOptions(),
-    );
-
-    return response.data;
+    return _mutate('DELETE', path, const <String, dynamic>{});
   }
 
-  Options _mutationOptions() =>
-      Options(headers: <String, String>{'Idempotency-Key': _uuid.v4()});
+  Future<dynamic> _mutate(
+    String method,
+    String path,
+    Map<String, dynamic> data,
+  ) async {
+    final fingerprint = '$method\n$path\n${_canonicalJson(data)}';
+    final key = await _pendingMutationKeys.putIfAbsent(
+      fingerprint,
+      () => _loadOrCreateMutationKey(fingerprint),
+    );
+
+    for (var attempt = 0; attempt < maxMutationAttempts; attempt++) {
+      try {
+        final response = await dio.request<dynamic>(
+          path,
+          data: data,
+          options: Options(
+            method: method,
+            headers: <String, String>{'Idempotency-Key': key},
+          ),
+        );
+        await _forgetMutationKey(fingerprint);
+        return response.data;
+      } on DioException catch (error) {
+        final retryable = _isRetryableMutationError(error);
+        final hasAnotherAttempt = attempt + 1 < maxMutationAttempts;
+        if (!retryable) {
+          if (!_isUncertainIdempotencyError(error)) {
+            await _forgetMutationKey(fingerprint);
+          }
+          rethrow;
+        }
+        if (!hasAnotherAttempt) {
+          // Keep the key. If the user retries this exact operation after an
+          // uncertain timeout, the server can replay the original response
+          // instead of applying the money movement twice.
+          rethrow;
+        }
+        await _delay(retryBaseDelay * (1 << attempt));
+      }
+    }
+
+    throw StateError('Mutation retry loop ended unexpectedly');
+  }
+
+  Future<String> _loadOrCreateMutationKey(String fingerprint) async {
+    final scope = _mutationScope;
+    if (scope == null) return _uuid.v4();
+
+    return _withStorageLock(() async {
+      final preferences = await SharedPreferences.getInstance();
+      final storageKey = '$_pendingMutationStoragePrefix:$scope';
+      final stored = preferences.getString(storageKey);
+      final values = stored == null
+          ? <String, String>{}
+          : Map<String, String>.from(jsonDecode(stored) as Map);
+      final key = values[fingerprint] ?? _uuid.v4();
+      if (values[fingerprint] == null) {
+        values[fingerprint] = key;
+        await preferences.setString(storageKey, jsonEncode(values));
+      }
+      return key;
+    });
+  }
+
+  Future<void> _forgetMutationKey(String fingerprint) async {
+    _pendingMutationKeys.remove(fingerprint);
+    final scope = _mutationScope;
+    if (scope == null) return;
+
+    await _withStorageLock(() async {
+      final preferences = await SharedPreferences.getInstance();
+      final storageKey = '$_pendingMutationStoragePrefix:$scope';
+      final stored = preferences.getString(storageKey);
+      if (stored == null) return;
+      final values = Map<String, String>.from(jsonDecode(stored) as Map);
+      if (values.remove(fingerprint) == null) return;
+      if (values.isEmpty) {
+        await preferences.remove(storageKey);
+      } else {
+        await preferences.setString(storageKey, jsonEncode(values));
+      }
+    });
+  }
+
+  Future<T> _withStorageLock<T>(Future<T> Function() action) {
+    final result = Completer<T>();
+    _storageTail = _storageTail.then((_) async {
+      try {
+        result.complete(await action());
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
+  }
+
+  bool _isRetryableMutationError(DioException error) {
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.sendTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.connectionError) {
+      return true;
+    }
+    if (error.type != DioExceptionType.badResponse) return false;
+
+    final status = error.response?.statusCode;
+    if ({408, 425, 429, 500, 502, 503, 504}.contains(status)) return true;
+
+    final body = error.response?.data;
+    return status == 409 &&
+        body is Map &&
+        body['code'] == 'IDEMPOTENCY_IN_PROGRESS';
+  }
+
+  bool _isUncertainIdempotencyError(DioException error) {
+    if (error.response?.statusCode != 409) return false;
+    final body = error.response?.data;
+    return body is Map &&
+        const {
+          'IDEMPOTENCY_IN_PROGRESS',
+          'IDEMPOTENCY_REVIEW_REQUIRED',
+        }.contains(body['code']);
+  }
+
+  static String _canonicalJson(Object? value) {
+    Object? normalize(Object? item) {
+      if (item is Map) {
+        final keys = item.keys.map((key) => '$key').toList()..sort();
+        return <String, Object?>{
+          for (final key in keys) key: normalize(item[key]),
+        };
+      }
+      if (item is Iterable) return item.map(normalize).toList();
+      return item;
+    }
+
+    return jsonEncode(normalize(value));
+  }
 
   // =========================
   // Error Handling

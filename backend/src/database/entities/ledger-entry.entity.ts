@@ -59,6 +59,12 @@ export class LedgerEntry {
   @Column({ name: 'target_id', type: 'varchar', length: 80, nullable: true })
   targetId: string | null;
 
+  @Column({ name: 'reverses_entry_id', type: 'uuid', nullable: true })
+  reversesEntryId: string | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  metadata: Record<string, unknown> | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

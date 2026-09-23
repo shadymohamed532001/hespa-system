@@ -16,7 +16,10 @@ export class Schema1790087699416 implements MigrationInterface {
         );
       }
       for (const column of ['source_type', 'target_type']) {
-        if (!(await queryRunner.hasColumn('ledger_entries', column))) {
+        if (
+          (await queryRunner.hasTable('ledger_entries')) &&
+          !(await queryRunner.hasColumn('ledger_entries', column))
+        ) {
           await queryRunner.addColumn(
             'ledger_entries',
             new TableColumn({
@@ -29,7 +32,10 @@ export class Schema1790087699416 implements MigrationInterface {
         }
       }
       for (const column of ['source_id', 'target_id']) {
-        if (!(await queryRunner.hasColumn('ledger_entries', column))) {
+        if (
+          (await queryRunner.hasTable('ledger_entries')) &&
+          !(await queryRunner.hasColumn('ledger_entries', column))
+        ) {
           await queryRunner.addColumn(
             'ledger_entries',
             new TableColumn({

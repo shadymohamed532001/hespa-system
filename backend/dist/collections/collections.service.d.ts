@@ -16,7 +16,6 @@ export declare class CollectionsService implements OnModuleInit {
     onModuleInit(): Promise<void>;
     findAll(): Promise<Collection[]>;
     findOne(id: string): Promise<Collection>;
-    private nextReference;
     receive(dto: ReceiveCollectionDto, username: string): Promise<{
         reference: string;
         agentName: string;

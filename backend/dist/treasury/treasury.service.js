@@ -47,6 +47,16 @@ let TreasuryService = class TreasuryService {
             availableBalance: treasury.balance - pending,
         };
     }
+    assetKey(type, id) {
+        if (type === 'treasury')
+            return 'treasury:main';
+        if (!['account', 'wallet', 'machine'].includes(type)) {
+            throw new BadRequestException('نوع الأصل غير مدعوم');
+        }
+        if (!id)
+            throw new BadRequestException('معرّف الأصل مطلوب');
+        return `${type}:${id}`;
+    }
     async asset(manager, type, id) {
         if (type === 'treasury') {
             const item = await manager.getRepository(Treasury).findOne({
@@ -122,11 +132,21 @@ let TreasuryService = class TreasuryService {
         throw new BadRequestException('نوع الأصل غير مدعوم');
     }
     async transfer(dto, username) {
-        return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
-            const source = await this.asset(manager, dto.fromType, dto.fromId);
-            const target = await this.asset(manager, dto.toType, dto.toId);
-            if (source.key === target.key)
+        return this.dataSource.transaction(async (manager) => {
+            const sourceKey = this.assetKey(dto.fromType, dto.fromId);
+            const targetKey = this.assetKey(dto.toType, dto.toId);
+            if (sourceKey === targetKey)
                 throw new BadRequestException('المصدر والوجهة يجب أن يكونا مختلفين');
+            const requested = [
+                { key: sourceKey, type: dto.fromType, id: dto.fromId },
+                { key: targetKey, type: dto.toType, id: dto.toId },
+            ].sort((left, right) => left.key.localeCompare(right.key));
+            const locked = new Map();
+            for (const item of requested) {
+                locked.set(item.key, await this.asset(manager, item.type, item.id));
+            }
+            const source = locked.get(sourceKey);
+            const target = locked.get(targetKey);
             if (source.balance < dto.amount)
                 throw new BadRequestException('رصيد المصدر غير كافٍ');
             await source.setBalance(source.balance - dto.amount);

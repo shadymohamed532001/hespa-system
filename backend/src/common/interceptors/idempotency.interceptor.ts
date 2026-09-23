@@ -88,19 +88,16 @@ export class IdempotencyInterceptor implements NestInterceptor {
       if (existing.status === IdempotencyStatus.COMPLETED) {
         return of(existing.response);
       }
-      throw new ConflictException(
-        'العملية قيد التنفيذ أو تحتاج مراجعة قبل إعادة المحاولة',
-      );
+      throw new ConflictException({
+        code: 'IDEMPOTENCY_IN_PROGRESS',
+        message: 'العملية قيد التنفيذ؛ ستتم إعادة المحاولة بنفس المفتاح',
+        retryAfterMs: 350,
+      });
     }
 
     return next.handle().pipe(
       mergeMap((response) =>
-        from(
-          this.records.update(record.id, {
-            status: IdempotencyStatus.COMPLETED,
-            response,
-          }),
-        ).pipe(
+        from(this.completeRecord(record.id, response)).pipe(
           mergeMap(() => of(response)),
           catchError((error: unknown) => {
             // The protected operation has already succeeded. Keep the record in
@@ -111,11 +108,43 @@ export class IdempotencyInterceptor implements NestInterceptor {
         ),
       ),
       catchError((error: unknown) =>
-        from(this.records.delete(record.id)).pipe(
+        from(this.releaseRecord(record.id)).pipe(
           mergeMap(() => throwError(() => error)),
         ),
       ),
     );
+  }
+
+  private async completeRecord(id: string, response: unknown) {
+    let lastError: unknown;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        await this.records.update(id, {
+          status: IdempotencyStatus.COMPLETED,
+          response: response as never,
+        });
+        return;
+      } catch (error) {
+        lastError = error;
+        if (attempt < 2) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 25 * 2 ** attempt),
+          );
+        }
+      }
+    }
+    throw lastError;
+  }
+
+  private async releaseRecord(id: string) {
+    try {
+      await this.records.delete(id);
+    } catch (error) {
+      // Preserve the original controller error. A leftover PENDING row is
+      // intentionally safer than deleting an uncertain key and allowing the
+      // client to repeat a money movement.
+      console.error('Failed to release idempotency record', error);
+    }
   }
 
   private isUniqueViolation(error: unknown) {

@@ -135,6 +135,17 @@ export class MachinesService implements OnModuleInit {
         description: `عملية شحن من ${machine.name} وعمولتها ${dto.commission}`,
         performedBy: username,
       });
+      if (Number(dto.commission) > 0) {
+        await manager.getRepository(LedgerEntry).save({
+          category: LedgerCategory.COMMISSION,
+          amount: dto.commission,
+          entityType: 'machine',
+          entityId: machine.id,
+          reference: dto.reference ?? null,
+          description: `عمولة عملية من ${machine.name}`,
+          performedBy: username,
+        });
+      }
       return this.withRemaining(machine);
     });
   }

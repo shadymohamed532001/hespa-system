@@ -42,11 +42,37 @@ export class InventorySale {
   })
   totalAmount: number;
 
+  @Column({
+    name: 'unit_cost',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  unitCost: number;
+
+  @Column({
+    name: 'gross_profit',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  grossProfit: number;
+
   @Column({ type: 'varchar', length: 200, nullable: true })
   note: string | null;
 
   @Column({ name: 'performed_by', length: 80 })
   performedBy: string;
+
+  @Column({ name: 'reversed_at', type: 'timestamptz', nullable: true })
+  reversedAt: Date | null;
+
+  @Column({ name: 'reversal_reason', type: 'varchar', length: 300, nullable: true })
+  reversalReason: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

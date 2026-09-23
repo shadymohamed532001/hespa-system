@@ -195,38 +195,40 @@ export class InventoryService implements OnModuleInit {
   async treasurySummary() {
     const box = await this.treasury.findOne({ where: { id: 'inventory' } });
     const products = await this.products.find({ where: { active: true } });
-    const sales = await this.sales.find({
-      order: { createdAt: 'DESC' },
-      take: 200,
-    });
+    const totals = await this.sales
+      .createQueryBuilder('sale')
+      .select('COUNT(sale.id)', 'count')
+      .addSelect('COALESCE(SUM(sale.totalAmount), 0)', 'total')
+      .addSelect('COALESCE(SUM(sale.quantity), 0)', 'units')
+      .getRawOne<{ count: string; total: string; units: string }>();
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Cairo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const todayTotals = await this.sales
+      .createQueryBuilder('sale')
+      .select('COUNT(sale.id)', 'count')
+      .addSelect('COALESCE(SUM(sale.totalAmount), 0)', 'total')
+      .where(`(sale.created_at AT TIME ZONE 'Africa/Cairo')::date = :today`, {
+        today,
+      })
+      .getRawOne<{ count: string; total: string }>();
 
     const stockUnits = products.reduce((sum, p) => sum + p.stockQty, 0);
     const soldUnits = products.reduce((sum, p) => sum + p.soldQty, 0);
-    const salesTotal = sales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-
-    const today = new Date();
-    const todaySales = sales.filter((s) => {
-      const d = new Date(s.createdAt);
-      return (
-        d.getFullYear() === today.getFullYear() &&
-        d.getMonth() === today.getMonth() &&
-        d.getDate() === today.getDate()
-      );
-    });
-    const todayAmount = todaySales.reduce(
-      (sum, s) => sum + Number(s.totalAmount),
-      0,
-    );
 
     return {
       balance: box?.balance ?? 0,
       stockUnits,
       soldUnits,
       productCount: products.length,
-      salesCount: sales.length,
-      salesTotal,
-      todaySalesCount: todaySales.length,
-      todaySalesAmount: todayAmount,
+      salesCount: Number(totals?.count ?? 0),
+      salesTotal: Number(totals?.total ?? 0),
+      soldUnitsRecorded: Number(totals?.units ?? 0),
+      todaySalesCount: Number(todayTotals?.count ?? 0),
+      todaySalesAmount: Number(todayTotals?.total ?? 0),
       isolatedFromCashTreasury: true,
       note: 'خزنة المخزن مستقلة تمامًا عن خزنة الكاش المركزية',
     };

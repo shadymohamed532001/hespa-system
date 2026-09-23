@@ -69,17 +69,21 @@ export class CollectionsService implements OnModuleInit {
     return collection;
   }
 
-  private async nextReference(mode: ExecutionMode) {
-    const count = await this.collections.count();
-    return `${mode === ExecutionMode.HOLD ? 'HLD' : 'COL'}-${String(count + 1).padStart(3, '0')}`;
-  }
-
   async receive(dto: ReceiveCollectionDto, username: string) {
     if (dto.executionMode === ExecutionMode.IMMEDIATE && !dto.accountId) {
       throw new BadRequestException('الحساب المستخدم مطلوب للتنفيذ الفوري');
     }
-    const reference = await this.nextReference(dto.executionMode);
     return this.dataSource.transaction(async (manager) => {
+      // Reference generation must be serialized. count()+1 outside the
+      // transaction allowed two simultaneous receipts to choose the same
+      // unique reference and made one of them fail.
+      await manager.query(
+        `SELECT pg_advisory_xact_lock(hashtext('hesba:collection-reference'))`,
+      );
+      const referenceNumber =
+        (await manager.getRepository(Collection).count()) + 1;
+      const reference = `${dto.executionMode === ExecutionMode.HOLD ? 'HLD' : 'COL'}-${String(referenceNumber).padStart(3, '0')}`;
+
       const treasuryRepo = manager.getRepository(Treasury);
       const treasury = await treasuryRepo.findOne({
         where: { id: 'main' },

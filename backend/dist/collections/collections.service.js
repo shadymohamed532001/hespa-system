@@ -70,16 +70,14 @@ let CollectionsService = class CollectionsService {
             throw new NotFoundException('التحصيل غير موجود');
         return collection;
     }
-    async nextReference(mode) {
-        const count = await this.collections.count();
-        return `${mode === ExecutionMode.HOLD ? 'HLD' : 'COL'}-${String(count + 1).padStart(3, '0')}`;
-    }
     async receive(dto, username) {
         if (dto.executionMode === ExecutionMode.IMMEDIATE && !dto.accountId) {
             throw new BadRequestException('الحساب المستخدم مطلوب للتنفيذ الفوري');
         }
-        const reference = await this.nextReference(dto.executionMode);
         return this.dataSource.transaction(async (manager) => {
+            await manager.query(`SELECT pg_advisory_xact_lock(hashtext('hesba:collection-reference'))`);
+            const referenceNumber = (await manager.getRepository(Collection).count()) + 1;
+            const reference = `${dto.executionMode === ExecutionMode.HOLD ? 'HLD' : 'COL'}-${String(referenceNumber).padStart(3, '0')}`;
             const treasuryRepo = manager.getRepository(Treasury);
             const treasury = await treasuryRepo.findOne({
                 where: { id: 'main' },

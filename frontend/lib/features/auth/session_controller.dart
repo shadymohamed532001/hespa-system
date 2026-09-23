@@ -83,6 +83,7 @@ class SessionController extends ChangeNotifier {
     displayName = prefs.getString('displayName');
     role = prefs.getString('role');
     permissions = prefs.getStringList('permissions') ?? const [];
+    api.setMutationScope(userId);
     api.setToken(token);
     ready = true;
     notifyListeners();
@@ -141,6 +142,7 @@ class SessionController extends ChangeNotifier {
     limits = Map<String, dynamic>.from(
       (currentUser['limits'] as Map?) ?? const {},
     );
+    api.setMutationScope(userId);
     final prefs = await SharedPreferences.getInstance();
     if (token != null) {
       await _secureStorage.write(key: _tokenKey, value: token);
@@ -164,6 +166,7 @@ class SessionController extends ChangeNotifier {
     role = null;
     permissions = const [];
     limits = const {};
+    api.setMutationScope(null);
     api.setToken(null);
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
