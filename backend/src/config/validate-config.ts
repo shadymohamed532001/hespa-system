@@ -35,5 +35,12 @@ export function validateConfig(config: Record<string, unknown>) {
     );
   }
 
+  const adminRecoveryKey = readString('ADMIN_RECOVERY_KEY');
+  if (adminRecoveryKey && adminRecoveryKey.length < 32) {
+    throw new Error(
+      'ADMIN_RECOVERY_KEY must be empty or at least 32 characters in production',
+    );
+  }
+
   return config;
 }

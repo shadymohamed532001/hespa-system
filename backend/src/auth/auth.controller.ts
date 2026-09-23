@@ -1,15 +1,9 @@
-import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  Post,
-  Request,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, Request } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { Public } from '../common/decorators/public.decorator.js';
 import { AuthService } from './auth.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { RecoverAdminDto } from './dto/recover-admin.dto.js';
 import { RefreshDto } from './dto/refresh.dto.js';
 
 @Controller('auth')
@@ -23,6 +17,15 @@ export class AuthController {
   @Post('login')
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  @Public()
+  @Throttle({
+    default: { limit: 5, ttl: 15 * 60_000, blockDuration: 15 * 60_000 },
+  })
+  @Post('recover-admin')
+  recoverAdmin(@Body() dto: RecoverAdminDto) {
+    return this.auth.recoverAdmin(dto);
   }
 
   @Public()

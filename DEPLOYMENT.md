@@ -11,7 +11,7 @@
    openssl rand -base64 48
    ```
 
-   استخدم الناتج لـ`JWT_SECRET`، واختر كلمات مرور مختلفة لـ`DB_PASSWORD` و`BOOTSTRAP_ADMIN_PASSWORD`. لا تستخدم `demo` أو `shix` في الإنتاج.
+   استخدم الناتج لـ`JWT_SECRET`، واختر كلمات مرور مختلفة لـ`DB_PASSWORD` و`BOOTSTRAP_ADMIN_PASSWORD`. إذا أردت تفعيل إنشاء مدير استعادة من شاشة الدخول، أنشئ سرًا آخر مستقلًا وضعه في `ADMIN_RECOVERY_KEY` (32 حرفًا على الأقل). لا تستخدم `demo` أو `shix` في الإنتاج.
 
 2. شغّل الحاويات:
 

@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   OnModuleInit,
   UnauthorizedException,
@@ -7,7 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { compare, hash } from 'bcryptjs';
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { IsNull, Repository } from 'typeorm';
 import { RefreshToken } from '../database/entities/refresh-token.entity.js';
 import { User } from '../database/entities/user.entity.js';
@@ -19,6 +20,7 @@ import {
 } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { LoginDto } from './dto/login.dto.js';
+import { RecoverAdminDto } from './dto/recover-admin.dto.js';
 
 const DAY_MS = 86_400_000;
 
@@ -156,6 +158,34 @@ export class AuthService implements OnModuleInit {
     return this.issueSession(user);
   }
 
+  async recoverAdmin(dto: RecoverAdminDto) {
+    const configuredKey = this.config.get<string>('ADMIN_RECOVERY_KEY') ?? '';
+    if (!this.matchesRecoveryKey(dto.recoveryKey, configuredKey)) {
+      throw new UnauthorizedException(
+        'كود استعادة المدير غير صحيح أو غير مفعّل',
+      );
+    }
+
+    const username = dto.username.trim().toLowerCase();
+    if (await this.users.exists({ where: { username } })) {
+      throw new ConflictException('اسم المستخدم مستخدم بالفعل');
+    }
+
+    const user = await this.users.save(
+      this.users.create({
+        username,
+        displayName: (dto.displayName ?? dto.username).trim(),
+        passwordHash: await hash(dto.password, 12),
+        role: UserRole.ADMIN,
+        permissions: [...ALL_PERMISSIONS],
+        limits: { ...DEFAULT_USER_LIMITS },
+        active: true,
+        tokenVersion: 0,
+      }),
+    );
+    return { ok: true, user: this.usersService.toPublic(user) };
+  }
+
   async refresh(rawRefreshToken: string) {
     const tokenHash = this.hashRefreshToken(rawRefreshToken);
     const stored = await this.refreshTokens.findOne({ where: { tokenHash } });
@@ -251,6 +281,13 @@ export class AuthService implements OnModuleInit {
 
   private hashRefreshToken(raw: string) {
     return createHash('sha256').update(raw).digest('hex');
+  }
+
+  private matchesRecoveryKey(provided: string, configured: string) {
+    if (configured.length < 16) return false;
+    const providedHash = createHash('sha256').update(provided).digest();
+    const configuredHash = createHash('sha256').update(configured).digest();
+    return timingSafeEqual(providedHash, configuredHash);
   }
 
   private parseDurationMs(value: string, fallbackMs: number) {

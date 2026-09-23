@@ -5,7 +5,7 @@ import { createHash } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RefreshToken } from '../database/entities/refresh-token.entity.js';
 import { User } from '../database/entities/user.entity.js';
-import { UserRole } from '../database/enums.js';
+import { ALL_PERMISSIONS, UserRole } from '../database/enums.js';
 import { AuthService } from './auth.service.js';
 
 function makeUser(overrides: Partial<User> = {}): User {
@@ -69,13 +69,14 @@ describe('AuthService refresh rotation', () => {
     service = new AuthService(
       users as never,
       refreshTokens as never,
-      usersService as never,
+    usersService as never,
       jwt as unknown as JwtService,
       new ConfigService({
         JWT_SECRET: 'unit-test-secret-with-enough-length',
         REFRESH_TOKEN_EXPIRES_IN: '30d',
         SEED_DEMO_DATA: 'false',
         NODE_ENV: 'test',
+        ADMIN_RECOVERY_KEY: 'recovery-key-with-at-least-32-characters',
       }),
     );
   });
@@ -125,5 +126,46 @@ describe('AuthService refresh rotation', () => {
       UnauthorizedException,
     );
     expect(refreshTokens.update).toHaveBeenCalled();
+  });
+
+  it('creates a full-permission admin with the configured recovery key', async () => {
+    users.exists.mockResolvedValueOnce(false);
+    users.create.mockImplementationOnce((value: Partial<User>) => value);
+    users.save.mockImplementationOnce(async (value: Partial<User>) =>
+      makeUser({
+        ...value,
+        id: 'recovered-admin',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }),
+    );
+
+    const result = await service.recoverAdmin({
+      recoveryKey: 'recovery-key-with-at-least-32-characters',
+      username: 'NewAdmin',
+      displayName: 'مدير احتياطي',
+      password: 'strong-password',
+    });
+
+    expect(result.ok).toBe(true);
+    expect(users.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        username: 'newadmin',
+        role: UserRole.ADMIN,
+        permissions: ALL_PERMISSIONS,
+        active: true,
+      }),
+    );
+  });
+
+  it('rejects admin recovery with an invalid key', async () => {
+    await expect(
+      service.recoverAdmin({
+        recoveryKey: 'wrong-recovery-key-value',
+        username: 'newadmin',
+        password: 'strong-password',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(users.exists).not.toHaveBeenCalled();
   });
 });

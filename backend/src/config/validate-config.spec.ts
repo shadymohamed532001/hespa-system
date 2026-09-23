@@ -19,6 +19,7 @@ describe('validateConfig', () => {
     [{ JWT_SECRET: 'secret' }, 'JWT_SECRET'],
     [{ DB_PASSWORD: 'hesba' }, 'DB_PASSWORD'],
     [{ DB_SYNC: 'true' }, 'DB_SYNC'],
+    [{ ADMIN_RECOVERY_KEY: 'too-short' }, 'ADMIN_RECOVERY_KEY'],
   ])('rejects unsafe production values', (override, message) => {
     expect(() => validateConfig({ ...productionConfig, ...override })).toThrow(
       message,

@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/security/auth_token_store.dart';
 
 /// Permission keys matching backend `AppPermission`.
 abstract final class AppPermissions {
@@ -25,17 +25,14 @@ abstract final class AppPermissions {
 }
 
 class SessionController extends ChangeNotifier {
-  SessionController(this.api) {
+  SessionController(this.api, {AuthTokenStore? tokenStore})
+    : _tokenStore = tokenStore ?? AuthTokenStore() {
     api.onUnauthorized = () => unawaited(logout(remote: false));
     api.onTokensUpdated = _persistTokens;
   }
 
   final ApiClient api;
-  static const FlutterSecureStorage _secureStorage = FlutterSecureStorage(
-    mOptions: MacOsOptions(usesDataProtectionKeychain: false),
-  );
-  static const _tokenKey = 'access_token';
-  static const _refreshTokenKey = 'refresh_token';
+  final AuthTokenStore _tokenStore;
   static const _loggedOutKey = 'auth_logged_out';
   bool ready = false;
   bool busy = false;
@@ -66,24 +63,12 @@ class SessionController extends ChangeNotifier {
   Future<void> restore() async {
     final prefs = await SharedPreferences.getInstance();
     final explicitlyLoggedOut = prefs.getBool(_loggedOutKey) ?? false;
-    try {
-      if (explicitlyLoggedOut) {
-        await _secureStorage.delete(key: _tokenKey);
-        await _secureStorage.delete(key: _refreshTokenKey);
-      } else {
-        token = await _secureStorage.read(key: _tokenKey);
-        refreshToken = await _secureStorage.read(key: _refreshTokenKey);
-        final legacyToken = prefs.getString('token');
-        if (token == null && legacyToken != null) {
-          await _secureStorage.write(key: _tokenKey, value: legacyToken);
-          token = legacyToken;
-        }
-      }
-    } catch (_) {
-      // Never keep the splash screen or restore an uncertain session when the
-      // platform keychain is unavailable.
-      token = null;
-      refreshToken = null;
+    if (explicitlyLoggedOut) {
+      await _tokenStore.clear();
+    } else {
+      final stored = await _tokenStore.read();
+      token = stored?.accessToken;
+      refreshToken = stored?.refreshToken;
     }
     await prefs.remove('token');
     userId = prefs.getString('userId');
@@ -93,20 +78,18 @@ class SessionController extends ChangeNotifier {
     permissions = prefs.getStringList('permissions') ?? const [];
     api.setMutationScope(userId);
     api.setTokens(accessToken: token, refreshToken: refreshToken);
-    ready = true;
-    notifyListeners();
     if (token != null || refreshToken != null) {
       try {
         if (token == null && refreshToken != null) {
           final refreshed = await api.tryRefresh();
           if (!refreshed) {
             await logout(remote: false);
-            return;
+          } else {
+            await refreshProfile();
           }
-          token = await _secureStorage.read(key: _tokenKey);
-          refreshToken = await _secureStorage.read(key: _refreshTokenKey);
+        } else {
+          await refreshProfile();
         }
-        await refreshProfile();
       } on DioException catch (error) {
         // The API client already attempts one refresh on 401; if we still
         // land here the session is unrecoverable.
@@ -115,6 +98,8 @@ class SessionController extends ChangeNotifier {
         }
       }
     }
+    ready = true;
+    notifyListeners();
   }
 
   Future<bool> login(String user, String password) async {
@@ -130,6 +115,7 @@ class SessionController extends ChangeNotifier {
         throw StateError('Login response missing tokens');
       }
       api.setTokens(accessToken: token, refreshToken: refreshToken);
+      await _persistTokens(token!, refreshToken!);
       await _applyUser(currentUser);
       return true;
     } catch (e) {
@@ -157,15 +143,10 @@ class SessionController extends ChangeNotifier {
     token = accessToken;
     refreshToken = refresh;
     api.setTokens(accessToken: accessToken, refreshToken: refresh);
-    try {
-      await _secureStorage.write(key: _tokenKey, value: accessToken);
-      await _secureStorage.write(key: _refreshTokenKey, value: refresh);
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_loggedOutKey);
-      await prefs.remove('token');
-    } catch (_) {
-      // Memory tokens still work for this process even if keychain fails.
-    }
+    await _tokenStore.write(accessToken, refresh);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_loggedOutKey);
+    await prefs.remove('token');
     notifyListeners();
   }
 
@@ -185,9 +166,6 @@ class SessionController extends ChangeNotifier {
     );
     api.setMutationScope(userId);
     final prefs = await SharedPreferences.getInstance();
-    if (token != null && refreshToken != null) {
-      await _persistTokens(token!, refreshToken!);
-    }
     await prefs.remove('token');
     if (userId != null) await prefs.setString('userId', userId!);
     if (username != null) await prefs.setString('username', username!);
@@ -216,8 +194,7 @@ class SessionController extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_loggedOutKey, true);
     try {
-      await _secureStorage.delete(key: _tokenKey);
-      await _secureStorage.delete(key: _refreshTokenKey);
+      await _tokenStore.clear();
     } catch (_) {
       // The persistent logout marker prevents restoration until a later
       // successful login even if the platform keychain is temporarily down.
