@@ -16,7 +16,7 @@ function repository(findResult: unknown = [], findOneResult: unknown = null) {
   };
 }
 
-function createService() {
+function createService(extraLedger: Record<string, unknown>[] = []) {
   const ledger = [
     {
       id: 'top-up',
@@ -33,6 +33,7 @@ function createService() {
       targetId: null,
       createdAt: at,
     },
+    ...extraLedger,
     {
       id: 'execution',
       category: LedgerCategory.COMPANY_EXECUTION,
@@ -87,6 +88,7 @@ function createService() {
       quantity: 2,
       unitPrice: 50,
       totalAmount: 100,
+      grossProfit: 30,
       note: null,
       performedBy: 'admin',
       createdAt: at,
@@ -111,7 +113,13 @@ function createService() {
     },
   ];
   const products = [
-    { id: 'product-1', stockQty: 3, defaultPrice: 50, createdAt: at },
+    {
+      id: 'product-1',
+      stockQty: 3,
+      defaultPrice: 50,
+      costPrice: 35,
+      createdAt: at,
+    },
   ];
 
   return new ReportsService(
@@ -180,5 +188,58 @@ describe('ReportsService', () => {
     expect(report.operations.find((row) => row.id === 'transfer')?.kind).toBe(
       'withdrawal',
     );
+  });
+
+  it('nets machine usage and commission reversals in the report', async () => {
+    const common = {
+      entityType: 'machine',
+      entityId: 'machine-1',
+      reference: 'USE-1',
+      performedBy: 'admin',
+      sourceType: null,
+      sourceId: null,
+      targetType: null,
+      targetId: null,
+      createdAt: at,
+    };
+    const report = await createService([
+      {
+        ...common,
+        id: 'usage',
+        category: LedgerCategory.MACHINE_USAGE,
+        amount: 100,
+        description: 'استخدام ماكينة',
+      },
+      {
+        ...common,
+        id: 'usage-reversal',
+        category: LedgerCategory.REVERSAL,
+        amount: -100,
+        description: 'عكس استخدام ماكينة',
+        metadata: { originalCategory: LedgerCategory.MACHINE_USAGE },
+      },
+      {
+        ...common,
+        id: 'machine-commission',
+        category: LedgerCategory.COMMISSION,
+        amount: 7,
+        description: 'عمولة ماكينة',
+      },
+      {
+        ...common,
+        id: 'commission-reversal',
+        category: LedgerCategory.REVERSAL,
+        amount: -7,
+        description: 'عكس عمولة ماكينة',
+        metadata: { originalCategory: LedgerCategory.COMMISSION },
+      },
+    ]).summary({ start, end, entityType: 'all' });
+
+    expect(report.summary).toMatchObject({
+      deposits: 300,
+      withdrawals: 140,
+      net: 160,
+      commissions: 5,
+    });
   });
 });

@@ -217,7 +217,11 @@ export class ReportsService {
 
     const operations: ReportOperation[] = [];
     for (const entry of ledger) {
-      if (entry.category === LedgerCategory.INTERNAL_TRANSFER) {
+      if (
+        entry.category === LedgerCategory.INTERNAL_TRANSFER ||
+        (entry.category === LedgerCategory.REVERSAL &&
+          entry.metadata?.originalCategory === LedgerCategory.INTERNAL_TRANSFER)
+      ) {
         const sourceMatch = Boolean(
           entry.sourceType && matchesScope(entry.sourceType, entry.sourceId),
         );
@@ -435,6 +439,9 @@ export class ReportsService {
       return 'withdrawal';
     if (entry.category === LedgerCategory.MACHINE_USAGE) return 'withdrawal';
     if (entry.category === LedgerCategory.REVERSAL) {
+      if (entry.metadata?.originalCategory === LedgerCategory.MACHINE_USAGE) {
+        return 'deposit';
+      }
       return Number(entry.amount) >= 0 ? 'deposit' : 'withdrawal';
     }
     if (

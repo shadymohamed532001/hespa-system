@@ -569,12 +569,6 @@ class _ProductsCard extends StatelessWidget {
                             cells: [
                               DataCell(
                                 Text(
-                                  money(e['costPrice']),
-                                  style: HesbaText.tableCell,
-                                ),
-                              ),
-                              DataCell(
-                                Text(
                                   '${e['name']}',
                                   style: HesbaText.tableEmphasis,
                                 ),
@@ -603,6 +597,12 @@ class _ProductsCard extends StatelessWidget {
                                   style: HesbaText.tableEmphasis.copyWith(
                                     color: HesbaColors.tealDark,
                                   ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
+                                  money(e['costPrice']),
+                                  style: HesbaText.tableCell,
                                 ),
                               ),
                               DataCell(
@@ -768,32 +768,9 @@ class _SalesCard extends StatelessWidget {
                             cells: [
                               DataCell(
                                 Text(
-                                  money(e['grossProfit']),
-                                  style: HesbaText.tableCell.copyWith(
-                                    color: HesbaColors.teal,
-                                  ),
-                                ),
-                              ),
-                              DataCell(
-                                Text(
                                   _formatTime(e['createdAt']),
                                   style: HesbaText.tableCell,
                                 ),
-                              ),
-                              DataCell(
-                                e['reversedAt'] != null
-                                    ? const Text(
-                                        'معكوسة',
-                                        style: TextStyle(color: Colors.red),
-                                      )
-                                    : canReverse
-                                    ? TextButton(
-                                        onPressed: () => onReverse(
-                                          e as Map<String, dynamic>,
-                                        ),
-                                        child: const Text('عكس البيع'),
-                                      )
-                                    : const Text('مكتملة'),
                               ),
                               DataCell(
                                 Text(
@@ -823,9 +800,32 @@ class _SalesCard extends StatelessWidget {
                               ),
                               DataCell(
                                 Text(
+                                  money(e['grossProfit']),
+                                  style: HesbaText.tableCell.copyWith(
+                                    color: HesbaColors.teal,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
                                   '${e['performedBy']}',
                                   style: HesbaText.tableCell,
                                 ),
+                              ),
+                              DataCell(
+                                e['reversedAt'] != null
+                                    ? const Text(
+                                        'معكوسة',
+                                        style: TextStyle(color: Colors.red),
+                                      )
+                                    : canReverse
+                                    ? TextButton(
+                                        onPressed: () => onReverse(
+                                          e as Map<String, dynamic>,
+                                        ),
+                                        child: const Text('عكس البيع'),
+                                      )
+                                    : const Text('مكتملة'),
                               ),
                             ],
                           ),

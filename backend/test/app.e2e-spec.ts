@@ -390,6 +390,12 @@ describe('financial operations (e2e)', () => {
         entry.entityId === machine.body.id,
     );
     expect(usage).toBeTruthy();
+    expect(
+      (before.body as Array<{ category: string; entityId: string }>).some(
+        (entry) =>
+          entry.category === 'commission' && entry.entityId === machine.body.id,
+      ),
+    ).toBe(true);
 
     await request(app.getHttpServer())
       .post(`/api/ledger/${usage!.id}/reverse`)

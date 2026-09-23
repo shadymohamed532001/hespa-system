@@ -190,6 +190,11 @@ export class LedgerService {
       lock: { mode: 'pessimistic_write' },
     });
     if (!machine) throw new NotFoundException('الماكينة غير موجودة');
+    if (!Object.hasOwn(entry.metadata ?? {}, 'commission')) {
+      throw new BadRequestException(
+        'هذه حركة قديمة بلا تفاصيل عمولة؛ استخدم تسوية رصيد موثقة بدل عكسها آليًا',
+      );
+    }
     const commission = Number(entry.metadata?.commission ?? 0);
     if (
       machine.usedBalance < entry.amount ||

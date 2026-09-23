@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 version="${HESBA_VERSION:-1.1.0}"
+version="${version#v}"
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 

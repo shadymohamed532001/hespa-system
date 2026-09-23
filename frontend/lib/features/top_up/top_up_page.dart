@@ -121,16 +121,17 @@ class _TopUpPageState extends State<TopUpPage> {
       subtitle:
           'يُضاف الرصيد مع الإبقاء على المبلغ المرحّل من اليوم السابق دون تصفيره',
       actions: [
-        OutlinedButton(
-          onPressed: _rolling || _loading ? null : _simulateNewDay,
-          child: _rolling
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Text('إقفال اليوم'),
-        ),
+        if (widget.session.can(AppPermissions.dailyRollover))
+          OutlinedButton(
+            onPressed: _rolling || _loading ? null : _simulateNewDay,
+            child: _rolling
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('إقفال اليوم'),
+          ),
       ],
       child: _loading
           ? const Center(

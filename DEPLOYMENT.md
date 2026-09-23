@@ -48,7 +48,7 @@ export BACKUP_ENCRYPTION_PASSWORD='كلمة-مرور-طويلة-خارج-ملف-
 ## المراقبة
 
 - نقطة الفحص العامة: `GET /api/health` وتتحقق من اتصال PostgreSQL.
-- Docker يفحص الـAPI كل 15 ثانية ويعيد تشغيله عند فشل العملية، مع تدوير logs عند 10MB والاحتفاظ بخمسة ملفات.
+- Docker يفحص الـAPI كل 15 ثانية ويُظهره `unhealthy` عند فشل قاعدة البيانات؛ وسياسة `restart` تعيد تشغيله عند توقف العملية نفسها. اربط حالة `unhealthy` بتنبيه أو مراقب حاويات، مع تدوير logs عند 10MB والاحتفاظ بخمسة ملفات.
 - اربط أداة المراقبة بالأمر `./scripts/monitor-health.sh` أو بالرابط مباشرة، ونبّه عند أي exit code غير صفر.
 
 ## بناء تطبيقات سطح المكتب
@@ -57,6 +57,7 @@ export BACKUP_ENCRYPTION_PASSWORD='كلمة-مرور-طويلة-خارج-ملف-
 - Linux: `./packaging/build-linux-deb.sh`
 - Windows: ابنِ Flutter ثم شغّل Inno Setup على `packaging/windows/hesba.iss`.
 - إنشاء tag بالشكل `v1.1.0` يشغّل workflow الإصدار ويرفع DMG وEXE وDEB إلى GitHub Release. عرّف `API_BASE_URL` في Repository Variables قبل الإصدار.
+- قبل التوزيع العام أضف شهادات توقيع Apple/Windows إلى CI؛ سكربت macOS يوقّع تلقائيًا عند تمرير `MACOS_SIGNING_IDENTITY`. النسخ غير الموقعة مناسبة للاختبار الداخلي فقط.
 
 ## نقاط تشغيل مهمة
 
