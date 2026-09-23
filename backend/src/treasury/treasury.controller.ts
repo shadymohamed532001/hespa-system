@@ -4,6 +4,7 @@ import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
+import { CloseDayDto, ReconcileDto } from './dto/reconcile.dto.js';
 import { TreasuryService } from './treasury.service.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -39,7 +40,26 @@ export class TreasuryController {
   @RequirePermissions(AppPermission.DAILY_ROLLOVER)
   @Idempotent()
   @Post('rollover')
-  rollover(@Request() request: UserRequest) {
-    return this.treasury.rollover(request.user.username);
+  rollover(@Body() dto: CloseDayDto, @Request() request: UserRequest) {
+    return this.treasury.closeDay(dto, request.user.username);
+  }
+
+  @RequirePermissions(AppPermission.DAILY_ROLLOVER)
+  @Idempotent()
+  @Post('close-day')
+  closeDay(@Body() dto: CloseDayDto, @Request() request: UserRequest) {
+    return this.treasury.closeDay(dto, request.user.username);
+  }
+
+  @Get('daily-closes')
+  dailyCloses() {
+    return this.treasury.dailyCloses();
+  }
+
+  @RequirePermissions(AppPermission.RECONCILE_BALANCES)
+  @Idempotent()
+  @Post('reconcile')
+  reconcile(@Body() dto: ReconcileDto, @Request() request: UserRequest) {
+    return this.treasury.reconcile(dto, request.user.username);
   }
 }

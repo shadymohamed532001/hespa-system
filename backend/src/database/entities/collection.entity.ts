@@ -47,12 +47,20 @@ export class Collection {
   @Column({ name: 'reversed_at', type: 'timestamptz', nullable: true })
   reversedAt: Date | null;
 
-  @Column({ name: 'reversal_reason', type: 'varchar', length: 300, nullable: true })
+  @Column({
+    name: 'reversal_reason',
+    type: 'varchar',
+    length: 300,
+    nullable: true,
+  })
   reversalReason: string | null;
 
   @ManyToOne(() => FinancialAccount, { nullable: true, onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'account_id' })
   account: FinancialAccount | null;
+
+  @Column({ name: 'account_id', type: 'uuid', nullable: true })
+  accountId: string | null;
 
   @Column({
     type: 'numeric',

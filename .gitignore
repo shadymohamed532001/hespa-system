@@ -3,9 +3,17 @@
 .vscode/
 backend/node_modules/
 backend/dist/
+backend/coverage/
+backend/*.tsbuildinfo
 backend/.env
+.env*.local
 .env.production
 *.sql.gz
+*.dump
+*.dump.enc
+backups/
+artifacts/
 frontend/.dart_tool/
 frontend/build/
+frontend/installers/
 frontend/.flutter-plugins*

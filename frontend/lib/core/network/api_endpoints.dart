@@ -45,18 +45,23 @@ abstract final class ApiEndpoints {
   static const String receiveCollection = '$collections/receive';
 
   static String executeCollection(String id) => '$collections/$id/execute';
+  static String reverseCollection(String id) => '$collections/$id/reverse';
 
   // Treasury
   static const String treasury = '/treasury';
   static const String treasurySummary = '$treasury/summary';
   static const String treasuryTransfer = '$treasury/transfer';
   static const String treasuryRollover = '$treasury/rollover';
+  static const String treasuryCloseDay = '$treasury/close-day';
+  static const String treasuryReconcile = '$treasury/reconcile';
+  static const String treasuryDailyCloses = '$treasury/daily-closes';
 
   // Ledger
   static const String ledger = '/ledger';
 
   static String ledgerList({int? limit}) =>
       limit == null ? ledger : '$ledger?limit=$limit';
+  static String reverseLedgerEntry(String id) => '$ledger/$id/reverse';
 
   // Reports
   static const String reports = '/reports';
@@ -81,10 +86,13 @@ abstract final class ApiEndpoints {
   static const String inventoryProducts = '$inventory/products';
   static const String inventorySales = '$inventory/sales';
   static const String inventoryTreasurySummary = '$inventory/treasury/summary';
+  static const String inventoryMovements = '$inventory/movements';
 
   static String inventoryStockIn(String id) =>
       '$inventoryProducts/$id/stock-in';
   static String inventorySell(String id) => '$inventoryProducts/$id/sell';
+  static String reverseInventorySale(String id) =>
+      '$inventorySales/$id/reverse';
 
   static String inventorySalesList({int? limit}) =>
       limit == null ? inventorySales : '$inventorySales?limit=$limit';

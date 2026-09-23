@@ -129,7 +129,7 @@ class _TopUpPageState extends State<TopUpPage> {
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-              : const Text('محاكاة بدء يوم جديد'),
+              : const Text('إقفال اليوم'),
         ),
       ],
       child: _loading
@@ -174,14 +174,14 @@ class _TopUpPageState extends State<TopUpPage> {
       context: context,
       maxWidth: 480,
       builder: (ctx) => HesbaModalCard(
-        title: 'محاكاة بدء يوم جديد',
+        title: 'إقفال اليوم الفعلي',
         actions: HesbaModalActions(
           primaryLabel: 'تأكيد',
           onPrimary: () => Navigator.pop(ctx, true),
           onCancel: () => Navigator.pop(ctx, false),
         ),
         child: const Text(
-          'سيتم ترحيل الأرصدة الحالية كرصيد افتتاحي وتصفير عدّادات الشحن اليومية. هل تريد المتابعة؟',
+          'سيتم حفظ لقطة مراجعة نهائية لكل الأرصدة والمعلّقات، ثم ترحيل الأرصدة الحالية وتصفير عدّادات الشحن اليومية. لا يمكن تكرار الإقفال لنفس اليوم.',
           style: HesbaText.bodyMuted,
         ),
       ),
@@ -190,10 +190,10 @@ class _TopUpPageState extends State<TopUpPage> {
 
     setState(() => _rolling = true);
     try {
-      await widget.session.api.post(ApiEndpoints.treasuryRollover);
+      await widget.session.api.post(ApiEndpoints.treasuryCloseDay);
       await _load();
       if (mounted) {
-        showAppSnack(context, 'تم ترحيل الأرصدة وبدء يوم جديد');
+        showAppSnack(context, 'تم إقفال اليوم وحفظ لقطة الأرصدة');
       }
     } catch (exception) {
       if (mounted) {

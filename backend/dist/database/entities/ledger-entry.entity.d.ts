@@ -12,5 +12,7 @@ export declare class LedgerEntry {
     sourceId: string | null;
     targetType: string | null;
     targetId: string | null;
+    reversesEntryId: string | null;
+    metadata: Record<string, unknown> | null;
     createdAt: Date;
 }

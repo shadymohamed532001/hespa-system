@@ -5,6 +5,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Schema1790087699416 } from './database/migrations/1790087699416-Schema.js';
 import { LegacySchemaRepair1790087699417 } from './database/migrations/1790087699417-LegacySchemaRepair.js';
+import { OperationsHardening1790087699418 } from './database/migrations/1790087699418-OperationsHardening.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -18,10 +19,12 @@ import { CollectionsModule } from './collections/collections.module.js';
 import {
   AppNotification,
   AuditEvent,
+  DailyClose,
   Collection,
   FinancialAccount,
   InventoryProduct,
   InventorySale,
+  InventoryStockMovement,
   InventoryTreasury,
   IdempotencyRecord,
   LedgerEntry,
@@ -73,11 +76,17 @@ import { WalletsModule } from './wallets/wallets.module.js';
           InventoryTreasury,
           IdempotencyRecord,
           AuditEvent,
+          DailyClose,
+          InventoryStockMovement,
         ],
         synchronize:
           config.get('NODE_ENV', 'development') !== 'production' &&
           config.get('DB_SYNC', 'true') === 'true',
-        migrations: [Schema1790087699416, LegacySchemaRepair1790087699417],
+        migrations: [
+          Schema1790087699416,
+          LegacySchemaRepair1790087699417,
+          OperationsHardening1790087699418,
+        ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',
       }),

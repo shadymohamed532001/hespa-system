@@ -18,6 +18,7 @@ import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
+import { ReversalDto } from '../common/dto/reversal.dto.js';
 let CollectionsController = class CollectionsController {
     collections;
     users;
@@ -36,6 +37,9 @@ let CollectionsController = class CollectionsController {
         const hold = await this.collections.findOne(id);
         await this.users.assertAmountLimit(request.user.userId, 'maxReceiveAmount', Number(hold.amount));
         return this.collections.execute(id, dto, request.user.username);
+    }
+    reverse(id, dto, request) {
+        return this.collections.reverse(id, dto, request.user.username);
     }
 };
 __decorate([
@@ -65,6 +69,17 @@ __decorate([
     __metadata("design:paramtypes", [String, ExecuteHoldDto, Object]),
     __metadata("design:returntype", Promise)
 ], CollectionsController.prototype, "execute", null);
+__decorate([
+    RequirePermissions(AppPermission.REVERSE_OPERATIONS),
+    Idempotent(),
+    Post(':id/reverse'),
+    __param(0, Param('id')),
+    __param(1, Body()),
+    __param(2, Request()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, ReversalDto, Object]),
+    __metadata("design:returntype", void 0)
+], CollectionsController.prototype, "reverse", null);
 CollectionsController = __decorate([
     Controller('collections'),
     RequirePermissions(AppPermission.VIEW_BALANCES),

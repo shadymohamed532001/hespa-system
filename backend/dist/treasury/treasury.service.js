@@ -19,14 +19,17 @@ import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
+import { DailyClose } from '../database/entities/daily-close.entity.js';
 import { CollectionStatus, LedgerCategory } from '../database/enums.js';
 let TreasuryService = class TreasuryService {
     treasury;
     collections;
+    closes;
     dataSource;
-    constructor(treasury, collections, dataSource) {
+    constructor(treasury, collections, closes, dataSource) {
         this.treasury = treasury;
         this.collections = collections;
+        this.closes = closes;
         this.dataSource = dataSource;
     }
     async summary() {
@@ -167,24 +170,67 @@ let TreasuryService = class TreasuryService {
             return { from: source.name, to: target.name, amount: dto.amount };
         });
     }
-    async rollover(username) {
-        return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
-            const day = new Intl.DateTimeFormat('en-CA', {
-                timeZone: 'Africa/Cairo',
-                year: 'numeric',
-                month: '2-digit',
-                day: '2-digit',
-            }).format(new Date());
-            const reference = `ROLLOVER-${day}`;
-            const alreadyDone = await manager.getRepository(LedgerEntry).exists({
-                where: {
-                    category: LedgerCategory.DAILY_ROLLOVER,
-                    reference,
+    async reconcile(dto, username) {
+        return this.dataSource.transaction(async (manager) => {
+            const item = await this.asset(manager, dto.assetType, dto.assetId);
+            const expectedBalance = item.balance;
+            const difference = Number((dto.countedBalance - expectedBalance).toFixed(2));
+            await item.setBalance(dto.countedBalance);
+            const entry = await manager.getRepository(LedgerEntry).save({
+                category: LedgerCategory.RECONCILIATION,
+                amount: difference,
+                entityType: dto.assetType,
+                entityId: dto.assetType === 'treasury' ? 'main' : (dto.assetId ?? null),
+                reference: null,
+                description: `تسوية رصيد ${item.name}: من ${expectedBalance.toFixed(2)} إلى ${dto.countedBalance.toFixed(2)}`,
+                performedBy: username,
+                metadata: {
+                    expectedBalance,
+                    countedBalance: dto.countedBalance,
+                    note: dto.note ?? null,
                 },
             });
-            if (alreadyDone) {
-                return { rolledOver: false, alreadyRolledOver: true, day };
+            return {
+                id: entry.id,
+                asset: item.name,
+                expectedBalance,
+                countedBalance: dto.countedBalance,
+                difference,
+            };
+        });
+    }
+    dailyCloses() {
+        return this.closes.find({ order: { businessDate: 'DESC' }, take: 90 });
+    }
+    cairoDay() {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: 'Africa/Cairo',
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).formatToParts(new Date());
+        const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+        return `${value.year}-${value.month}-${value.day}`;
+    }
+    async closeDay(dto, username) {
+        return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
+            const day = this.cairoDay();
+            await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+                `hesba:daily-close:${day}`,
+            ]);
+            const reference = `ROLLOVER-${day}`;
+            const existing = await manager.getRepository(DailyClose).findOne({
+                where: { businessDate: day },
+            });
+            if (existing) {
+                return { closed: false, alreadyClosed: true, close: existing };
             }
+            const treasury = await manager.getRepository(Treasury).findOne({
+                where: { id: 'main' },
+                lock: { mode: 'pessimistic_write' },
+            });
+            if (!treasury)
+                throw new NotFoundException('الخزنة غير مهيأة');
             const accounts = await manager
                 .getRepository(FinancialAccount)
                 .createQueryBuilder('account')
@@ -195,6 +241,55 @@ let TreasuryService = class TreasuryService {
                 .createQueryBuilder('wallet')
                 .setLock('pessimistic_write')
                 .getMany();
+            const machines = await manager
+                .getRepository(Machine)
+                .createQueryBuilder('machine')
+                .setLock('pessimistic_write')
+                .getMany();
+            const pendingResult = await manager
+                .getRepository(Collection)
+                .createQueryBuilder('collection')
+                .select('COALESCE(SUM(collection.amount), 0)', 'total')
+                .where('collection.status = :status', {
+                status: CollectionStatus.PENDING,
+            })
+                .getRawOne();
+            const pendingCollections = Number(pendingResult?.total ?? 0);
+            const snapshot = {
+                treasury: { id: treasury.id, balance: treasury.balance },
+                accounts: accounts.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    balance: item.balance,
+                    commissionBalance: item.commissionBalance,
+                })),
+                wallets: wallets.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    balance: item.balance,
+                    commissionBalance: item.commissionBalance,
+                })),
+                machines: machines.map((item) => ({
+                    id: item.id,
+                    name: item.name,
+                    loadedBalance: item.loadedBalance,
+                    usedBalance: item.usedBalance,
+                    remainingBalance: item.loadedBalance - item.usedBalance,
+                    commissionBalance: item.commissionBalance,
+                })),
+            };
+            const totalAssets = Number((treasury.balance +
+                accounts.reduce((sum, item) => sum + item.balance, 0) +
+                wallets.reduce((sum, item) => sum + item.balance, 0) +
+                machines.reduce((sum, item) => sum + item.loadedBalance - item.usedBalance, 0)).toFixed(2));
+            const close = await manager.getRepository(DailyClose).save({
+                businessDate: day,
+                snapshot,
+                totalAssets,
+                pendingCollections,
+                closedBy: username,
+                note: dto.note ?? null,
+            });
             for (const account of accounts) {
                 account.openingBalance = account.balance;
                 account.todayTopUp = 0;
@@ -215,20 +310,28 @@ let TreasuryService = class TreasuryService {
                 reference,
                 description: 'ترحيل أرصدة نهاية اليوم إلى اليوم التالي وتصفير العدادات اليومية',
                 performedBy: username,
+                metadata: { dailyCloseId: close.id, totalAssets, pendingCollections },
             });
             return {
-                rolledOver: true,
+                closed: true,
+                close,
                 accounts: accounts.length,
                 wallets: wallets.length,
+                machines: machines.length,
             };
         });
+    }
+    rollover(username) {
+        return this.closeDay({}, username);
     }
 };
 TreasuryService = __decorate([
     Injectable(),
     __param(0, InjectRepository(Treasury)),
     __param(1, InjectRepository(Collection)),
+    __param(2, InjectRepository(DailyClose)),
     __metadata("design:paramtypes", [Repository,
+        Repository,
         Repository,
         DataSource])
 ], TreasuryService);

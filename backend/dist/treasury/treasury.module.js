@@ -12,6 +12,7 @@ import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
+import { DailyClose } from '../database/entities/daily-close.entity.js';
 import { TreasuryController } from './treasury.controller.js';
 import { TreasuryService } from './treasury.service.js';
 let TreasuryModule = class TreasuryModule {
@@ -26,6 +27,7 @@ TreasuryModule = __decorate([
                 Wallet,
                 Machine,
                 LedgerEntry,
+                DailyClose,
             ]),
         ],
         controllers: [TreasuryController],

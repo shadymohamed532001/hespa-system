@@ -5,6 +5,7 @@ import {
   MaxLength,
   Min,
   MinLength,
+  IsOptional,
 } from 'class-validator';
 import { InventoryCategory } from '../../database/enums.js';
 
@@ -24,4 +25,9 @@ export class CreateInventoryProductDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   defaultPrice: number;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  costPrice = 0;
 }

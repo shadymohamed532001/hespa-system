@@ -252,6 +252,16 @@ export class UsersService implements OnModuleInit {
         label: 'استخدام ماكينات شحن الرصيد',
         note: 'خصم من رصيد الماكينة',
       },
+      {
+        key: AppPermission.REVERSE_OPERATIONS,
+        label: 'عكس العمليات المالية',
+        note: 'صلاحية حساسة مع تسجيل السبب والمنفذ',
+      },
+      {
+        key: AppPermission.RECONCILE_BALANCES,
+        label: 'تسوية الأرصدة الفعلية',
+        note: 'مطابقة الرصيد المسجل مع الجرد الفعلي',
+      },
     ];
   }
 

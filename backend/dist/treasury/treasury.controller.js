@@ -16,6 +16,7 @@ import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
+import { CloseDayDto, ReconcileDto } from './dto/reconcile.dto.js';
 import { TreasuryService } from './treasury.service.js';
 let TreasuryController = class TreasuryController {
     treasury;
@@ -31,8 +32,17 @@ let TreasuryController = class TreasuryController {
         await this.users.assertAmountLimit(request.user.userId, 'maxTransferAmount', dto.amount);
         return this.treasury.transfer(dto, request.user.username);
     }
-    rollover(request) {
-        return this.treasury.rollover(request.user.username);
+    rollover(dto, request) {
+        return this.treasury.closeDay(dto, request.user.username);
+    }
+    closeDay(dto, request) {
+        return this.treasury.closeDay(dto, request.user.username);
+    }
+    dailyCloses() {
+        return this.treasury.dailyCloses();
+    }
+    reconcile(dto, request) {
+        return this.treasury.reconcile(dto, request.user.username);
     }
 };
 __decorate([
@@ -55,11 +65,38 @@ __decorate([
     RequirePermissions(AppPermission.DAILY_ROLLOVER),
     Idempotent(),
     Post('rollover'),
-    __param(0, Request()),
+    __param(0, Body()),
+    __param(1, Request()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [CloseDayDto, Object]),
     __metadata("design:returntype", void 0)
 ], TreasuryController.prototype, "rollover", null);
+__decorate([
+    RequirePermissions(AppPermission.DAILY_ROLLOVER),
+    Idempotent(),
+    Post('close-day'),
+    __param(0, Body()),
+    __param(1, Request()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [CloseDayDto, Object]),
+    __metadata("design:returntype", void 0)
+], TreasuryController.prototype, "closeDay", null);
+__decorate([
+    Get('daily-closes'),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], TreasuryController.prototype, "dailyCloses", null);
+__decorate([
+    RequirePermissions(AppPermission.RECONCILE_BALANCES),
+    Idempotent(),
+    Post('reconcile'),
+    __param(0, Body()),
+    __param(1, Request()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [ReconcileDto, Object]),
+    __metadata("design:returntype", void 0)
+], TreasuryController.prototype, "reconcile", null);
 TreasuryController = __decorate([
     Controller('treasury'),
     RequirePermissions(AppPermission.VIEW_BALANCES),

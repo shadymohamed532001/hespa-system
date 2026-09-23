@@ -7,6 +7,7 @@ import { Treasury } from '../database/entities/treasury.entity.js';
 import { CollectionStatus, ExecutionMode } from '../database/enums.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
+import { ReversalDto } from '../common/dto/reversal.dto.js';
 export declare class CollectionsService implements OnModuleInit {
     private readonly collections;
     private readonly treasury;
@@ -22,11 +23,17 @@ export declare class CollectionsService implements OnModuleInit {
         companyName: string;
         amount: number;
         executionMode: ExecutionMode;
-        status: CollectionStatus;
+        status: CollectionStatus.PENDING | CollectionStatus.DONE;
         receivedAt: Date;
         executedAt: Date | null;
         account: FinancialAccount | null;
         commission: number;
     } & Collection>;
     execute(id: string, dto: ExecuteHoldDto, username: string): Promise<Collection>;
+    reverse(id: string, dto: ReversalDto, username: string): Promise<{
+        reversed: boolean;
+        collectionId: string;
+        reference: string;
+        reason: string;
+    }>;
 }

@@ -1,5 +1,6 @@
 import { UsersService } from '../users/users.service.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
+import { CloseDayDto, ReconcileDto } from './dto/reconcile.dto.js';
 import { TreasuryService } from './treasury.service.js';
 type UserRequest = {
     user: {
@@ -21,18 +22,107 @@ export declare class TreasuryController {
         to: string;
         amount: number;
     }>;
-    rollover(request: UserRequest): Promise<{
-        rolledOver: boolean;
-        alreadyRolledOver: boolean;
-        day: string;
+    rollover(dto: CloseDayDto, request: UserRequest): Promise<{
+        closed: boolean;
+        alreadyClosed: boolean;
+        close: import("../database/entities/daily-close.entity.js").DailyClose;
         accounts?: undefined;
         wallets?: undefined;
+        machines?: undefined;
     } | {
-        rolledOver: boolean;
+        closed: boolean;
+        close: {
+            businessDate: string;
+            snapshot: {
+                treasury: {
+                    id: string;
+                    balance: number;
+                };
+                accounts: {
+                    id: string;
+                    name: string;
+                    balance: number;
+                    commissionBalance: number;
+                }[];
+                wallets: {
+                    id: string;
+                    name: string;
+                    balance: number;
+                    commissionBalance: number;
+                }[];
+                machines: {
+                    id: string;
+                    name: string;
+                    loadedBalance: number;
+                    usedBalance: number;
+                    remainingBalance: number;
+                    commissionBalance: number;
+                }[];
+            };
+            totalAssets: number;
+            pendingCollections: number;
+            closedBy: string;
+            note: string | null;
+        } & import("../database/entities/daily-close.entity.js").DailyClose;
         accounts: number;
         wallets: number;
-        alreadyRolledOver?: undefined;
-        day?: undefined;
+        machines: number;
+        alreadyClosed?: undefined;
+    }>;
+    closeDay(dto: CloseDayDto, request: UserRequest): Promise<{
+        closed: boolean;
+        alreadyClosed: boolean;
+        close: import("../database/entities/daily-close.entity.js").DailyClose;
+        accounts?: undefined;
+        wallets?: undefined;
+        machines?: undefined;
+    } | {
+        closed: boolean;
+        close: {
+            businessDate: string;
+            snapshot: {
+                treasury: {
+                    id: string;
+                    balance: number;
+                };
+                accounts: {
+                    id: string;
+                    name: string;
+                    balance: number;
+                    commissionBalance: number;
+                }[];
+                wallets: {
+                    id: string;
+                    name: string;
+                    balance: number;
+                    commissionBalance: number;
+                }[];
+                machines: {
+                    id: string;
+                    name: string;
+                    loadedBalance: number;
+                    usedBalance: number;
+                    remainingBalance: number;
+                    commissionBalance: number;
+                }[];
+            };
+            totalAssets: number;
+            pendingCollections: number;
+            closedBy: string;
+            note: string | null;
+        } & import("../database/entities/daily-close.entity.js").DailyClose;
+        accounts: number;
+        wallets: number;
+        machines: number;
+        alreadyClosed?: undefined;
+    }>;
+    dailyCloses(): Promise<import("../database/entities/daily-close.entity.js").DailyClose[]>;
+    reconcile(dto: ReconcileDto, request: UserRequest): Promise<{
+        id: string;
+        asset: string;
+        expectedBalance: number;
+        countedBalance: number;
+        difference: number;
     }>;
 }
 export {};

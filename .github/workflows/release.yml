@@ -1,0 +1,57 @@
+name: Desktop installers
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+        working-directory: frontend
+      - run: ./packaging/build-macos-dmg.sh
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          HESBA_VERSION: ${{ github.ref_name }}
+      - uses: softprops/action-gh-release@v2
+        with: { files: "artifacts/*.dmg" }
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+        working-directory: frontend
+      - run: flutter build windows --release --dart-define="API_BASE_URL=${{ vars.API_BASE_URL }}"
+        working-directory: frontend
+      - run: choco install innosetup --yes --no-progress
+      - shell: pwsh
+        run: iscc "/DMyAppVersion=${{ github.ref_name }}" packaging/windows/hesba.iss
+      - uses: softprops/action-gh-release@v2
+        with: { files: "artifacts/*.exe" }
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+        working-directory: frontend
+      - run: ./packaging/build-linux-deb.sh
+        env:
+          API_BASE_URL: ${{ vars.API_BASE_URL }}
+          HESBA_VERSION: ${{ github.ref_name }}
+      - uses: softprops/action-gh-release@v2
+        with: { files: "artifacts/*.deb" }

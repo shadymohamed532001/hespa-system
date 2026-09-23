@@ -10,12 +10,12 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
-import { Controller, Get, Query } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
+import { Body, Controller, Get, Param, Post, Query, Request, } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { AppPermission } from '../database/enums.js';
+import { ReversalDto } from '../common/dto/reversal.dto.js';
+import { Idempotent } from '../common/decorators/idempotent.decorator.js';
+import { LedgerService } from './ledger.service.js';
 let LedgerController = class LedgerController {
     ledger;
     constructor(ledger) {
@@ -23,7 +23,10 @@ let LedgerController = class LedgerController {
     }
     findAll(limit) {
         const take = Math.min(Math.max(Number(limit) || 100, 1), 500);
-        return this.ledger.find({ order: { createdAt: 'DESC' }, take });
+        return this.ledger.findAll(take);
+    }
+    reverse(id, dto, request) {
+        return this.ledger.reverse(id, dto, request.user.username);
     }
 };
 __decorate([
@@ -33,11 +36,21 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], LedgerController.prototype, "findAll", null);
+__decorate([
+    RequirePermissions(AppPermission.REVERSE_OPERATIONS),
+    Idempotent(),
+    Post(':id/reverse'),
+    __param(0, Param('id')),
+    __param(1, Body()),
+    __param(2, Request()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, ReversalDto, Object]),
+    __metadata("design:returntype", void 0)
+], LedgerController.prototype, "reverse", null);
 LedgerController = __decorate([
     Controller('ledger'),
     RequirePermissions(AppPermission.VIEW_BALANCES),
-    __param(0, InjectRepository(LedgerEntry)),
-    __metadata("design:paramtypes", [Repository])
+    __metadata("design:paramtypes", [LedgerService])
 ], LedgerController);
 export { LedgerController };
 //# sourceMappingURL=ledger.controller.js.map

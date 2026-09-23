@@ -126,7 +126,7 @@ export class MachinesService implements OnModuleInit {
       machine.commissionBalance =
         Number(machine.commissionBalance) + Number(dto.commission);
       await repo.save(machine);
-      await manager.getRepository(LedgerEntry).save({
+      const usageEntry = await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.MACHINE_USAGE,
         amount: dto.amount,
         entityType: 'machine',
@@ -134,6 +134,7 @@ export class MachinesService implements OnModuleInit {
         reference: dto.reference ?? null,
         description: `عملية شحن من ${machine.name} وعمولتها ${dto.commission}`,
         performedBy: username,
+        metadata: { commission: Number(dto.commission) },
       });
       if (Number(dto.commission) > 0) {
         await manager.getRepository(LedgerEntry).save({
@@ -144,6 +145,7 @@ export class MachinesService implements OnModuleInit {
           reference: dto.reference ?? null,
           description: `عمولة عملية من ${machine.name}`,
           performedBy: username,
+          metadata: { machineUsageEntryId: usageEntry.id },
         });
       }
       return this.withRemaining(machine);

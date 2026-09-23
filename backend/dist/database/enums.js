@@ -15,6 +15,8 @@ export var AppPermission;
     AppPermission["SELL_INVENTORY"] = "sell_inventory";
     AppPermission["MANAGE_INVENTORY"] = "manage_inventory";
     AppPermission["USE_MACHINES"] = "use_machines";
+    AppPermission["REVERSE_OPERATIONS"] = "reverse_operations";
+    AppPermission["RECONCILE_BALANCES"] = "reconcile_balances";
 })(AppPermission || (AppPermission = {}));
 export const ALL_PERMISSIONS = Object.values(AppPermission);
 export const DEFAULT_EMPLOYEE_PERMISSIONS = [
@@ -39,6 +41,7 @@ export var CollectionStatus;
 (function (CollectionStatus) {
     CollectionStatus["PENDING"] = "pending";
     CollectionStatus["DONE"] = "done";
+    CollectionStatus["REVERSED"] = "reversed";
 })(CollectionStatus || (CollectionStatus = {}));
 export var ExecutionMode;
 (function (ExecutionMode) {
@@ -56,7 +59,15 @@ export var LedgerCategory;
     LedgerCategory["MACHINE_USAGE"] = "machine_usage";
     LedgerCategory["DAILY_ROLLOVER"] = "daily_rollover";
     LedgerCategory["REVERSAL"] = "reversal";
+    LedgerCategory["RECONCILIATION"] = "reconciliation";
 })(LedgerCategory || (LedgerCategory = {}));
+export var InventoryMovementType;
+(function (InventoryMovementType) {
+    InventoryMovementType["OPENING"] = "opening";
+    InventoryMovementType["STOCK_IN"] = "stock_in";
+    InventoryMovementType["SALE"] = "sale";
+    InventoryMovementType["REVERSAL"] = "reversal";
+})(InventoryMovementType || (InventoryMovementType = {}));
 export var NotificationKind;
 (function (NotificationKind) {
     NotificationKind["DEPOSIT"] = "deposit";

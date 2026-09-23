@@ -12,7 +12,9 @@ export declare enum AppPermission {
     MANAGE_USERS = "manage_users",
     SELL_INVENTORY = "sell_inventory",
     MANAGE_INVENTORY = "manage_inventory",
-    USE_MACHINES = "use_machines"
+    USE_MACHINES = "use_machines",
+    REVERSE_OPERATIONS = "reverse_operations",
+    RECONCILE_BALANCES = "reconcile_balances"
 }
 export declare const ALL_PERMISSIONS: AppPermission[];
 export declare const DEFAULT_EMPLOYEE_PERMISSIONS: AppPermission[];
@@ -30,7 +32,8 @@ export declare enum AccountType {
 }
 export declare enum CollectionStatus {
     PENDING = "pending",
-    DONE = "done"
+    DONE = "done",
+    REVERSED = "reversed"
 }
 export declare enum ExecutionMode {
     IMMEDIATE = "immediate",
@@ -45,6 +48,13 @@ export declare enum LedgerCategory {
     COMMISSION = "commission",
     MACHINE_USAGE = "machine_usage",
     DAILY_ROLLOVER = "daily_rollover",
+    REVERSAL = "reversal",
+    RECONCILIATION = "reconciliation"
+}
+export declare enum InventoryMovementType {
+    OPENING = "opening",
+    STOCK_IN = "stock_in",
+    SALE = "sale",
     REVERSAL = "reversal"
 }
 export declare enum NotificationKind {

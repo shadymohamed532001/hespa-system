@@ -118,7 +118,7 @@ let MachinesService = class MachinesService {
             machine.commissionBalance =
                 Number(machine.commissionBalance) + Number(dto.commission);
             await repo.save(machine);
-            await manager.getRepository(LedgerEntry).save({
+            const usageEntry = await manager.getRepository(LedgerEntry).save({
                 category: LedgerCategory.MACHINE_USAGE,
                 amount: dto.amount,
                 entityType: 'machine',
@@ -126,7 +126,20 @@ let MachinesService = class MachinesService {
                 reference: dto.reference ?? null,
                 description: `عملية شحن من ${machine.name} وعمولتها ${dto.commission}`,
                 performedBy: username,
+                metadata: { commission: Number(dto.commission) },
             });
+            if (Number(dto.commission) > 0) {
+                await manager.getRepository(LedgerEntry).save({
+                    category: LedgerCategory.COMMISSION,
+                    amount: dto.commission,
+                    entityType: 'machine',
+                    entityId: machine.id,
+                    reference: dto.reference ?? null,
+                    description: `عمولة عملية من ${machine.name}`,
+                    performedBy: username,
+                    metadata: { machineUsageEntryId: usageEntry.id },
+                });
+            }
             return this.withRemaining(machine);
         });
     }

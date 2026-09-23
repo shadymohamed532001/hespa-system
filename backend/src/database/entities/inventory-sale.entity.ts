@@ -71,7 +71,12 @@ export class InventorySale {
   @Column({ name: 'reversed_at', type: 'timestamptz', nullable: true })
   reversedAt: Date | null;
 
-  @Column({ name: 'reversal_reason', type: 'varchar', length: 300, nullable: true })
+  @Column({
+    name: 'reversal_reason',
+    type: 'varchar',
+    length: 300,
+    nullable: true,
+  })
   reversalReason: string | null;
 
   @CreateDateColumn({ name: 'created_at' })

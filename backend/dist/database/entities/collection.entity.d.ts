@@ -10,7 +10,10 @@ export declare class Collection {
     status: CollectionStatus;
     receivedAt: Date;
     executedAt: Date | null;
+    reversedAt: Date | null;
+    reversalReason: string | null;
     account: FinancialAccount | null;
+    accountId: string | null;
     commission: number;
     createdAt: Date;
 }

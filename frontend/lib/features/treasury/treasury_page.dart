@@ -8,6 +8,7 @@ import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/error_box.dart';
 import '../../core/widgets/metric_card.dart';
 import '../../core/widgets/page_frame.dart';
+import '../../core/widgets/app_snack.dart';
 import '../auth/session_controller.dart';
 
 class TreasuryPage extends StatefulWidget {
@@ -58,19 +59,86 @@ class _TreasuryPageState extends State<TreasuryPage> {
     if (mounted) setState(() => loading = false);
   }
 
+  Future<void> _reconcile() async {
+    final balance = TextEditingController(
+      text: '${summary['actualBalance'] ?? ''}',
+    );
+    final note = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تسوية الخزنة'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: balance,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(labelText: 'الرصيد المعدود'),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: note,
+                maxLength: 300,
+                decoration: const InputDecoration(labelText: 'ملاحظة الجرد'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('حفظ التسوية'),
+          ),
+        ],
+      ),
+    );
+    final counted = num.tryParse(balance.text.trim());
+    final noteValue = note.text.trim();
+    balance.dispose();
+    note.dispose();
+    if (confirmed != true || counted == null || counted < 0 || !mounted) return;
+    try {
+      await widget.session.api.post(ApiEndpoints.treasuryReconcile, {
+        'assetType': 'treasury',
+        'countedBalance': counted,
+        if (noteValue.isNotEmpty) 'note': noteValue,
+      });
+      await load();
+      if (mounted) showAppSnack(context, 'تم تسجيل التسوية في سجل العمليات');
+    } catch (exception) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(exception), error: true);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PageFrame(
       title: 'الخزنة المركزية',
       subtitle: 'الرصيد الفعلي والمتاح والالتزامات',
-      actions: widget.session.can(AppPermissions.internalTransfer)
-          ? [
-              FilledButton(
-                onPressed: widget.onOpenTransfer,
-                child: const Text('تحويل داخلي'),
-              ),
-            ]
-          : [],
+      actions: [
+        if (widget.session.can(AppPermissions.reconcileBalances))
+          OutlinedButton(
+            onPressed: loading ? null : _reconcile,
+            child: const Text('تسوية الخزنة'),
+          ),
+        if (widget.session.can(AppPermissions.internalTransfer))
+          FilledButton(
+            onPressed: widget.onOpenTransfer,
+            child: const Text('تحويل داخلي'),
+          ),
+      ],
       child: loading
           ? const Center(
               child: Padding(

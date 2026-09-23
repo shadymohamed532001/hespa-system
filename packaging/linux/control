@@ -1,0 +1,8 @@
+Package: hesba
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: amd64
+Depends: libgtk-3-0, libsecret-1-0
+Maintainer: Hesba
+Description: Hesba desktop operations and finance management system

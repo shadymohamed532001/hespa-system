@@ -63,7 +63,12 @@ class _CollectionsPageState extends State<CollectionsPage> {
             )
           : error != null
           ? ErrorBox(message: error!, retry: load)
-          : _CollectionsTable(rows: data, onExecute: (row) => _execute(row)),
+          : _CollectionsTable(
+              rows: data,
+              onExecute: (row) => _execute(row),
+              canReverse: widget.session.can(AppPermissions.reverseOperations),
+              onReverse: _reverse,
+            ),
     );
   }
 
@@ -145,13 +150,61 @@ class _CollectionsPageState extends State<CollectionsPage> {
       }
     }
   }
+
+  Future<void> _reverse(Map<String, dynamic> collection) async {
+    final reason = TextEditingController();
+    final ok = await showHesbaModal<bool>(
+      context: context,
+      maxWidth: 480,
+      builder: (ctx) => HesbaModalCard(
+        title: 'عكس التحصيل ${collection['reference']}',
+        subtitle: 'سيتم عكس أثر الخزنة والحساب والعمولة كوحدة واحدة.',
+        actions: HesbaModalActions(
+          primaryLabel: 'تأكيد العكس',
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
+        ),
+        child: HesbaModalField(
+          label: 'سبب العكس *',
+          child: TextField(
+            controller: reason,
+            minLines: 2,
+            maxLines: 4,
+            maxLength: 300,
+            decoration: const InputDecoration(),
+          ),
+        ),
+      ),
+    );
+    final value = reason.text.trim();
+    if (ok != true || value.length < 3) return;
+    try {
+      await widget.session.api.post(
+        ApiEndpoints.reverseCollection('${collection['id']}'),
+        {'reason': value},
+      );
+      await load();
+      if (mounted) showAppSnack(context, 'تم عكس التحصيل وتسجيل السبب');
+    } catch (e) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(e), error: true);
+      }
+    }
+  }
 }
 
 class _CollectionsTable extends StatelessWidget {
-  const _CollectionsTable({required this.rows, required this.onExecute});
+  const _CollectionsTable({
+    required this.rows,
+    required this.onExecute,
+    required this.canReverse,
+    required this.onReverse,
+  });
 
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onExecute;
+  final bool canReverse;
+  final Future<void> Function(Map<String, dynamic> row) onReverse;
 
   @override
   Widget build(BuildContext context) {
@@ -246,6 +299,11 @@ class _CollectionsTable extends StatelessWidget {
                         DataCell(
                           e['status'] == 'pending'
                               ? const SoftBadge.pending()
+                              : e['status'] == 'reversed'
+                              ? const Text(
+                                  'معكوسة',
+                                  style: TextStyle(color: Colors.red),
+                                )
                               : const SoftBadge.done(),
                         ),
                         DataCell(
@@ -271,20 +329,28 @@ class _CollectionsTable extends StatelessWidget {
                           ),
                         ),
                         DataCell(
-                          e['status'] == 'pending'
-                              ? FilledButton(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (e['status'] == 'pending')
+                                FilledButton(
                                   onPressed: () =>
                                       onExecute(e as Map<String, dynamic>),
-                                  style: FilledButton.styleFrom(
-                                    minimumSize: const Size(0, 36),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                      vertical: 8,
-                                    ),
-                                  ),
                                   child: const Text('تنفيذ'),
-                                )
-                              : Text('—', style: HesbaText.tableCell),
+                                ),
+                              if (canReverse && e['status'] != 'reversed') ...[
+                                const SizedBox(width: 6),
+                                TextButton(
+                                  onPressed: () =>
+                                      onReverse(e as Map<String, dynamic>),
+                                  child: const Text('عكس'),
+                                ),
+                              ],
+                              if (e['status'] != 'pending' &&
+                                  (!canReverse || e['status'] == 'reversed'))
+                                Text('—', style: HesbaText.tableCell),
+                            ],
+                          ),
                         ),
                       ],
                     ),

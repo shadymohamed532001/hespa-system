@@ -11,6 +11,7 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Schema1790087699416 } from './database/migrations/1790087699416-Schema.js';
 import { LegacySchemaRepair1790087699417 } from './database/migrations/1790087699417-LegacySchemaRepair.js';
+import { OperationsHardening1790087699418 } from './database/migrations/1790087699418-OperationsHardening.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -21,7 +22,7 @@ import { RolesGuard } from './common/guards/roles.guard.js';
 import { SecurityModule } from './common/security.module.js';
 import { validateConfig } from './config/validate-config.js';
 import { CollectionsModule } from './collections/collections.module.js';
-import { AppNotification, AuditEvent, Collection, FinancialAccount, InventoryProduct, InventorySale, InventoryTreasury, IdempotencyRecord, LedgerEntry, Machine, Treasury, User, Wallet, } from './database/entities/index.js';
+import { AppNotification, AuditEvent, DailyClose, Collection, FinancialAccount, InventoryProduct, InventorySale, InventoryStockMovement, InventoryTreasury, IdempotencyRecord, LedgerEntry, Machine, Treasury, User, Wallet, } from './database/entities/index.js';
 import { InventoryModule } from './inventory/inventory.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { MachinesModule } from './machines/machines.module.js';
@@ -67,10 +68,16 @@ AppModule = __decorate([
                         InventoryTreasury,
                         IdempotencyRecord,
                         AuditEvent,
+                        DailyClose,
+                        InventoryStockMovement,
                     ],
                     synchronize: config.get('NODE_ENV', 'development') !== 'production' &&
                         config.get('DB_SYNC', 'true') === 'true',
-                    migrations: [Schema1790087699416, LegacySchemaRepair1790087699417],
+                    migrations: [
+                        Schema1790087699416,
+                        LegacySchemaRepair1790087699417,
+                        OperationsHardening1790087699418,
+                    ],
                     migrationsTableName: 'schema_migrations',
                     migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',
                 }),

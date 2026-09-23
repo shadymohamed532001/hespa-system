@@ -117,6 +117,11 @@ class _InventoryPageState extends State<InventoryPage> {
                           note: 'كل المبيعات المسجّلة',
                         ),
                         MetricCard(
+                          label: 'مجمل الربح',
+                          value: money(summary['grossProfit']),
+                          note: 'المبيعات غير المعكوسة بعد تكلفة الشراء',
+                        ),
+                        MetricCard(
                           label: 'مبيعات اليوم',
                           value: money(summary['todaySalesAmount']),
                           note:
@@ -137,7 +142,13 @@ class _InventoryPageState extends State<InventoryPage> {
                       : null,
                 ),
                 const SizedBox(height: 20),
-                _SalesCard(sales: sales),
+                _SalesCard(
+                  sales: sales,
+                  canReverse: widget.session.can(
+                    AppPermissions.reverseOperations,
+                  ),
+                  onReverse: _reverseSale,
+                ),
               ],
             ),
     );
@@ -147,6 +158,7 @@ class _InventoryPageState extends State<InventoryPage> {
     final name = TextEditingController();
     final stock = TextEditingController(text: '0');
     final price = TextEditingController(text: '0');
+    final cost = TextEditingController(text: '0');
     var category = 'accessory';
     final ok = await showHesbaModal<bool>(
       context: context,
@@ -199,6 +211,17 @@ class _InventoryPageState extends State<InventoryPage> {
               ),
               const SizedBox(height: 18),
               HesbaModalField(
+                label: 'تكلفة الشراء للقطعة *',
+                child: TextField(
+                  controller: cost,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
                 label: 'سعر البيع الافتراضي *',
                 child: TextField(
                   controller: price,
@@ -218,6 +241,7 @@ class _InventoryPageState extends State<InventoryPage> {
         'category': category,
         'openingStock': int.tryParse(stock.text) ?? 0,
         'defaultPrice': num.tryParse(price.text) ?? 0,
+        'costPrice': num.tryParse(cost.text) ?? 0,
       });
       await load();
       if (mounted) showAppSnack(context, 'تمت إضافة الصنف');
@@ -230,6 +254,8 @@ class _InventoryPageState extends State<InventoryPage> {
 
   Future<void> _stockIn(Map<String, dynamic> product) async {
     final qty = TextEditingController(text: '1');
+    final cost = TextEditingController(text: '${product['costPrice'] ?? 0}');
+    final supplier = TextEditingController();
     final ok = await showHesbaModal<bool>(
       context: context,
       maxWidth: 460,
@@ -241,13 +267,36 @@ class _InventoryPageState extends State<InventoryPage> {
           onPrimary: () => Navigator.pop(ctx, true),
           onCancel: () => Navigator.pop(ctx, false),
         ),
-        child: HesbaModalField(
-          label: 'الكمية المضافة *',
-          child: TextField(
-            controller: qty,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(),
-          ),
+        child: Column(
+          children: [
+            HesbaModalField(
+              label: 'الكمية المضافة *',
+              child: TextField(
+                controller: qty,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            HesbaModalField(
+              label: 'تكلفة شراء القطعة',
+              child: TextField(
+                controller: cost,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                decoration: const InputDecoration(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            HesbaModalField(
+              label: 'المورد (اختياري)',
+              child: TextField(
+                controller: supplier,
+                decoration: const InputDecoration(),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -255,7 +304,11 @@ class _InventoryPageState extends State<InventoryPage> {
     try {
       await widget.session.api.post(
         ApiEndpoints.inventoryStockIn('${product['id']}'),
-        {'quantity': int.tryParse(qty.text) ?? 0},
+        {
+          'quantity': int.tryParse(qty.text) ?? 0,
+          if (num.tryParse(cost.text) != null) 'unitCost': num.parse(cost.text),
+          if (supplier.text.trim().isNotEmpty) 'supplier': supplier.text.trim(),
+        },
       );
       await load();
       if (mounted) showAppSnack(context, 'تم توريد الكمية للمخزن');
@@ -335,6 +388,47 @@ class _InventoryPageState extends State<InventoryPage> {
           ? '${response['message']}'
           : 'تم تسجيل البيع';
       showAppSnack(context, message);
+    } catch (e) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(e), error: true);
+      }
+    }
+  }
+
+  Future<void> _reverseSale(Map<String, dynamic> sale) async {
+    final reason = TextEditingController();
+    final ok = await showHesbaModal<bool>(
+      context: context,
+      maxWidth: 480,
+      builder: (ctx) => HesbaModalCard(
+        title: 'عكس بيع — ${sale['productName']}',
+        subtitle: 'سيعود المخزون ويُخصم المبلغ من خزنة المخزن.',
+        actions: HesbaModalActions(
+          primaryLabel: 'تأكيد العكس',
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
+        ),
+        child: HesbaModalField(
+          label: 'سبب العكس *',
+          child: TextField(
+            controller: reason,
+            minLines: 2,
+            maxLines: 4,
+            maxLength: 300,
+            decoration: const InputDecoration(),
+          ),
+        ),
+      ),
+    );
+    final value = reason.text.trim();
+    if (ok != true || value.length < 3) return;
+    try {
+      await widget.session.api.post(
+        ApiEndpoints.reverseInventorySale('${sale['id']}'),
+        {'reason': value},
+      );
+      await load();
+      if (mounted) showAppSnack(context, 'تم عكس البيع وإرجاع المخزون');
     } catch (e) {
       if (mounted) {
         showAppSnack(context, ApiClient.errorMessage(e), error: true);
@@ -457,6 +551,9 @@ class _ProductsCard extends StatelessWidget {
                           label: Text('متبقي', style: HesbaText.tableHeader),
                         ),
                         DataColumn(
+                          label: Text('التكلفة', style: HesbaText.tableHeader),
+                        ),
+                        DataColumn(
                           label: Text(
                             'سعر البيع',
                             style: HesbaText.tableHeader,
@@ -470,6 +567,12 @@ class _ProductsCard extends StatelessWidget {
                         for (final e in products)
                           DataRow(
                             cells: [
+                              DataCell(
+                                Text(
+                                  money(e['costPrice']),
+                                  style: HesbaText.tableCell,
+                                ),
+                              ),
                               DataCell(
                                 Text(
                                   '${e['name']}',
@@ -565,9 +668,15 @@ class _ProductsCard extends StatelessWidget {
 }
 
 class _SalesCard extends StatelessWidget {
-  const _SalesCard({required this.sales});
+  const _SalesCard({
+    required this.sales,
+    required this.canReverse,
+    required this.onReverse,
+  });
 
   final List<dynamic> sales;
+  final bool canReverse;
+  final Future<void> Function(Map<String, dynamic>) onReverse;
 
   @override
   Widget build(BuildContext context) {
@@ -641,7 +750,16 @@ class _SalesCard extends StatelessWidget {
                           label: Text('الإجمالي', style: HesbaText.tableHeader),
                         ),
                         DataColumn(
+                          label: Text(
+                            'مجمل الربح',
+                            style: HesbaText.tableHeader,
+                          ),
+                        ),
+                        DataColumn(
                           label: Text('بواسطة', style: HesbaText.tableHeader),
+                        ),
+                        DataColumn(
+                          label: Text('الحالة', style: HesbaText.tableHeader),
                         ),
                       ],
                       rows: [
@@ -650,9 +768,32 @@ class _SalesCard extends StatelessWidget {
                             cells: [
                               DataCell(
                                 Text(
+                                  money(e['grossProfit']),
+                                  style: HesbaText.tableCell.copyWith(
+                                    color: HesbaColors.teal,
+                                  ),
+                                ),
+                              ),
+                              DataCell(
+                                Text(
                                   _formatTime(e['createdAt']),
                                   style: HesbaText.tableCell,
                                 ),
+                              ),
+                              DataCell(
+                                e['reversedAt'] != null
+                                    ? const Text(
+                                        'معكوسة',
+                                        style: TextStyle(color: Colors.red),
+                                      )
+                                    : canReverse
+                                    ? TextButton(
+                                        onPressed: () => onReverse(
+                                          e as Map<String, dynamic>,
+                                        ),
+                                        child: const Text('عكس البيع'),
+                                      )
+                                    : const Text('مكتملة'),
                               ),
                               DataCell(
                                 Text(

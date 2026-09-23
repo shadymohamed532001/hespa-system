@@ -423,6 +423,16 @@ const _fallbackCatalog = [
     'label': 'استخدام ماكينات شحن الرصيد',
     'note': 'خصم من رصيد الماكينة',
   },
+  {
+    'key': AppPermissions.reverseOperations,
+    'label': 'عكس العمليات المالية',
+    'note': 'صلاحية حساسة مع توثيق السبب',
+  },
+  {
+    'key': AppPermissions.reconcileBalances,
+    'label': 'تسوية الأرصدة الفعلية',
+    'note': 'مطابقة الجرد الفعلي مع النظام',
+  },
 ];
 
 class _UsersCard extends StatelessWidget {

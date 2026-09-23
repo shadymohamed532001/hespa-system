@@ -360,4 +360,161 @@ describe('financial operations (e2e)', () => {
     ).find((item) => item.id === product.body.id);
     expect(saved?.stockQty).toBe(0);
   });
+
+  it('records and reverses machine usage with its commission', async () => {
+    const suffix = randomUUID();
+    const machine = await request(app.getHttpServer())
+      .post('/api/machines')
+      .set(mutation(`commission-machine-${suffix}`))
+      .send({ name: `Commission ${suffix}`, openingBalance: 500 })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/machines/${machine.body.id}/use`)
+      .set(mutation(`commission-use-${suffix}`))
+      .send({ amount: 100, commission: 7, reference: `USE-${suffix}` })
+      .expect(201);
+
+    const before = await request(app.getHttpServer())
+      .get('/api/ledger?limit=500')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const usage = (
+      before.body as Array<{
+        id: string;
+        category: string;
+        entityId: string;
+      }>
+    ).find(
+      (entry) =>
+        entry.category === 'machine_usage' && entry.entityId === machine.body.id,
+    );
+    expect(usage).toBeTruthy();
+
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${usage!.id}/reverse`)
+      .set(mutation(`reverse-machine-${suffix}`))
+      .send({ reason: 'اختبار عكس عملية الماكينة' })
+      .expect(201);
+
+    const machines = await request(app.getHttpServer())
+      .get('/api/machines')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const saved = (
+      machines.body as Array<{
+        id: string;
+        remainingBalance: number;
+        commissionBalance: number;
+      }>
+    ).find((item) => item.id === machine.body.id);
+    expect(saved?.remainingBalance).toBe(500);
+    expect(saved?.commissionBalance).toBe(0);
+  });
+
+  it('tracks inventory cost and restores stock when a sale is reversed', async () => {
+    const suffix = randomUUID();
+    const product = await request(app.getHttpServer())
+      .post('/api/inventory/products')
+      .set(mutation(`profit-product-${suffix}`))
+      .send({
+        name: `Profit ${suffix}`,
+        category: 'mobile',
+        openingStock: 2,
+        defaultPrice: 150,
+        costPrice: 90,
+      })
+      .expect(201);
+    const sold = await request(app.getHttpServer())
+      .post(`/api/inventory/products/${product.body.id}/sell`)
+      .set(mutation(`profit-sale-${suffix}`))
+      .send({ quantity: 1, unitPrice: 150 })
+      .expect(201);
+    expect(sold.body.sale.grossProfit).toBe(60);
+
+    await request(app.getHttpServer())
+      .post(`/api/inventory/sales/${sold.body.sale.id}/reverse`)
+      .set(mutation(`profit-reversal-${suffix}`))
+      .send({ reason: 'إلغاء البيع التجريبي' })
+      .expect(201);
+    const products = await request(app.getHttpServer())
+      .get('/api/inventory/products')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const restored = (
+      products.body as Array<{ id: string; stockQty: number; soldQty: number }>
+    ).find((item) => item.id === product.body.id);
+    expect(restored).toMatchObject({ stockQty: 2, soldQty: 0 });
+  });
+
+  it('reverses a collection atomically and preserves its audit trail', async () => {
+    const suffix = randomUUID();
+    const account = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`reverse-collection-account-${suffix}`))
+      .send({
+        name: `Reverse collection ${suffix}`,
+        type: 'company',
+        openingBalance: 1000,
+      })
+      .expect(201);
+    const receipt = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(`reverse-collection-${suffix}`))
+      .send({
+        agentName: 'مندوب اختبار',
+        companyName: 'شركة اختبار',
+        amount: 100,
+        executionMode: 'immediate',
+        accountId: account.body.id,
+        commission: 5,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/collections/${receipt.body.id}/reverse`)
+      .set(mutation(`reverse-collection-action-${suffix}`))
+      .send({ reason: 'تحصيل مسجل بالخطأ' })
+      .expect(201);
+
+    const collections = await request(app.getHttpServer())
+      .get('/api/collections')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const reversed = (
+      collections.body as Array<{ id: string; status: string }>
+    ).find((item) => item.id === receipt.body.id);
+    expect(reversed?.status).toBe('reversed');
+  });
+
+  it('reconciles the treasury and closes a business day only once', async () => {
+    const current = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const counted = Number(current.body.actualBalance) + 10;
+    await request(app.getHttpServer())
+      .post('/api/treasury/reconcile')
+      .set(mutation(`reconcile-${randomUUID()}`))
+      .send({
+        assetType: 'treasury',
+        countedBalance: counted,
+        note: 'جرد اختبار',
+      })
+      .expect(201)
+      .expect(({ body }) => expect(body.difference).toBe(10));
+
+    const first = await request(app.getHttpServer())
+      .post('/api/treasury/close-day')
+      .set(mutation(`close-day-${randomUUID()}`))
+      .send({ note: 'إقفال اختبار' })
+      .expect(201);
+    expect(first.body.closed).toBe(true);
+    expect(first.body.close.snapshot).toBeTruthy();
+
+    const second = await request(app.getHttpServer())
+      .post('/api/treasury/close-day')
+      .set(mutation(`close-day-repeat-${randomUUID()}`))
+      .send({})
+      .expect(201);
+    expect(second.body).toMatchObject({ closed: false, alreadyClosed: true });
+  });
 });

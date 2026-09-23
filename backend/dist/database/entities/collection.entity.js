@@ -21,7 +21,10 @@ let Collection = class Collection {
     status;
     receivedAt;
     executedAt;
+    reversedAt;
+    reversalReason;
     account;
+    accountId;
     commission;
     createdAt;
 };
@@ -67,10 +70,27 @@ __decorate([
     __metadata("design:type", Object)
 ], Collection.prototype, "executedAt", void 0);
 __decorate([
+    Column({ name: 'reversed_at', type: 'timestamptz', nullable: true }),
+    __metadata("design:type", Object)
+], Collection.prototype, "reversedAt", void 0);
+__decorate([
+    Column({
+        name: 'reversal_reason',
+        type: 'varchar',
+        length: 300,
+        nullable: true,
+    }),
+    __metadata("design:type", Object)
+], Collection.prototype, "reversalReason", void 0);
+__decorate([
     ManyToOne(() => FinancialAccount, { nullable: true, onDelete: 'RESTRICT' }),
     JoinColumn({ name: 'account_id' }),
     __metadata("design:type", Object)
 ], Collection.prototype, "account", void 0);
+__decorate([
+    Column({ name: 'account_id', type: 'uuid', nullable: true }),
+    __metadata("design:type", Object)
+], Collection.prototype, "accountId", void 0);
 __decorate([
     Column({
         type: 'numeric',

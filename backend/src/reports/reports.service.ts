@@ -1,6 +1,6 @@
 import { Injectable, PayloadTooLargeException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Between, Repository } from 'typeorm';
+import { Between, IsNull, Repository } from 'typeorm';
 import { Collection } from '../database/entities/collection.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { InventoryProduct } from '../database/entities/inventory-product.entity.js';
@@ -10,7 +10,7 @@ import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
-import { LedgerCategory } from '../database/enums.js';
+import { CollectionStatus, LedgerCategory } from '../database/enums.js';
 
 type ReportScope = {
   start: Date;
@@ -78,7 +78,10 @@ export class ReportsService {
         where: { createdAt: Between(scope.start, inclusiveEnd) },
       }),
       this.sales.count({
-        where: { createdAt: Between(scope.start, inclusiveEnd) },
+        where: {
+          createdAt: Between(scope.start, inclusiveEnd),
+          reversedAt: IsNull(),
+        },
       }),
     ]);
     if (ledgerCount + salesCount > 20_000) {
@@ -102,7 +105,10 @@ export class ReportsService {
         order: { createdAt: 'DESC' },
       }),
       this.sales.find({
-        where: { createdAt: Between(scope.start, inclusiveEnd) },
+        where: {
+          createdAt: Between(scope.start, inclusiveEnd),
+          reversedAt: IsNull(),
+        },
         relations: { product: true },
         order: { createdAt: 'DESC' },
       }),
@@ -200,7 +206,8 @@ export class ReportsService {
       amount: number,
     ) => {
       if (!channel) return;
-      const value = Math.abs(Number(amount));
+      const value =
+        kind === 'commission' ? Number(amount) : Math.abs(Number(amount));
       if (kind === 'deposit') channel.deposits += value;
       if (kind === 'withdrawal') channel.withdrawals += value;
       if (kind === 'commission') channel.commissions += value;
@@ -265,7 +272,10 @@ export class ReportsService {
         createdAt: entry.createdAt,
         category: entry.category,
         kind,
-        amount: Math.abs(Number(entry.amount)),
+        amount:
+          kind === 'commission'
+            ? Number(entry.amount)
+            : Math.abs(Number(entry.amount)),
         entityType: location.type,
         entityId: location.id,
         entityName:
@@ -340,6 +350,7 @@ export class ReportsService {
 
     const scopedSales = includeSales ? sales : [];
     const scopedCollections = collections.filter((item) => {
+      if (item.status === CollectionStatus.REVERSED) return false;
       if (scope.entityType === 'all' || scope.entityType === 'treasury')
         return true;
       return (
@@ -351,7 +362,7 @@ export class ReportsService {
     const daily = this.dailyRows(scope.start, scope.end, operations);
     const stockValue = products.reduce(
       (sum, product) =>
-        sum + Number(product.stockQty) * Number(product.defaultPrice),
+        sum + Number(product.stockQty) * Number(product.costPrice),
       0,
     );
 
@@ -375,6 +386,9 @@ export class ReportsService {
         ),
         salesCount: scopedSales.length,
         soldUnits: scopedSales.reduce((sum, sale) => sum + sale.quantity, 0),
+        grossProfit: round(
+          scopedSales.reduce((sum, sale) => sum + Number(sale.grossProfit), 0),
+        ),
         collectionsAmount: round(
           scopedCollections.reduce((sum, item) => sum + Number(item.amount), 0),
         ),
@@ -399,7 +413,11 @@ export class ReportsService {
   }
 
   private entryLocation(entry: LedgerEntry) {
-    if (entry.category === LedgerCategory.CASH_RECEIPT) {
+    if (
+      entry.category === LedgerCategory.CASH_RECEIPT ||
+      (entry.category === LedgerCategory.REVERSAL &&
+        entry.metadata?.originalCategory === LedgerCategory.CASH_RECEIPT)
+    ) {
       return { type: 'treasury', id: 'main' };
     }
     return { type: entry.entityType, id: entry.entityId };
@@ -407,6 +425,12 @@ export class ReportsService {
 
   private flowKind(entry: LedgerEntry): FlowKind {
     if (entry.category === LedgerCategory.COMMISSION) return 'commission';
+    if (
+      entry.category === LedgerCategory.REVERSAL &&
+      entry.metadata?.originalCategory === LedgerCategory.COMMISSION
+    ) {
+      return 'commission';
+    }
     if (entry.category === LedgerCategory.COMPANY_EXECUTION)
       return 'withdrawal';
     if (entry.category === LedgerCategory.MACHINE_USAGE) return 'withdrawal';
@@ -419,6 +443,9 @@ export class ReportsService {
       entry.category === LedgerCategory.CASH_RECEIPT
     ) {
       return 'deposit';
+    }
+    if (entry.category === LedgerCategory.RECONCILIATION) {
+      return Number(entry.amount) >= 0 ? 'deposit' : 'withdrawal';
     }
     return 'neutral';
   }

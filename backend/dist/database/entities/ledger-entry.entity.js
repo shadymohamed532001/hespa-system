@@ -23,6 +23,8 @@ let LedgerEntry = class LedgerEntry {
     sourceId;
     targetType;
     targetId;
+    reversesEntryId;
+    metadata;
     createdAt;
 };
 __decorate([
@@ -87,6 +89,14 @@ __decorate([
     Column({ name: 'target_id', type: 'varchar', length: 80, nullable: true }),
     __metadata("design:type", Object)
 ], LedgerEntry.prototype, "targetId", void 0);
+__decorate([
+    Column({ name: 'reverses_entry_id', type: 'uuid', nullable: true }),
+    __metadata("design:type", Object)
+], LedgerEntry.prototype, "reversesEntryId", void 0);
+__decorate([
+    Column({ type: 'jsonb', nullable: true }),
+    __metadata("design:type", Object)
+], LedgerEntry.prototype, "metadata", void 0);
 __decorate([
     CreateDateColumn({ name: 'created_at' }),
     __metadata("design:type", Date)
