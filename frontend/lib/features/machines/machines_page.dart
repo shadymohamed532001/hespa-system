@@ -45,11 +45,15 @@ class _MachinesPageState extends State<MachinesPage> {
     if (mounted) setState(() => loading = false);
   }
 
+  List<dynamic> get _active =>
+      data.where((machine) => machine['active'] != false).toList();
+
   @override
   Widget build(BuildContext context) {
     return PageFrame(
       title: 'ماكينات شحن الرصيد',
-      subtitle: 'متابعة كل ماكينة بصورة مستقلة',
+      subtitle:
+          'اشحن رصيد الماكينة ثم سجّل كل عملية عميل: شحن رصيد، باقة، نت أرضي، أو تليفون أرضي',
       actions: [
         if (widget.session.can(AppPermissions.manageAssets))
           OutlinedButton.icon(
@@ -58,10 +62,16 @@ class _MachinesPageState extends State<MachinesPage> {
             label: const Text('إضافة ماكينة'),
           ),
         if (widget.session.can(AppPermissions.topUpAssets))
-          FilledButton.icon(
-            onPressed: data.isEmpty ? null : _loadMachine,
+          FilledButton.tonalIcon(
+            onPressed: _active.isEmpty ? null : _loadMachine,
             icon: const Icon(Icons.bolt_outlined, size: 18),
             label: const Text('شحن ماكينة'),
+          ),
+        if (widget.session.can(AppPermissions.useMachines))
+          FilledButton.icon(
+            onPressed: _active.isEmpty ? null : _useMachine,
+            icon: const Icon(Icons.phone_android_outlined, size: 18),
+            label: const Text('استخدام ماكينة'),
           ),
       ],
       child: loading
@@ -307,13 +317,11 @@ class _MachinesPageState extends State<MachinesPage> {
   }
 
   Future<void> _loadMachine() async {
-    if (data.isEmpty) return;
-    final active = data.where((e) => e['active'] != false).toList();
-    if (active.isEmpty) {
+    if (_active.isEmpty) {
       showAppSnack(context, 'لا توجد ماكينة نشطة للشحن', error: true);
       return;
     }
-    var id = '${active.first['id']}';
+    var id = '${_active.first['id']}';
     final amount = TextEditingController();
     final reference = TextEditingController();
     final ok = await showHesbaModal<bool>(
@@ -322,7 +330,7 @@ class _MachinesPageState extends State<MachinesPage> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
           title: 'شحن ماكينة',
-          subtitle: 'يزيد الرصيد المتاح للماكينة',
+          subtitle: 'يزيد الرصيد المتاح للماكينة قبل خدمة العملاء',
           actions: HesbaModalActions(
             primaryLabel: 'تأكيد الشحن',
             onPrimary: () => Navigator.pop(ctx, true),
@@ -337,7 +345,7 @@ class _MachinesPageState extends State<MachinesPage> {
                   isExpanded: true,
                   decoration: const InputDecoration(),
                   items: [
-                    for (final e in active)
+                    for (final e in _active)
                       DropdownMenuItem(
                         value: '${e['id']}',
                         child: Text(
@@ -384,7 +392,156 @@ class _MachinesPageState extends State<MachinesPage> {
       }
     }
   }
+
+  Future<void> _useMachine() async {
+    if (_active.isEmpty) {
+      showAppSnack(context, 'لا توجد ماكينة نشطة للاستخدام', error: true);
+      return;
+    }
+    var id = '${_active.first['id']}';
+    var serviceType = _machineServiceTypes.first.key;
+    final customerNumber = TextEditingController();
+    final amount = TextEditingController();
+    final commission = TextEditingController(text: '0');
+    final reference = TextEditingController();
+    final ok = await showHesbaModal<bool>(
+      context: context,
+      maxWidth: 540,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: 'استخدام ماكينة',
+          subtitle:
+              'سجّل عملية العميل من رصيد الماكينة: شحن رصيد، باقة، نت أرضي، أو تليفون أرضي',
+          actions: HesbaModalActions(
+            primaryLabel: 'تنفيذ العملية',
+            onPrimary: () => Navigator.pop(ctx, true),
+            onCancel: () => Navigator.pop(ctx, false),
+          ),
+          child: Column(
+            children: [
+              HesbaModalField(
+                label: 'الماكينة *',
+                child: DropdownButtonFormField<String>(
+                  initialValue: id,
+                  isExpanded: true,
+                  decoration: const InputDecoration(),
+                  items: [
+                    for (final e in _active)
+                      DropdownMenuItem(
+                        value: '${e['id']}',
+                        child: Text(
+                          '${e['name']} — متبقي ${money(e['remainingBalance'])}',
+                        ),
+                      ),
+                  ],
+                  onChanged: (v) => setLocal(() => id = v!),
+                ),
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'نوع الخدمة *',
+                child: DropdownButtonFormField<String>(
+                  initialValue: serviceType,
+                  isExpanded: true,
+                  decoration: const InputDecoration(),
+                  items: [
+                    for (final option in _machineServiceTypes)
+                      DropdownMenuItem(
+                        value: option.key,
+                        child: Text(option.label),
+                      ),
+                  ],
+                  onChanged: (v) => setLocal(() => serviceType = v!),
+                ),
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'رقم العميل / الخط *',
+                child: TextField(
+                  controller: customerNumber,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    hintText: 'مثال: 010xxxxxxxx أو رقم الخط الأرضي',
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'المبلغ *',
+                child: TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'العمولة',
+                child: TextField(
+                  controller: commission,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(),
+                ),
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'رقم المرجع (اختياري)',
+                child: TextField(
+                  controller: reference,
+                  decoration: const InputDecoration(
+                    hintText: 'رقم العملية من الماكينة إن وُجد',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (ok != true) return;
+    final number = customerNumber.text.trim();
+    if (number.isEmpty) {
+      if (mounted) {
+        showAppSnack(context, 'رقم العميل أو التليفون مطلوب', error: true);
+      }
+      return;
+    }
+    try {
+      await widget.session.api.post(ApiEndpoints.machineUse(id), {
+        'serviceType': serviceType,
+        'customerNumber': number,
+        'amount': num.tryParse(amount.text.trim()) ?? 0,
+        'commission': num.tryParse(commission.text.trim()) ?? 0,
+        if (reference.text.trim().isNotEmpty)
+          'reference': reference.text.trim(),
+      });
+      await load();
+      if (mounted) showAppSnack(context, 'تم تسجيل استخدام الماكينة');
+    } catch (e) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(e), error: true);
+      }
+    }
+  }
 }
+
+class _MachineServiceOption {
+  const _MachineServiceOption(this.key, this.label);
+  final String key;
+  final String label;
+}
+
+const _machineServiceTypes = [
+  _MachineServiceOption('mobile_credit', 'شحن رصيد موبايل'),
+  _MachineServiceOption('mobile_package', 'تجديد باقة موبايل'),
+  _MachineServiceOption('landline_internet', 'تجديد إنترنت أرضي'),
+  _MachineServiceOption('landline_phone', 'سداد تليفون أرضي'),
+  _MachineServiceOption('other', 'خدمة أخرى'),
+];
 
 class _MachinesTable extends StatelessWidget {
   const _MachinesTable({

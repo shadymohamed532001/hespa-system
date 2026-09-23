@@ -447,7 +447,13 @@ describe('financial operations (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/machines/${machine.body.id}/use`)
       .set(mutation(`commission-use-${suffix}`))
-      .send({ amount: 100, commission: 7, reference: `USE-${suffix}` })
+      .send({
+        serviceType: 'landline_internet',
+        customerNumber: '02-12345678',
+        amount: 100,
+        commission: 7,
+        reference: `USE-${suffix}`,
+      })
       .expect(201);
 
     const before = await request(app.getHttpServer())

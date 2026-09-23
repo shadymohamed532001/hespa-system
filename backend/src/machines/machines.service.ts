@@ -17,6 +17,14 @@ import { UseMachineDto } from './dto/use-machine.dto.js';
 import { UpdateMachineDto } from './dto/update-machine.dto.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 
+const machineServiceLabels: Record<UseMachineDto['serviceType'], string> = {
+  mobile_credit: 'شحن رصيد موبايل',
+  mobile_package: 'تجديد باقة موبايل',
+  landline_internet: 'تجديد إنترنت أرضي',
+  landline_phone: 'سداد تليفون أرضي',
+  other: 'خدمة أخرى',
+};
+
 @Injectable()
 export class MachinesService implements OnModuleInit {
   constructor(
@@ -133,6 +141,11 @@ export class MachinesService implements OnModuleInit {
       });
       if (!machine)
         throw new NotFoundException('الماكينة غير موجودة أو موقوفة');
+      const customerNumber = dto.customerNumber.trim();
+      if (!customerNumber) {
+        throw new BadRequestException('رقم العميل أو التليفون مطلوب');
+      }
+      const serviceLabel = machineServiceLabels[dto.serviceType];
       const remaining =
         Number(machine.loadedBalance) - Number(machine.usedBalance);
       if (remaining < Number(dto.amount)) {
@@ -152,10 +165,13 @@ export class MachinesService implements OnModuleInit {
         entityType: 'machine',
         entityId: machine.id,
         reference: dto.reference ?? null,
-        description: `عملية شحن من ${machine.name} وعمولتها ${dto.commission}`,
+        description: `${serviceLabel} للرقم ${customerNumber} من ${machine.name} وعمولتها ${dto.commission}`,
         performedBy: username,
         metadata: {
           commission: Number(dto.commission),
+          serviceType: dto.serviceType,
+          serviceLabel,
+          customerNumber,
           machineName: machine.name,
           loadedBalance: Number(machine.loadedBalance),
           usedBalance: Number(machine.usedBalance),

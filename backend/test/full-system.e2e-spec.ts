@@ -399,7 +399,13 @@ describe.sequential('full system lifecycle (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/machines/${machineId}/use`)
       .set(mutation(employeeToken, 'machine-use'))
-      .send({ amount: 120, commission: 12, reference: 'MACHINE-USE-120' })
+      .send({
+        serviceType: 'mobile_package',
+        customerNumber: '01012345678',
+        amount: 120,
+        commission: 12,
+        reference: 'MACHINE-USE-120',
+      })
       .expect(201)
       .expect(({ body }) => {
         expect(body.remainingBalance).toBe(380);
