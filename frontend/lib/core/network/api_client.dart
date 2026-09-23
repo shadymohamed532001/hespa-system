@@ -331,7 +331,7 @@ String _resolveBaseUrl(String? override) {
       override ??
       const String.fromEnvironment(
         'API_BASE_URL',
-        defaultValue: 'http://localhost:3000/api',
+        defaultValue: 'https://hesba.alien-fit.com/api',
       );
   final uri = Uri.tryParse(value);
   const loopbackHosts = {'localhost', '127.0.0.1', '::1'};

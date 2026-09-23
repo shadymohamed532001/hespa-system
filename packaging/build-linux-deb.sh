@@ -9,7 +9,7 @@ trap 'rm -rf "$stage"' EXIT
 
 cd "$root_dir/frontend"
 flutter build linux --release \
-  --dart-define="API_BASE_URL=${API_BASE_URL:-http://localhost:3000/api}"
+  --dart-define="API_BASE_URL=${API_BASE_URL:-https://hesba.alien-fit.com/api}"
 
 mkdir -p "$stage/DEBIAN" "$stage/opt/hesba" "$stage/usr/bin" "$stage/usr/share/applications"
 cp -R build/linux/x64/release/bundle/. "$stage/opt/hesba/"

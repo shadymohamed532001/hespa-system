@@ -9,7 +9,7 @@ mkdir -p "$output_dir"
 
 cd "$root_dir/frontend"
 flutter build macos --release \
-  --dart-define="API_BASE_URL=${API_BASE_URL:-http://localhost:3000/api}"
+  --dart-define="API_BASE_URL=${API_BASE_URL:-https://hesba.alien-fit.com/api}"
 app_path="$(find build/macos/Build/Products/Release -maxdepth 1 -name '*.app' -print -quit)"
 if [[ -z "$app_path" ]]; then
   echo "Built macOS app was not found" >&2
