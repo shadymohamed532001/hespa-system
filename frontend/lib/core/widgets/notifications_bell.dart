@@ -25,6 +25,8 @@ class NotificationsBell extends StatefulWidget {
 class _NotificationsBellState extends State<NotificationsBell> {
   Timer? _timer;
   int _unread = 0;
+  int? _lastSeenUnread;
+  final Set<String> _announcedIds = {};
   List<dynamic> _items = [];
   bool _loadingList = false;
   final _layerLink = LayerLink();
@@ -37,8 +39,9 @@ class _NotificationsBellState extends State<NotificationsBell> {
   void initState() {
     super.initState();
     _refreshCount();
+    // Faster poll so actions show a badge/local banner without waiting on FCM.
     _timer = Timer.periodic(
-      const Duration(seconds: 12),
+      const Duration(seconds: 5),
       (_) => _refreshCount(),
     );
     PushNotificationsService.instance.onMessage = (_) {
@@ -62,9 +65,51 @@ class _NotificationsBellState extends State<NotificationsBell> {
         ApiEndpoints.notificationsUnreadCount,
       );
       final count = int.tryParse('${data['count']}') ?? 0;
+      final previous = _lastSeenUnread;
       if (mounted) setState(() => _unread = count);
       _overlay?.markNeedsBuild();
+
+      // First baseline: don't spam local alerts for old unread items.
+      if (previous == null) {
+        _lastSeenUnread = count;
+        return;
+      }
+      if (count > previous) {
+        await _announceNewNotifications(count - previous);
+      }
+      _lastSeenUnread = count;
     } catch (_) {}
+  }
+
+  /// When FCM/APNs is down, still surface a macOS banner from the API feed.
+  Future<void> _announceNewNotifications(int expectedNew) async {
+    try {
+      final list = await widget.session.api.list(
+        ApiEndpoints.notificationsList(limit: 10),
+      );
+      final fresh = list
+          .whereType<Map>()
+          .map((item) => Map<String, dynamic>.from(item))
+          .where((item) => item['isRead'] != true)
+          .where((item) {
+            final id = '${item['id']}';
+            if (_announcedIds.contains(id)) return false;
+            _announcedIds.add(id);
+            return true;
+          })
+          .take(expectedNew.clamp(1, 3))
+          .toList();
+
+      for (final item in fresh) {
+        await PushNotificationsService.instance.showLocal(
+          title: '${item['title'] ?? 'حسبة'}',
+          body: '${item['body'] ?? ''}',
+          payload: '${item['id']}',
+        );
+      }
+    } catch (error) {
+      debugPrint('Local notification announce failed: $error');
+    }
   }
 
   Future<void> _loadList() async {

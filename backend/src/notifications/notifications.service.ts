@@ -124,6 +124,11 @@ export function mapLedgerCategory(category: LedgerCategory): {
         kind: NotificationKind.WITHDRAWAL,
         title: 'سحب — استخدام ماكينة',
       };
+    case LedgerCategory.WALLET_USAGE:
+      return {
+        kind: NotificationKind.WITHDRAWAL,
+        title: 'سحب — استخدام محفظة',
+      };
     case LedgerCategory.COMPANY_EXECUTION:
       return { kind: NotificationKind.WITHDRAWAL, title: 'سحب — تنفيذ توريد' };
     case LedgerCategory.REVERSAL:

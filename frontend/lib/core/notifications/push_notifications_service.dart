@@ -30,6 +30,7 @@ class PushNotificationsService {
       FlutterLocalNotificationsPlugin();
 
   bool _ready = false;
+  bool _localReady = false;
   bool _initFailed = false;
   String? _token;
   PushArrivedCallback? onMessage;
@@ -45,6 +46,10 @@ class PushNotificationsService {
 
   Future<void> initialize() async {
     if (_ready || _initFailed) return;
+
+    // Local notifications work without APNs — used as fallback when FCM fails.
+    await _ensureLocalReady();
+
     if (!isSupported) {
       debugPrint('FCM skipped: platform does not support desktop push');
       _initFailed = true;
@@ -57,18 +62,6 @@ class PushNotificationsService {
           options: DefaultFirebaseOptions.currentPlatform,
         );
       }
-
-      const darwinSettings = DarwinInitializationSettings(
-        requestAlertPermission: true,
-        requestBadgePermission: true,
-        requestSoundPermission: true,
-      );
-      await _local.initialize(
-        settings: const InitializationSettings(
-          macOS: darwinSettings,
-          iOS: darwinSettings,
-        ),
-      );
 
       final messaging = FirebaseMessaging.instance;
       final settings = await messaging.requestPermission(
@@ -84,7 +77,6 @@ class PushNotificationsService {
       }
 
       // macOS needs the APNs token before an FCM token is issued.
-      // getAPNSToken() throws when APNs is not ready yet — never let that abort bootstrap.
       await _waitForApnsToken(messaging);
 
       try {
@@ -123,24 +115,43 @@ class PushNotificationsService {
       if (_token != null && _token!.length > 12) {
         debugPrint('FCM ready. token=${_token!.substring(0, 12)}…');
       } else {
-        debugPrint('FCM ready but token is empty (check APNs in Firebase).');
+        debugPrint(
+          'FCM token empty — in-app/local notifications still work via polling.',
+        );
       }
     } catch (error) {
-      _initFailed = true;
-      debugPrint('FCM initialize failed (app continues without push): $error');
+      // Keep local notifications usable even if FCM bootstrap fails.
+      _ready = true;
+      debugPrint('FCM initialize failed (local fallback stays on): $error');
     }
+  }
+
+  Future<void> _ensureLocalReady() async {
+    if (_localReady) return;
+    const darwinSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+    await _local.initialize(
+      settings: const InitializationSettings(
+        macOS: darwinSettings,
+        iOS: darwinSettings,
+      ),
+    );
+    _localReady = true;
   }
 
   Future<void> _waitForApnsToken(FirebaseMessaging messaging) async {
     if (kIsWeb || defaultTargetPlatform != TargetPlatform.macOS) return;
-    for (var i = 0; i < 5; i++) {
+    for (var i = 0; i < 8; i++) {
       try {
         final apns = await messaging.getAPNSToken();
         if (apns != null) return;
       } catch (_) {
         // APNs not set yet — keep waiting.
       }
-      await Future<void>.delayed(const Duration(milliseconds: 500));
+      await Future<void>.delayed(const Duration(milliseconds: 750));
     }
   }
 
@@ -148,7 +159,23 @@ class PushNotificationsService {
     final notification = message.notification;
     final title = notification?.title ?? message.data['title'] ?? 'حسبة';
     final body = notification?.body ?? message.data['body'] ?? '';
-    if (body.isEmpty && notification?.title == null) return;
+    await showLocal(
+      title: title,
+      body: body,
+      id: message.hashCode,
+      payload: message.data['notificationId'],
+    );
+  }
+
+  /// Shows a macOS/local banner even when FCM/APNs is unavailable.
+  Future<void> showLocal({
+    required String title,
+    required String body,
+    int? id,
+    String? payload,
+  }) async {
+    if (body.isEmpty && title.isEmpty) return;
+    await _ensureLocalReady();
 
     const details = NotificationDetails(
       macOS: DarwinNotificationDetails(
@@ -164,27 +191,29 @@ class PushNotificationsService {
     );
 
     await _local.show(
-      id: message.hashCode,
+      id: id ?? DateTime.now().millisecondsSinceEpoch.remainder(100000),
       title: title,
       body: body,
       notificationDetails: details,
-      payload: message.data['notificationId'],
+      payload: payload,
     );
   }
 
   Future<void> registerWithBackend(ApiClient api) async {
     _api = api;
-    if (_initFailed) return;
     try {
-      if (!_ready) await initialize();
-      if (_initFailed || !_ready) return;
+      if (!_ready && !_initFailed) await initialize();
       final current = _token ?? await _refreshToken();
-      if (current == null || current.isEmpty) return;
+      if (current == null || current.isEmpty) {
+        debugPrint('Skip device-token register: no FCM token yet');
+        return;
+      }
 
       await api.post(ApiEndpoints.notificationDeviceToken, {
         'token': current,
         'platform': _platformName(),
       });
+      debugPrint('FCM device token registered with backend');
     } catch (error) {
       debugPrint('Failed to register FCM token: $error');
     }
@@ -203,6 +232,7 @@ class PushNotificationsService {
   Future<String?> _refreshToken() async {
     if (!isSupported) return null;
     try {
+      await _waitForApnsToken(FirebaseMessaging.instance);
       _token = await FirebaseMessaging.instance.getToken();
     } catch (_) {}
     return _token;
