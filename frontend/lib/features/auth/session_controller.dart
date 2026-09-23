@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/notifications/push_notifications_service.dart';
 import '../../core/security/auth_token_store.dart';
 
 /// Permission keys matching backend `AppPermission`.
@@ -179,6 +180,9 @@ class SessionController extends ChangeNotifier {
 
   Future<void> logout({bool remote = true}) async {
     if (remote) {
+      try {
+        await PushNotificationsService.instance.unregisterFromBackend(api);
+      } catch (_) {}
       await api.logoutRemote();
     }
     token = null;

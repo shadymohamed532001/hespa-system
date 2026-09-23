@@ -9,6 +9,7 @@ import { OperationsHardening1790087699418 } from './database/migrations/17900876
 import { RefreshTokens1790087699419 } from './database/migrations/1790087699419-RefreshTokens.js';
 import { WalletOperations1790087699420 } from './database/migrations/1790087699420-WalletOperations.js';
 import { WalletOwner1790087699421 } from './database/migrations/1790087699421-WalletOwner.js';
+import { DevicePushTokens1790087699422 } from './database/migrations/1790087699422-DevicePushTokens.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -24,6 +25,7 @@ import {
   AuditEvent,
   DailyClose,
   Collection,
+  DevicePushToken,
   FinancialAccount,
   InventoryProduct,
   InventorySale,
@@ -75,6 +77,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           Collection,
           LedgerEntry,
           AppNotification,
+          DevicePushToken,
           InventoryProduct,
           InventorySale,
           InventoryTreasury,
@@ -94,6 +97,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           RefreshTokens1790087699419,
           WalletOperations1790087699420,
           WalletOwner1790087699421,
+          DevicePushTokens1790087699422,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

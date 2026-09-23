@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
@@ -732,7 +732,10 @@ class _SalesCard extends StatelessWidget {
                       dataRowMaxHeight: 58,
                       columns: const [
                         DataColumn(
-                          label: Text('الوقت', style: HesbaText.tableHeader),
+                          label: Text(
+                            'التاريخ والوقت',
+                            style: HesbaText.tableHeader,
+                          ),
                         ),
                         DataColumn(
                           label: Text('الصنف', style: HesbaText.tableHeader),
@@ -768,7 +771,7 @@ class _SalesCard extends StatelessWidget {
                             cells: [
                               DataCell(
                                 Text(
-                                  _formatTime(e['createdAt']),
+                                  formatDateTime(e['createdAt']),
                                   style: HesbaText.tableCell,
                                 ),
                               ),
@@ -840,11 +843,6 @@ class _SalesCard extends StatelessWidget {
     );
   }
 
-  static String _formatTime(dynamic value) {
-    final parsed = DateTime.tryParse('$value')?.toLocal();
-    if (parsed == null) return '—';
-    return DateFormat('dd/MM  HH:mm').format(parsed);
-  }
 }
 
 String _categoryLabel(String category) => switch (category) {

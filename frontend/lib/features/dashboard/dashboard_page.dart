@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/error_box.dart';
 import '../../core/widgets/app_snack.dart';
@@ -310,7 +310,7 @@ class _LedgerPanel extends StatelessWidget {
                     horizontalMargin: 20,
                     columnSpacing: 30,
                     columns: const [
-                      DataColumn(label: Text('الوقت')),
+                      DataColumn(label: Text('التاريخ والوقت')),
                       DataColumn(label: Text('الحركة')),
                       DataColumn(label: Text('البيان')),
                       DataColumn(label: Text('المبلغ')),
@@ -341,7 +341,7 @@ class _LedgerPanel extends StatelessWidget {
 
     return DataRow(
       cells: [
-        DataCell(Text(_time(entry['createdAt']))),
+        DataCell(Text(formatDateTime(entry['createdAt']))),
         DataCell(
           Text(
             _categoryName(category),
@@ -512,7 +512,7 @@ class _PendingPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    '${collection!['agentName']} · ${collection!['companyName']} · ${_time(collection!['receivedAt'])}',
+                    '${collection!['agentName']} · ${collection!['companyName']} · ${formatDateTime(collection!['receivedAt'])}',
                     style: const TextStyle(
                       color: HesbaColors.muted,
                       fontSize: 12,
@@ -707,9 +707,4 @@ String _categoryEffect(String category) {
         'daily_rollover': 'ترحيل أرصدة اليوم',
       }[category] ??
       'حركة مالية';
-}
-
-String _time(dynamic value) {
-  final parsed = DateTime.tryParse('$value')?.toLocal();
-  return parsed == null ? '—' : DateFormat('hh:mm a', 'ar').format(parsed);
 }

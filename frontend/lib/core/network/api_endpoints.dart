@@ -21,6 +21,9 @@ abstract final class ApiEndpoints {
   static const String notifications = '/notifications';
   static const String notificationsUnreadCount = '$notifications/unread-count';
   static const String notificationsReadAll = '$notifications/read-all';
+  static const String notificationDeviceToken = '$notifications/device-token';
+  static const String notificationDeviceTokenUnregister =
+      '$notifications/device-token/unregister';
 
   static String notificationRead(String id) => '$notifications/$id/read';
 

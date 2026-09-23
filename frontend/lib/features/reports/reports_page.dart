@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/data_card.dart';
 import '../../core/widgets/error_box.dart';
@@ -467,10 +468,7 @@ List<Map<String, dynamic>> _maps(dynamic value) => value is List
           .toList()
     : <Map<String, dynamic>>[];
 
-String _dateTime(dynamic value) {
-  final date = DateTime.tryParse('$value')?.toLocal();
-  return date == null ? '—' : DateFormat('dd/MM/yyyy  hh:mm a').format(date);
-}
+String _dateTime(dynamic value) => formatDateTime(value);
 
 String _shortDate(dynamic value) {
   final date = DateTime.tryParse('$value');

@@ -1,6 +1,7 @@
 export { Collection } from './collection.entity.js';
 export { AuditEvent } from './audit-event.entity.js';
 export { DailyClose } from './daily-close.entity.js';
+export { DevicePushToken } from './device-push-token.entity.js';
 export { FinancialAccount } from './financial-account.entity.js';
 export { InventoryProduct } from './inventory-product.entity.js';
 export { InventorySale } from './inventory-sale.entity.js';

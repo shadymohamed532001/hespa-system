@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
@@ -244,7 +244,10 @@ class _CollectionsTable extends StatelessWidget {
                     label: Text('المبلغ', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('وقت الاستلام', style: HesbaText.tableHeader),
+                    label: Text(
+                      'تاريخ الاستلام',
+                      style: HesbaText.tableHeader,
+                    ),
                   ),
                   DataColumn(
                     label: Text('طريقة التنفيذ', style: HesbaText.tableHeader),
@@ -253,7 +256,10 @@ class _CollectionsTable extends StatelessWidget {
                     label: Text('الحالة', style: HesbaText.tableHeader),
                   ),
                   DataColumn(
-                    label: Text('وقت التنفيذ', style: HesbaText.tableHeader),
+                    label: Text(
+                      'تاريخ التنفيذ',
+                      style: HesbaText.tableHeader,
+                    ),
                   ),
                   DataColumn(
                     label: Text(
@@ -287,7 +293,7 @@ class _CollectionsTable extends StatelessWidget {
                         ),
                         DataCell(
                           Text(
-                            _formatTime(e['receivedAt'] ?? e['createdAt']),
+                            formatDateTime(e['receivedAt'] ?? e['createdAt']),
                             style: HesbaText.tableCell,
                           ),
                         ),
@@ -310,7 +316,7 @@ class _CollectionsTable extends StatelessWidget {
                           Text(
                             e['executedAt'] == null
                                 ? '—'
-                                : _formatTime(e['executedAt']),
+                                : formatDateTime(e['executedAt']),
                             style: HesbaText.tableCell,
                           ),
                         ),
@@ -363,9 +369,4 @@ class _CollectionsTable extends StatelessWidget {
     );
   }
 
-  static String _formatTime(dynamic value) {
-    final parsed = DateTime.tryParse('$value')?.toLocal();
-    if (parsed == null) return '—';
-    return DateFormat('HH:mm').format(parsed);
-  }
 }

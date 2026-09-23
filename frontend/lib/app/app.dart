@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import '../core/network/api_client.dart';
+import '../core/notifications/push_notifications_service.dart';
 import '../core/settings/app_settings.dart';
 import '../core/theme/app_theme.dart';
 import '../features/auth/login_page.dart';
@@ -27,10 +28,18 @@ class _HesbaAppState extends State<HesbaApp> {
     settings = AppSettings()..restore();
     initializeDateFormatting('ar');
     initializeDateFormatting('en');
+    session.addListener(_onSessionChanged);
+  }
+
+  void _onSessionChanged() {
+    if (session.signedIn) {
+      PushNotificationsService.instance.registerWithBackend(session.api);
+    }
   }
 
   @override
   void dispose() {
+    session.removeListener(_onSessionChanged);
     session.dispose();
     settings.dispose();
     super.dispose();

@@ -52,7 +52,13 @@ class _AppShellState extends State<AppShell> {
     _NavItem(t.accounts, () => AccountsPage(session: widget.session)),
     if (widget.session.can(AppPermissions.topUpAssets))
       _NavItem(t.topUp, () => TopUpPage(session: widget.session)),
-    _NavItem(t.wallets, () => WalletsPage(session: widget.session)),
+    _NavItem(
+      t.wallets,
+      () => WalletsPage(
+        session: widget.session,
+        onOpenLedger: () => _selectLabel(t.ledger),
+      ),
+    ),
     _NavItem(t.machines, () => MachinesPage(session: widget.session)),
     if (widget.session.can(AppPermissions.receiveCollections))
       _NavItem(t.collections, () => CollectionsPage(session: widget.session)),

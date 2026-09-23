@@ -4,17 +4,23 @@ import {
   EventSubscriber,
   InsertEvent,
 } from 'typeorm';
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AppNotification } from '../database/entities/notification.entity.js';
 import { notificationContent } from './notifications.service.js';
+import { FcmService } from './fcm.service.js';
 
 @Injectable()
 @EventSubscriber()
 export class LedgerNotificationSubscriber
   implements EntitySubscriberInterface<LedgerEntry>, OnModuleInit
 {
-  constructor(private readonly dataSource: DataSource) {}
+  private readonly logger = new Logger(LedgerNotificationSubscriber.name);
+
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly fcm: FcmService,
+  ) {}
 
   onModuleInit() {
     this.dataSource.subscribers.push(this);
@@ -35,7 +41,7 @@ export class LedgerNotificationSubscriber
     if (existing) return;
 
     const mapped = notificationContent(entry);
-    await repo.save(
+    const saved = await repo.save(
       repo.create({
         kind: mapped.kind,
         title: mapped.title,
@@ -45,5 +51,22 @@ export class LedgerNotificationSubscriber
         isRead: false,
       }),
     );
+
+    try {
+      await this.fcm.sendPush({
+        title: mapped.title,
+        body: mapped.body,
+        data: {
+          notificationId: saved.id,
+          kind: mapped.kind,
+          ledgerEntryId: entry.id,
+          category: entry.category,
+        },
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Push notification failed: ${error instanceof Error ? error.message : error}`,
+      );
+    }
   }
 }

@@ -6,6 +6,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import '../../features/auth/session_controller.dart';
 import '../network/api_client.dart';
 import '../network/api_endpoints.dart';
+import '../notifications/push_notifications_service.dart';
 import '../settings/app_strings.dart';
 import '../theme/app_theme.dart';
 import '../utils/money_formatter.dart';
@@ -40,10 +41,16 @@ class _NotificationsBellState extends State<NotificationsBell> {
       const Duration(seconds: 12),
       (_) => _refreshCount(),
     );
+    PushNotificationsService.instance.onMessage = (_) {
+      _refreshCount();
+    };
   }
 
   @override
   void dispose() {
+    if (PushNotificationsService.instance.onMessage != null) {
+      PushNotificationsService.instance.onMessage = null;
+    }
     _timer?.cancel();
     _closeOverlay();
     super.dispose();

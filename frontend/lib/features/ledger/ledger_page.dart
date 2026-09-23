@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/data_card.dart';
 import '../../core/widgets/error_box.dart';
@@ -20,7 +20,7 @@ class LedgerPage extends StatelessWidget {
     subtitle: 'سجل مركزي غير مختلط بين أصل المبالغ والعمولات',
     endpoint: ApiEndpoints.ledgerList(limit: 200),
     columns: const [
-      'التاريخ',
+      'التاريخ والوقت',
       'النوع',
       'الوصف',
       'المبلغ',
@@ -29,7 +29,7 @@ class LedgerPage extends StatelessWidget {
     ],
     allowReversal: session.can(AppPermissions.reverseOperations),
     rowBuilder: (e) => [
-      _date(e['createdAt']),
+      formatDateTime(e['createdAt']),
       _category('${e['category']}'),
       '${e['description']}',
       money(e['amount']),
@@ -175,13 +175,6 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
             },
           ),
   );
-}
-
-String _date(dynamic value) {
-  final parsed = DateTime.tryParse('$value')?.toLocal();
-  return parsed == null
-      ? '—'
-      : DateFormat('dd/MM/yyyy  hh:mm a', 'en').format(parsed);
 }
 
 String _category(String value) =>

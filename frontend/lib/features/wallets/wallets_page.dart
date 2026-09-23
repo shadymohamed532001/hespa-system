@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
@@ -13,9 +14,10 @@ import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
 
 class WalletsPage extends StatefulWidget {
-  const WalletsPage({super.key, required this.session});
+  const WalletsPage({super.key, required this.session, this.onOpenLedger});
 
   final SessionController session;
+  final VoidCallback? onOpenLedger;
 
   @override
   State<WalletsPage> createState() => _WalletsPageState();
@@ -23,11 +25,17 @@ class WalletsPage extends StatefulWidget {
 
 class _WalletsPageState extends State<WalletsPage> {
   List<dynamic> data = [];
+  List<dynamic> ledger = [];
   bool loading = true;
   String? error;
 
   List<dynamic> get _active =>
       data.where((wallet) => wallet['active'] == true).toList();
+
+  List<dynamic> get _walletLedger => ledger
+      .where((entry) => entry['entityType'] == 'wallet')
+      .take(8)
+      .toList();
 
   @override
   void initState() {
@@ -37,11 +45,16 @@ class _WalletsPageState extends State<WalletsPage> {
 
   Future<void> load() async {
     try {
-      data = await widget.session.api.list(
-        ApiEndpoints.walletsList(
-          includeInactive: widget.session.can(AppPermissions.manageAssets),
+      final values = await Future.wait([
+        widget.session.api.list(
+          ApiEndpoints.walletsList(
+            includeInactive: widget.session.can(AppPermissions.manageAssets),
+          ),
         ),
-      );
+        widget.session.api.list(ApiEndpoints.ledgerList(limit: 100)),
+      ]);
+      data = values[0];
+      ledger = values[1];
       error = null;
     } catch (exception) {
       error = ApiClient.errorMessage(exception);
@@ -55,6 +68,12 @@ class _WalletsPageState extends State<WalletsPage> {
     subtitle:
         'أضف كل رقم أو حساب بشكل مستقل، ثم اشحنه أو استخدمه وسجّل العمولة',
     actions: [
+      if (widget.onOpenLedger != null)
+        OutlinedButton.icon(
+          onPressed: widget.onOpenLedger,
+          icon: const Icon(Icons.receipt_long_outlined, size: 18),
+          label: const Text('سجل العمليات'),
+        ),
       if (widget.session.can(AppPermissions.manageAssets))
         OutlinedButton.icon(
           onPressed: _addWallet,
@@ -148,6 +167,11 @@ class _WalletsPageState extends State<WalletsPage> {
                 rows: data,
                 canManage: widget.session.can(AppPermissions.manageAssets),
                 onManage: _manageWallet,
+              ),
+              const SizedBox(height: 22),
+              _WalletMovements(
+                entries: _walletLedger,
+                onOpenLedger: widget.onOpenLedger,
               ),
             ],
           ),
@@ -632,6 +656,151 @@ class _WalletsTable extends StatelessWidget {
 }
 
 enum _WalletAction { activate, deactivate, delete }
+
+class _WalletMovements extends StatelessWidget {
+  const _WalletMovements({required this.entries, this.onOpenLedger});
+
+  final List<dynamic> entries;
+  final VoidCallback? onOpenLedger;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: HesbaColors.border),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('سجل عمليات المحافظ', style: HesbaText.sectionTitle),
+                      SizedBox(height: 2),
+                      Text(
+                        'آخر الشحن والاستخدام والعمولات',
+                        style: HesbaText.panelSub,
+                      ),
+                    ],
+                  ),
+                ),
+                if (onOpenLedger != null)
+                  OutlinedButton(
+                    onPressed: onOpenLedger,
+                    child: const Text('عرض الكل'),
+                  ),
+              ],
+            ),
+          ),
+          if (entries.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(38),
+              child: Text(
+                'لا توجد حركات محافظ مسجلة بعد',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: HesbaColors.muted),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(
+                      const Color(0xFFF2F5F8),
+                    ),
+                    headingRowHeight: 52,
+                    dataRowMinHeight: 56,
+                    dataRowMaxHeight: 60,
+                    horizontalMargin: 20,
+                    columnSpacing: 28,
+                    columns: const [
+                      DataColumn(
+                        label: Text(
+                          'التاريخ والوقت',
+                          style: HesbaText.tableHeader,
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text('النوع', style: HesbaText.tableHeader),
+                      ),
+                      DataColumn(
+                        label: Text('الوصف', style: HesbaText.tableHeader),
+                      ),
+                      DataColumn(
+                        label: Text('المبلغ', style: HesbaText.tableHeader),
+                      ),
+                      DataColumn(
+                        label: Text('المستخدم', style: HesbaText.tableHeader),
+                      ),
+                    ],
+                    rows: [
+                      for (final entry in entries)
+                        _row(entry as Map<String, dynamic>),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  DataRow _row(Map<String, dynamic> entry) {
+    final category = '${entry['category']}';
+    final outflow = category == 'wallet_usage';
+    final amount = num.tryParse('${entry['amount']}') ?? 0;
+    final color = outflow ? HesbaColors.red : HesbaColors.tealDark;
+    final sign = outflow ? '−' : '+';
+
+    return DataRow(
+      cells: [
+        DataCell(
+          Text(formatDateTime(entry['createdAt']), style: HesbaText.tableCell),
+        ),
+        DataCell(
+          Text(_categoryLabel(category), style: HesbaText.tableEmphasis),
+        ),
+        DataCell(
+          Text('${entry['description'] ?? '—'}', style: HesbaText.tableCell),
+        ),
+        DataCell(
+          Directionality(
+            textDirection: TextDirection.ltr,
+            child: Text(
+              '$sign${money(amount.abs())}',
+              style: HesbaText.tableEmphasis.copyWith(color: color),
+            ),
+          ),
+        ),
+        DataCell(
+          Text('${entry['performedBy'] ?? '—'}', style: HesbaText.tableCell),
+        ),
+      ],
+    );
+  }
+
+  String _categoryLabel(String category) => switch (category) {
+    'top_up' => 'شحن محفظة',
+    'wallet_usage' => 'استخدام محفظة',
+    'commission' => 'عمولة',
+    'opening_balance' => 'رصيد افتتاحي',
+    'reversal' => 'عكس عملية',
+    'internal_transfer' => 'تحويل داخلي',
+    _ => category,
+  };
+}
 
 const _walletTypes = {
   'vodafone_cash': 'Vodafone Cash',

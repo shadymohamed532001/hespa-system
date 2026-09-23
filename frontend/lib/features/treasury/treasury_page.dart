@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart' show DateFormat;
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/error_box.dart';
 import '../../core/widgets/metric_card.dart';
@@ -313,7 +313,7 @@ class _TreasuryMovements extends StatelessWidget {
                     horizontalMargin: 20,
                     columnSpacing: 30,
                     columns: const [
-                      DataColumn(label: Text('الوقت')),
+                      DataColumn(label: Text('التاريخ والوقت')),
                       DataColumn(label: Text('الحركة')),
                       DataColumn(label: Text('البيان')),
                       DataColumn(label: Text('المبلغ')),
@@ -349,7 +349,7 @@ class _TreasuryMovements extends StatelessWidget {
 
     return DataRow(
       cells: [
-        DataCell(Text(_time(entry['createdAt']))),
+        DataCell(Text(formatDateTime(entry['createdAt']))),
         DataCell(
           Text(
             _categoryName(category),
@@ -383,11 +383,6 @@ class _TreasuryMovements extends StatelessWidget {
     return category == 'company_execution' ||
         category == 'machine_usage' ||
         category == 'top_up';
-  }
-
-  String _time(dynamic value) {
-    final date = DateTime.tryParse('$value')?.toLocal();
-    return date == null ? '—' : DateFormat('hh:mm a', 'ar').format(date);
   }
 
   String _categoryName(String category) => switch (category) {
