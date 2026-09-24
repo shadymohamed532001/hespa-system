@@ -27,8 +27,14 @@ class SystemAvailabilityService {
 
   bool get isFirebasePlatform {
     if (kIsWeb) return true;
-    return defaultTargetPlatform == TargetPlatform.macOS ||
-        defaultTargetPlatform == TargetPlatform.windows;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.macOS ||
+      TargetPlatform.windows ||
+      TargetPlatform.android ||
+      TargetPlatform.iOS =>
+        true,
+      _ => false,
+    };
   }
 
   Future<void> check() async {

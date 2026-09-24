@@ -39,10 +39,16 @@ class PushNotificationsService {
 
   String? get token => _token;
 
-  /// FCM desktop push is officially usable on macOS (APNs). Windows/Linux skip.
+  /// FCM: macOS/iOS (APNs), Android, and web. Windows/Linux skip.
   bool get isSupported {
     if (kIsWeb) return true;
-    return defaultTargetPlatform == TargetPlatform.macOS;
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.macOS ||
+      TargetPlatform.iOS ||
+      TargetPlatform.android =>
+        true,
+      _ => false,
+    };
   }
 
   Future<void> initialize() async {
@@ -77,7 +83,7 @@ class PushNotificationsService {
         return;
       }
 
-      // macOS needs the APNs token before an FCM token is issued.
+      // Apple platforms need the APNs token before an FCM token is issued.
       await _waitForApnsToken(messaging);
 
       try {
@@ -134,17 +140,38 @@ class PushNotificationsService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     await _local.initialize(
       settings: const InitializationSettings(
+        android: androidSettings,
         macOS: darwinSettings,
         iOS: darwinSettings,
       ),
     );
+
+    final androidPlugin = _local
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    await androidPlugin?.createNotificationChannel(
+      const AndroidNotificationChannel(
+        'hesba_alerts',
+        'Hesba alerts',
+        description: 'Operational alerts for Hesba',
+        importance: Importance.high,
+      ),
+    );
+    await androidPlugin?.requestNotificationsPermission();
+
     _localReady = true;
   }
 
   Future<void> _waitForApnsToken(FirebaseMessaging messaging) async {
-    if (kIsWeb || defaultTargetPlatform != TargetPlatform.macOS) return;
+    if (kIsWeb) return;
+    if (defaultTargetPlatform != TargetPlatform.macOS &&
+        defaultTargetPlatform != TargetPlatform.iOS) {
+      return;
+    }
     for (var i = 0; i < 8; i++) {
       try {
         final apns = await messaging.getAPNSToken();
@@ -179,6 +206,13 @@ class PushNotificationsService {
     await _ensureLocalReady();
 
     const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'hesba_alerts',
+        'Hesba alerts',
+        channelDescription: 'Operational alerts for Hesba',
+        importance: Importance.high,
+        priority: Priority.high,
+      ),
       macOS: DarwinNotificationDetails(
         presentAlert: true,
         presentBadge: true,
@@ -243,6 +277,8 @@ class PushNotificationsService {
     if (kIsWeb) return 'web';
     return switch (defaultTargetPlatform) {
       TargetPlatform.macOS => 'macos',
+      TargetPlatform.iOS => 'ios',
+      TargetPlatform.android => 'android',
       TargetPlatform.windows => 'windows',
       TargetPlatform.linux => 'linux',
       _ => defaultTargetPlatform.name,

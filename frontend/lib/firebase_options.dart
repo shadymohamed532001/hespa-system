@@ -21,15 +21,11 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        // Temporary: reuse web app until a dedicated Android app +
+        // google-services.json is added via FlutterFire (`flutterfire configure`).
+        return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         return macos;
       case TargetPlatform.windows:
@@ -56,13 +52,27 @@ class DefaultFirebaseOptions {
     measurementId: 'G-MDRYY4DCQT',
   );
 
-  static const FirebaseOptions macos = FirebaseOptions(
+  static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyD3kuh4KD_rA6AhBXzLAU2zee3VUTsgWMA',
     appId: '1:253651325465:ios:ed09dad60c649bef739088',
     messagingSenderId: '253651325465',
     projectId: 'hespa-system',
     storageBucket: 'hespa-system.firebasestorage.app',
     iosBundleId: 'com.hesba.hesbaDesktop',
+  );
+
+  static const FirebaseOptions macos = ios;
+
+  /// Uses the Firebase web app credentials until a native Android app is
+  /// registered. Remote Config (HTTP) works; FCM tokens need google-services.json.
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyCyTnpBfcwdtjhhcPcdAeewxRF0nBUl5Ao',
+    appId: '1:253651325465:web:5a9bd87178cbed92739088',
+    messagingSenderId: '253651325465',
+    projectId: 'hespa-system',
+    authDomain: 'hespa-system.firebaseapp.com',
+    storageBucket: 'hespa-system.firebasestorage.app',
+    measurementId: 'G-MDRYY4DCQT',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
