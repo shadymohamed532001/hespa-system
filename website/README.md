@@ -30,7 +30,14 @@ python3 -m http.server 8080
 ./video-src/build-video.sh
 ```
 
-يتطلب البناء `ffmpeg` وصوت macOS العربي `Majed`. سكربت توليد الشرائح ومحتوى التعليق الصوتي موجودان داخل `video-src/`.
+يتطلب البناء `ffmpeg` وPython. ثبّت صوت التعليق العصبي أولًا، ثم أعد بناء الفيديو:
+
+```bash
+python3 -m pip install -r video-src/requirements-video.txt
+./video-src/build-video.sh
+```
+
+يستخدم الفيديو صوتًا مصريًا عصبيًا من Microsoft Edge TTS، مع معالجة لمستوى الصوت ووضوحه. سكربت توليد الشرائح والنص الكامل موجودان داخل `video-src/`.
 
 ## النشر
 

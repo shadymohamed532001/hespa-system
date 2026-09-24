@@ -8,7 +8,7 @@ from pathlib import Path
 
 import arabic_reshaper
 from bidi.algorithm import get_display
-from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 
 WIDTH = 1920
@@ -106,6 +106,15 @@ def circle_glow(image: Image.Image, xy: tuple[int, int], radius: int, color: tup
 def paste_logo(image: Image.Image, x: int, y: int, size: int) -> None:
     logo = Image.open(ASSET_DIR / "hesba-icon.png").convert("RGBA")
     logo = ImageOps.fit(logo, (size, size), Image.Resampling.LANCZOS)
+    # The source icon has opaque square corners. Mask them so the app icon
+    # reads as a polished brand mark over the video background.
+    corner_mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(corner_mask).rounded_rectangle(
+        (0, 0, size - 1, size - 1),
+        radius=round(size * 0.19),
+        fill=255,
+    )
+    logo.putalpha(ImageChops.multiply(logo.getchannel("A"), corner_mask))
     image.alpha_composite(logo, (x, y))
 
 
@@ -131,6 +140,78 @@ def phone(image: Image.Image, screenshot_path: Path, box: tuple[int, int, int, i
     image.alpha_composite(phone_layer, position)
 
 
+def desktop_dashboard(image: Image.Image, box: tuple[int, int, int, int]) -> None:
+    """Draw a clear desktop dashboard preview before the mobile scenes."""
+    x1, y1, x2, y2 = box
+    rounded_shadow(image, box, 30, blur=34, offset=(0, 22), opacity=38)
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle(box, radius=30, fill=WHITE, outline="#d4e0e3", width=3)
+
+    # Browser chrome.
+    chrome_h = 64
+    draw.rounded_rectangle((x1, y1, x2, y1 + chrome_h), radius=30, fill="#edf3f4")
+    draw.rectangle((x1, y1 + 30, x2, y1 + chrome_h), fill="#edf3f4")
+    for offset, color in ((0, "#ef6b65"), (24, "#eab64c"), (48, "#55b886")):
+        draw.ellipse((x1 + 28 + offset, y1 + 25, x1 + 40 + offset, y1 + 37), fill=color)
+    draw.rounded_rectangle((x1 + 365, y1 + 17, x2 - 365, y1 + 47), radius=15, fill=WHITE)
+    draw.text(((x1 + x2) // 2, y1 + 32), "app.hesba", font=font(15, "medium"), fill=MUTED, anchor="mm")
+
+    body_top = y1 + chrome_h
+    sidebar_w = 235
+    sidebar_x = x2 - sidebar_w
+    draw.rounded_rectangle((sidebar_x, body_top, x2, y2), radius=0, fill=NAVY)
+    draw_rtl(draw, (x2 - 28, body_top + 50), "حِسْبَة", font(29, "bold"), WHITE)
+    draw_rtl(draw, (x2 - 28, body_top + 82), "إدارة التحصيل والمدفوعات", font(13), "#9bb5bf")
+
+    menu = ["لوحة المتابعة", "الخزنة المركزية", "فوري والشركات", "المحافظ", "سجل العمليات"]
+    for index, label in enumerate(menu):
+        row_y = body_top + 125 + index * 61
+        if index == 0:
+            draw.rounded_rectangle((sidebar_x + 18, row_y - 12, x2 - 18, row_y + 34), radius=12, fill="#164b57")
+        draw.ellipse((x2 - 46, row_y, x2 - 32, row_y + 14), fill="#66d0c1" if index == 0 else "#68828c")
+        draw_rtl(draw, (x2 - 60, row_y + 8), label, font(17, "medium"), WHITE if index == 0 else "#bfd0d5", anchor="rm")
+
+    main_left = x1 + 28
+    main_right = sidebar_x - 28
+    draw.rectangle((x1, body_top, sidebar_x, y2), fill="#f5f8f9")
+    draw_rtl(draw, (main_right, body_top + 54), "لوحة المتابعة", font(31, "bold"), NAVY)
+    draw_rtl(draw, (main_right, body_top + 87), "ملخص حركة المحل اليوم", font(15), MUTED)
+
+    cards = [
+        ("رصيد الخزنة", "84,500 ج.م", "#e8f5f2", TEAL),
+        ("المتاح للتصرف", "72,250 ج.م", "#fff4e3", AMBER),
+        ("إجمالي العمولات", "6,840 ج.م", "#e9eff7", "#5479a5"),
+    ]
+    gap = 18
+    card_w = (main_right - main_left - gap * 2) // 3
+    for index, (label, value, badge_fill, badge_color) in enumerate(cards):
+        cx = main_right - (index + 1) * card_w - index * gap
+        cy = body_top + 125
+        draw.rounded_rectangle((cx, cy, cx + card_w, cy + 140), radius=18, fill=WHITE, outline="#dce6e9", width=2)
+        draw.ellipse((cx + card_w - 49, cy + 20, cx + card_w - 21, cy + 48), fill=badge_fill)
+        draw.ellipse((cx + card_w - 41, cy + 28, cx + card_w - 29, cy + 40), fill=badge_color)
+        draw_rtl(draw, (cx + card_w - 62, cy + 34), label, font(16, "medium"), MUTED, anchor="rm")
+        draw_rtl(draw, (cx + card_w - 20, cy + 91), value, font(25, "bold"), INK)
+
+    panel_y = body_top + 290
+    draw.rounded_rectangle((main_left, panel_y, main_right, y2 - 30), radius=20, fill=WHITE, outline="#dce6e9", width=2)
+    draw_rtl(draw, (main_right - 22, panel_y + 38), "آخر العمليات", font(21, "semibold"), INK)
+    draw_rtl(draw, (main_right - 22, panel_y + 66), "تحديث واضح لكل حركة", font(13), MUTED)
+
+    rows = [
+        ("استلام تحصيل مندوب", "+12,250 ج.م", TEAL),
+        ("شحن محفظة فودافون", "-5,000 ج.م", "#cb665e"),
+        ("عمولة ماكينة فوري", "+320 ج.م", TEAL),
+    ]
+    for index, (label, value, value_color) in enumerate(rows):
+        row_y = panel_y + 105 + index * 76
+        if index:
+            draw.line((main_left + 22, row_y - 18, main_right - 22, row_y - 18), fill="#e7edef", width=2)
+        draw.ellipse((main_right - 48, row_y - 5, main_right - 28, row_y + 15), fill="#daf1ed")
+        draw_rtl(draw, (main_right - 63, row_y + 5), label, font(17, "medium"), INK, anchor="rm")
+        draw_rtl(draw, (main_left + 25, row_y + 5), value, font(17, "semibold"), value_color, anchor="lm")
+
+
 def pill(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], text: str, *, fill: str, text_fill: str) -> None:
     draw.rounded_rectangle(box, radius=(box[3] - box[1]) // 2, fill=fill)
     draw_rtl(
@@ -145,22 +226,30 @@ def pill(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], text: str, *
 
 def slide_intro() -> Image.Image:
     image = gradient(NAVY_DARK, NAVY)
-    circle_glow(image, (1540, 120), 360, (11, 140, 126, 55))
-    circle_glow(image, (240, 960), 280, (216, 146, 54, 24))
+    circle_glow(image, (1550, 160), 430, (11, 140, 126, 62))
+    circle_glow(image, (250, 930), 360, (216, 146, 54, 22))
+
+    # Show the product immediately: desktop overview, mobile access and the
+    # primary logo all land in the first frame before the rapid montage begins.
+    desktop_dashboard(image, (55, 145, 1240, 945))
+    phone(image, ASSET_DIR / "hesba-mobile-accounts.png", (1245, 235, 1615, 965), angle=3)
+
+    rounded_shadow(image, (1580, 95, 1830, 345), 48, blur=30, offset=(0, 18), opacity=58)
+    paste_logo(image, 1580, 95, 250)
+
     draw = ImageDraw.Draw(image)
-    draw.ellipse((740, 125, 1180, 565), outline=(126, 224, 211, 35), width=2)
-    paste_logo(image, 835, 185, 250)
-    draw_rtl(draw, (960, 675), "حِسبة", font(98, "bold"), WHITE, anchor="mm")
-    draw_rtl(draw, (960, 785), "كل جنيه في حسابه", font(54, "medium"), "#7ee0d3", anchor="mm")
-    pill(draw, (680, 875, 1240, 945), "إدارة التحصيل والمدفوعات", fill="#173d4d", text_fill="#d9efec")
+    draw.ellipse((1500, 18, 1910, 428), outline=(126, 224, 211, 42), width=2)
+    draw.ellipse((1665, 735, 1710, 780), fill="#7ee0d3")
+    draw.ellipse((1745, 810, 1765, 830), fill="#d89236")
+    draw.line((1690, 760, 1755, 820), fill=(126, 224, 211, 90), width=3)
     return image
 
 
 def slide_all_in_one() -> Image.Image:
     image = gradient("#f8fbfb", "#edf5f4")
-    circle_glow(image, (350, 540), 430, (11, 140, 126, 32))
+    circle_glow(image, (440, 540), 470, (11, 140, 126, 28))
     draw = ImageDraw.Draw(image)
-    phone(image, ASSET_DIR / "hesba-mobile-dashboard.png", (145, 80, 625, 1020), angle=-2.5)
+    desktop_dashboard(image, (70, 145, 1215, 930))
     draw_rtl(draw, (1770, 190), "كل شغلك", font(88, "bold"), NAVY)
     draw_rtl(draw, (1770, 300), "في مكان واحد", font(88, "bold"), TEAL)
     draw_rtl(
@@ -172,13 +261,13 @@ def slide_all_in_one() -> Image.Image:
         spacing=20,
     )
     labels = ["الخزنة", "المحافظ", "الماكينات", "المندوبون"]
-    x_positions = [1530, 1300, 1070, 840]
-    for label, x in zip(labels, x_positions):
-        pill(draw, (x - 185, 600, x, 670), label, fill=WHITE, text_fill=TEAL_DARK)
-    draw.rounded_rectangle((815, 755, 1770, 895), radius=26, fill=WHITE, outline="#dce6e9", width=3)
-    draw_rtl(draw, (1705, 820), "من أول العملية لحد التقرير", font(38, "semibold"), INK)
-    draw.ellipse((850, 800, 890, 840), fill=TEAL_LIGHT)
-    draw.line((861, 820, 872, 831, 883, 807), fill=TEAL, width=5)
+    positions = [(1550, 600), (1330, 600), (1550, 690), (1330, 690)]
+    for label, (x, y) in zip(labels, positions):
+        pill(draw, (x - 195, y, x, y + 68), label, fill=WHITE, text_fill=TEAL_DARK)
+    draw.rounded_rectangle((1285, 805, 1770, 895), radius=22, fill=WHITE, outline="#dce6e9", width=2)
+    draw_rtl(draw, (1715, 850), "من أول العملية لحد التقرير", font(27, "semibold"), INK)
+    draw.ellipse((1318, 831, 1354, 867), fill=TEAL_LIGHT)
+    draw.line((1328, 849, 1338, 859, 1347, 839), fill=TEAL, width=4)
     return image
 
 
