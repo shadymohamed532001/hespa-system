@@ -2,6 +2,8 @@
 
 مشروع واحد يحتوي على تطبيق Flutter (سطح مكتب + Android/iOS) وواجهة خلفية بـ NestJS وقاعدة بيانات PostgreSQL.
 
+يتضمن المشروع أيضًا موقعًا تعريفيًا وتسويقيًا مستقلًا داخل `website/` لعرض حِسبة واستقبال طلبات العملاء.
+
 ## الحسابات التجريبية
 
 - المدير: `demo` / `demo`
@@ -50,6 +52,7 @@
 
 - `frontend/`: تطبيق Flutter (سطح مكتب + موبايل).
 - `backend/`: REST API مبني بـNestJS.
+- `website/`: صفحة العرض والتسويق الجاهزة للنشر كملفات static.
 - `docker-compose.yml`: قاعدة PostgreSQL محلية.
 
 `DB_SYNC=true` مناسب للتطوير المحلي فقط. خطوات التشغيل الآمن على السيرفر، الـmigrations، HTTPS والنسخ الاحتياطي موجودة في [DEPLOYMENT.md](./DEPLOYMENT.md).
