@@ -15,7 +15,16 @@ import 'app_shell.dart';
 import '../core/settings/tr.dart';
 
 class HesbaApp extends StatefulWidget {
-  const HesbaApp({super.key});
+  const HesbaApp({
+    super.key,
+    this.checkSystemAvailability = true,
+    this.sessionController,
+    this.appSettings,
+  });
+
+  final bool checkSystemAvailability;
+  final SessionController? sessionController;
+  final AppSettings? appSettings;
 
   @override
   State<HesbaApp> createState() => _HesbaAppState();
@@ -26,18 +35,26 @@ class _HesbaAppState extends State<HesbaApp> {
   late final AppSettings settings;
   final SystemAvailabilityService availability =
       SystemAvailabilityService.instance;
-  bool _availabilityChecking = true;
+  bool _availabilityChecking = false;
 
   @override
   void initState() {
     super.initState();
-    session = SessionController(ApiClient())..restore();
-    settings = AppSettings()..restore();
+    session = widget.sessionController ?? SessionController(ApiClient());
+    settings = widget.appSettings ?? AppSettings();
+    if (widget.sessionController == null) {
+      session.restore();
+    }
+    if (widget.appSettings == null) {
+      settings.restore();
+    }
     initializeDateFormatting('ar');
     initializeDateFormatting('en');
     session.addListener(_onSessionChanged);
     settings.addListener(_syncLocale);
-    _refreshAvailability();
+    if (widget.checkSystemAvailability) {
+      _refreshAvailability();
+    }
   }
 
   void _syncLocale() {
@@ -61,8 +78,12 @@ class _HesbaAppState extends State<HesbaApp> {
   void dispose() {
     session.removeListener(_onSessionChanged);
     settings.removeListener(_syncLocale);
-    session.dispose();
-    settings.dispose();
+    if (widget.sessionController == null) {
+      session.dispose();
+    }
+    if (widget.appSettings == null) {
+      settings.dispose();
+    }
     super.dispose();
   }
 
@@ -101,11 +122,13 @@ class _HesbaAppState extends State<HesbaApp> {
   }
 
   Widget _buildHome() {
-    if (_availabilityChecking || !availability.ready) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-    if (!availability.isSystemWork) {
-      return SystemUnavailablePage(onRetry: _refreshAvailability);
+    if (widget.checkSystemAvailability) {
+      if (_availabilityChecking || !availability.ready) {
+        return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      }
+      if (!availability.isSystemWork) {
+        return SystemUnavailablePage(onRetry: _refreshAvailability);
+      }
     }
     if (!session.ready || !settings.ready) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
