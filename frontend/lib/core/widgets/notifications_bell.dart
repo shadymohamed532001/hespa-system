@@ -41,10 +41,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
     super.initState();
     _refreshCount();
     // Faster poll so actions show a badge/local banner without waiting on FCM.
-    _timer = Timer.periodic(
-      const Duration(seconds: 5),
-      (_) => _refreshCount(),
-    );
+    _timer = Timer.periodic(const Duration(seconds: 5), (_) => _refreshCount());
     PushNotificationsService.instance.onMessage = (_) {
       _refreshCount();
     };

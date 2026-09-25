@@ -14,8 +14,7 @@ class SystemUnavailablePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = HesbaL10n.maybeOf(context);
     final t = l10n?.strings;
-    final textDirection =
-        l10n?.settings.textDirection ?? TextDirection.rtl;
+    final textDirection = l10n?.settings.textDirection ?? TextDirection.rtl;
 
     return Directionality(
       textDirection: textDirection,
@@ -25,11 +24,7 @@ class SystemUnavailablePage extends StatelessWidget {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFE9F0F3),
-                Color(0xFFF7F9FA),
-                Color(0xFFE6EFEF),
-              ],
+              colors: [Color(0xFFE9F0F3), Color(0xFFF7F9FA), Color(0xFFE6EFEF)],
               stops: [0, 0.55, 1],
             ),
           ),
@@ -81,8 +76,7 @@ class SystemUnavailablePage extends StatelessWidget {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          t?.systemUnavailableTitle ??
-                              'النظام غير متاح حالياً',
+                          t?.systemUnavailableTitle ?? 'النظام غير متاح حالياً',
                           textAlign: TextAlign.center,
                           style: HesbaText.sectionTitle.copyWith(
                             color: HesbaColors.ink,
@@ -110,7 +104,9 @@ class SystemUnavailablePage extends StatelessWidget {
                           SizedBox(height: 24),
                           FilledButton.tonal(
                             onPressed: onRetry,
-                            child: Text(t?.retry ?? tr(ar: 'إعادة المحاولة', en: 'Retry')),
+                            child: Text(
+                              t?.retry ?? tr(ar: 'إعادة المحاولة', en: 'Retry'),
+                            ),
                           ),
                         ],
                       ],

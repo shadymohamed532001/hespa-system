@@ -189,7 +189,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                         validator: (value) {
                           final number = num.tryParse(value?.trim() ?? '');
                           return number == null || number <= 0
-                              ? tr(ar: 'أدخل مبلغًا صحيحًا', en: 'Enter a valid amount')
+                              ? tr(
+                                  ar: 'أدخل مبلغًا صحيحًا',
+                                  en: 'Enter a valid amount',
+                                )
                               : null;
                         },
                       ),
@@ -212,7 +215,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                                   : value!.trim(),
                             );
                             return number == null || number < 0
-                                ? tr(ar: 'أدخل عمولة صحيحة', en: 'Enter a valid commission')
+                                ? tr(
+                                    ar: 'أدخل عمولة صحيحة',
+                                    en: 'Enter a valid commission',
+                                  )
                                 : null;
                           },
                         ),

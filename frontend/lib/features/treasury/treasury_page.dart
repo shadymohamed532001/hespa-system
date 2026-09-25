@@ -210,7 +210,10 @@ class _SummaryGrid extends StatelessWidget {
             MetricCard(
               label: 'التزامات معلّقة',
               value: money(summary['pendingAmount']),
-              note: tr(ar: 'أموال ليست حرة للتصرف', en: 'Funds that are not freely disposable'),
+              note: tr(
+                ar: 'أموال ليست حرة للتصرف',
+                en: 'Funds that are not freely disposable',
+              ),
               warning: true,
             ),
             MetricCard(
@@ -293,7 +296,10 @@ class _TreasuryMovements extends StatelessWidget {
             Padding(
               padding: EdgeInsets.all(38),
               child: Text(
-                tr(ar: 'لا توجد حركات مسجلة بعد', en: 'No movements recorded yet'),
+                tr(
+                  ar: 'لا توجد حركات مسجلة بعد',
+                  en: 'No movements recorded yet',
+                ),
                 textAlign: TextAlign.center,
                 style: TextStyle(color: HesbaColors.muted),
               ),
@@ -314,12 +320,26 @@ class _TreasuryMovements extends StatelessWidget {
                     horizontalMargin: 20,
                     columnSpacing: 30,
                     columns: [
-                      DataColumn(label: Text(tr(ar: 'التاريخ والوقت', en: 'Date & time'))),
-                      DataColumn(label: Text(tr(ar: 'الحركة', en: 'Entry'))),
-                      DataColumn(label: Text(tr(ar: 'البيان', en: 'Description'))),
-                      DataColumn(label: Text(tr(ar: 'المبلغ', en: 'Amount'))),
-                      DataColumn(label: Text(tr(ar: 'التصنيف', en: 'Category'))),
-                      DataColumn(label: Text(tr(ar: 'الأثر', en: 'Impact'))),
+                      DataColumn(
+                        label: Text(
+                          tr(ar: 'التاريخ والوقت', en: 'Date & time'),
+                        ),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'الحركة', en: 'Entry')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'البيان', en: 'Description')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'المبلغ', en: 'Amount')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'التصنيف', en: 'Category')),
+                      ),
+                      DataColumn(
+                        label: Text(tr(ar: 'الأثر', en: 'Impact')),
+                      ),
                     ],
                     rows: entries
                         .map((entry) => _row(entry as Map<String, dynamic>))
@@ -388,11 +408,20 @@ class _TreasuryMovements extends StatelessWidget {
   }
 
   String _categoryName(String category) => switch (category) {
-    'cash_receipt' => tr(ar: 'استلام كاش من مندوب', en: 'Receive cash from agent'),
+    'cash_receipt' => tr(
+      ar: 'استلام كاش من مندوب',
+      en: 'Receive cash from agent',
+    ),
     'internal_transfer' => tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
     'top_up' => 'شحن رصيد',
-    'machine_usage' => tr(ar: 'استخدام رصيد ماكينة', en: 'Machine balance usage'),
-    'company_execution' => tr(ar: 'توريد وتسوية شركة', en: 'Company settlement'),
+    'machine_usage' => tr(
+      ar: 'استخدام رصيد ماكينة',
+      en: 'Machine balance usage',
+    ),
+    'company_execution' => tr(
+      ar: 'توريد وتسوية شركة',
+      en: 'Company settlement',
+    ),
     'commission' => tr(ar: 'عمولة', en: 'Commission'),
     'wallet_cash_fee' => tr(ar: 'عمولة نقدية لمحفظة', en: 'Wallet cash fee'),
     'daily_rollover' => tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
@@ -408,14 +437,35 @@ class _TreasuryMovements extends StatelessWidget {
         '${entry['reference']}'.startsWith('HLD-')
             ? 'دخل الخزنة مع التزام معلّق'
             : 'دخل الكاش الخزنة',
-      'internal_transfer' => tr(ar: 'حركة بين الأصول', en: 'Movement between assets'),
+      'internal_transfer' => tr(
+        ar: 'حركة بين الأصول',
+        en: 'Movement between assets',
+      ),
       'top_up' => 'زيادة رصيد أصل تشغيلي',
-      'machine_usage' => tr(ar: 'خفض رصيد الماكينة', en: 'Reduce machine balance'),
-      'company_execution' => tr(ar: 'خفض رصيد حساب الشركة', en: 'Reduce company account balance'),
-      'commission' => tr(ar: 'إضافة عمولة مستقلة', en: 'Add independent commission'),
-      'wallet_cash_fee' => tr(ar: 'إضافة العمولة للخزنة', en: 'Add fee to treasury'),
-      'daily_rollover' => tr(ar: 'ترحيل أرصدة اليوم', en: 'Roll over today balances'),
-      'opening_balance' => tr(ar: 'إثبات رصيد افتتاحي', en: 'Record opening balance'),
+      'machine_usage' => tr(
+        ar: 'خفض رصيد الماكينة',
+        en: 'Reduce machine balance',
+      ),
+      'company_execution' => tr(
+        ar: 'خفض رصيد حساب الشركة',
+        en: 'Reduce company account balance',
+      ),
+      'commission' => tr(
+        ar: 'إضافة عمولة مستقلة',
+        en: 'Add independent commission',
+      ),
+      'wallet_cash_fee' => tr(
+        ar: 'إضافة العمولة للخزنة',
+        en: 'Add fee to treasury',
+      ),
+      'daily_rollover' => tr(
+        ar: 'ترحيل أرصدة اليوم',
+        en: 'Roll over today balances',
+      ),
+      'opening_balance' => tr(
+        ar: 'إثبات رصيد افتتاحي',
+        en: 'Record opening balance',
+      ),
       'reversal' => 'عكس أثر حركة سابقة',
       _ => '${entry['description'] ?? '—'}',
     };

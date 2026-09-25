@@ -158,7 +158,10 @@ class PushNotificationsService {
 
   Future<void> showLocalFromRemote(RemoteMessage message) async {
     final notification = message.notification;
-    final title = notification?.title ?? message.data['title'] ?? tr(ar: 'حسبة', en: 'Hesba');
+    final title =
+        notification?.title ??
+        message.data['title'] ??
+        tr(ar: 'حسبة', en: 'Hesba');
     final body = notification?.body ?? message.data['body'] ?? '';
     await showLocal(
       title: title,

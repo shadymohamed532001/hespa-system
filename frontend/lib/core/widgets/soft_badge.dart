@@ -73,7 +73,9 @@ class SoftBadge extends StatelessWidget {
         if (_flag == true) return english ? 'Allowed' : 'مسموح';
         return english ? 'Denied' : 'غير مسموح';
       case _SoftBadgeKind.status:
-        if (_flag == true) return english ? 'Active' : tr(ar: 'نشط', en: 'Active');
+        if (_flag == true) {
+          return english ? 'Active' : tr(ar: 'نشط', en: 'Active');
+        }
         return english ? 'Inactive' : tr(ar: 'موقوف', en: 'Inactive');
       case _SoftBadgeKind.pending:
         return english ? 'Pending' : tr(ar: 'معلّق', en: 'Pending');

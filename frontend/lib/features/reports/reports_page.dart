@@ -195,7 +195,10 @@ class _FiltersCard extends StatelessWidget {
                     initialValue: selectedScope,
                     isExpanded: true,
                     decoration: InputDecoration(
-                      labelText: tr(ar: 'القسم / الحساب', en: 'Section / account'),
+                      labelText: tr(
+                        ar: 'القسم / الحساب',
+                        en: 'Section / account',
+                      ),
                       isDense: true,
                     ),
                     items: [
@@ -289,7 +292,10 @@ class _ReportContent extends StatelessWidget {
                   accent: true,
                 ),
                 MetricCard(
-                  label: tr(ar: 'إجمالي السحب والاستخدام', en: 'Total withdrawals and usage'),
+                  label: tr(
+                    ar: 'إجمالي السحب والاستخدام',
+                    en: 'Total withdrawals and usage',
+                  ),
                   value: money(summary['withdrawals']),
                   note: 'كل الأموال الخارجة خلال الفترة',
                   warning: true,
@@ -302,7 +308,10 @@ class _ReportContent extends StatelessWidget {
                 MetricCard(
                   label: tr(ar: 'العمولات', en: 'Commissions'),
                   value: money(summary['commissions']),
-                  note: tr(ar: 'مسجلة منفصلة عن أصل المبالغ', en: 'Recorded separately from principal amounts'),
+                  note: tr(
+                    ar: 'مسجلة منفصلة عن أصل المبالغ',
+                    en: 'Recorded separately from principal amounts',
+                  ),
                 ),
                 MetricCard(
                   label: 'مبيعات المخزن',
@@ -397,7 +406,10 @@ class _ReportContent extends StatelessWidget {
         _SectionTitle(
           title: 'تفاصيل الحركات',
           subtitle: report['truncated'] == true
-              ? tr(ar: 'أحدث 500 حركة في الفترة — ضيّق الفترة لعرض باقي التفاصيل', en: 'Latest 500 movements in the period — narrow the range to see more detail')
+              ? tr(
+                  ar: 'أحدث 500 حركة في الفترة — ضيّق الفترة لعرض باقي التفاصيل',
+                  en: 'Latest 500 movements in the period — narrow the range to see more detail',
+                )
               : 'كل حركة مع مصدرها وتاريخها والمستخدم الذي سجلها',
         ),
         const SizedBox(height: 10),
