@@ -739,6 +739,7 @@ String _categoryName(String category) {
           en: 'Company settlement',
         ),
         'commission': tr(ar: 'عمولة', en: 'Commission'),
+        'wallet_cash_fee': tr(ar: 'عمولة نقدية لمحفظة', en: 'Wallet cash fee'),
         'machine_usage': tr(
           ar: 'استخدام رصيد ماكينة',
           en: 'Machine balance usage',
@@ -768,6 +769,10 @@ String _categoryEffect(String category) {
         'commission': tr(
           ar: 'إضافة عمولة مستقلة',
           en: 'Add independent commission',
+        ),
+        'wallet_cash_fee': tr(
+          ar: 'إضافة العمولة للخزنة',
+          en: 'Add fee to treasury',
         ),
         'machine_usage': tr(
           ar: 'خفض رصيد الماكينة',

@@ -162,6 +162,62 @@ describe('ReportsService', () => {
     });
   });
 
+  it('nets wallet cash fees and their reversals without counting the principal as income', async () => {
+    const common = {
+      reference: 'WALLET-CUSTOMER-1',
+      description: 'رسوم عميل',
+      performedBy: 'admin',
+      sourceType: null,
+      sourceId: null,
+      targetType: null,
+      targetId: null,
+      createdAt: at,
+    };
+    const report = await createService([
+      {
+        ...common,
+        id: 'fee',
+        category: LedgerCategory.WALLET_CASH_FEE,
+        amount: 10,
+        entityType: 'treasury',
+        entityId: 'main',
+      },
+      {
+        ...common,
+        id: 'fee-reversal',
+        category: LedgerCategory.REVERSAL,
+        amount: -10,
+        entityType: 'treasury',
+        entityId: 'main',
+        metadata: { originalCategory: LedgerCategory.WALLET_CASH_FEE },
+      },
+      {
+        ...common,
+        id: 'wallet-commission',
+        category: LedgerCategory.COMMISSION,
+        amount: 10,
+        entityType: 'wallet',
+        entityId: 'wallet-1',
+      },
+      {
+        ...common,
+        id: 'wallet-commission-reversal',
+        category: LedgerCategory.REVERSAL,
+        amount: -10,
+        entityType: 'wallet',
+        entityId: 'wallet-1',
+        metadata: { originalCategory: LedgerCategory.COMMISSION },
+      },
+    ]).summary({ start, end, entityType: 'all' });
+
+    expect(report.summary).toMatchObject({
+      deposits: 210,
+      withdrawals: 50,
+      net: 160,
+      commissions: 5,
+    });
+  });
+
   it('counts a transfer as withdrawal when its source account is selected', async () => {
     const report = await createService().summary({
       start,

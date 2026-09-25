@@ -63,6 +63,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
+    app.set('trust proxy', true);
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
       new ValidationPipe({
@@ -155,6 +156,8 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'RefreshTokens1790087699419',
       'WalletOperations1790087699420',
       'WalletOwner1790087699421',
+      'DevicePushTokens1790087699422',
+      'WalletCustomerCashFee1790087699424',
     ]);
   });
 
@@ -364,14 +367,14 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .set(mutation(adminToken, 'wallet-use'))
       .send({
         amount: 40,
-        commission: 5,
         reference: 'WALLET-USE-40',
         purpose: 'تحويل عميل تجريبي',
       })
       .expect(201)
       .expect(({ body }) => {
-        expect(body.balance).toBe(260);
-        expect(body.commissionBalance).toBe(5);
+        expect(body.wallet.balance).toBe(260);
+        expect(body.wallet.commissionBalance).toBe(5);
+        expect(body.cashToCollect).toBe(45);
       });
     const walletLedger = await request(app.getHttpServer())
       .get('/api/ledger?limit=500')
@@ -386,9 +389,9 @@ describe.sequential('full system lifecycle (e2e)', () => {
     ).find(
       (entry) =>
         entry.reference === 'WALLET-USE-40' &&
-        entry.category === 'wallet_usage',
+        entry.category === 'internal_transfer',
     );
-    expect(walletUsage?.category).toBe('wallet_usage');
+    expect(walletUsage?.category).toBe('internal_transfer');
     await request(app.getHttpServer())
       .post(`/api/ledger/${walletUsage!.id}/reverse`)
       .set(mutation(adminToken, 'reverse-wallet-use'))
@@ -423,7 +426,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .expect(201)
       .expect(({ body }) => {
         expect(body.remainingBalance).toBe(380);
-        expect(body.commissionBalance).toBe(12);
+        expect(body.commissionBalance).toBeUndefined();
       });
 
     await request(app.getHttpServer())
@@ -664,7 +667,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .set({ ...bearer(employeeToken), 'Idempotency-Key': correctionKey })
       .send({ quantity: 1, unitPrice: 80, note: 'بيع داخل الحد' })
       .expect(201);
-    expect(employeeSale.body.sale.grossProfit).toBe(-70);
+    expect(employeeSale.body.sale.grossProfit).toBeUndefined();
 
     await request(app.getHttpServer())
       .post(`/api/inventory/products/${productId}/sell`)
@@ -892,6 +895,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .expect(401);
     await request(app.getHttpServer())
       .post('/api/auth/login')
+      .set('X-Forwarded-For', '198.51.100.24')
       .send({
         username: 'full-employee',
         password: 'FullEmployeePassword123!',

@@ -194,6 +194,7 @@ String _category(String value) =>
       'cash_receipt': 'استلام كاش',
       'company_execution': 'تنفيذ شركة',
       'commission': tr(ar: 'عمولة', en: 'Commission'),
+      'wallet_cash_fee': tr(ar: 'عمولة نقدية لمحفظة', en: 'Wallet cash fee'),
       'machine_usage': tr(ar: 'استخدام ماكينة', en: 'Machine usage'),
       'wallet_usage': tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
       'daily_rollover': tr(ar: 'ترحيل يومي', en: 'Daily rollover'),

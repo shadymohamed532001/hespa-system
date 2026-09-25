@@ -11,10 +11,12 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
+import { Treasury } from '../database/entities/treasury.entity.js';
 import { LedgerCategory } from '../database/enums.js';
 import { CreateWalletDto } from './dto/create-wallet.dto.js';
 import { TopUpWalletDto } from './dto/top-up-wallet.dto.js';
-import { UseWalletDto } from './dto/use-wallet.dto.js';
+import { CustomerWalletOperationDto } from './dto/customer-wallet-operation.dto.js';
+import { walletCommission } from './wallet-commission.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 
 export const WALLET_DAILY_TOP_UP_LIMIT = 60_000;
@@ -152,58 +154,153 @@ export class WalletsService implements OnModuleInit {
     });
   }
 
-  async use(id: string, dto: UseWalletDto, username: string) {
+  async customerOperation(
+    id: string,
+    dto: CustomerWalletOperationDto,
+    username: string,
+  ) {
     return this.dataSource.transaction(async (manager) => {
-      const repo = manager.getRepository(Wallet);
-      const wallet = await repo.findOne({
+      // Lock in the same order as internal-transfer reversals: treasury, wallet.
+      const treasuryRepo = manager.getRepository(Treasury);
+      const treasury = await treasuryRepo.findOne({
+        where: { id: 'main' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!treasury) {
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+        );
+      }
+      const walletRepo = manager.getRepository(Wallet);
+      const wallet = await walletRepo.findOne({
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
-
-      const amount = Number(dto.amount);
-      const commission = Number(dto.commission);
-      if (Number(wallet.balance) < amount) {
-        throw new BadRequestException(msg({ ar: 'رصيد المحفظة غير كافٍ', en: 'Insufficient wallet balance' }));
+      if (!wallet) {
+        throw new NotFoundException(
+          msg({
+            ar: 'المحفظة غير موجودة أو موقوفة',
+            en: 'Wallet not found or inactive',
+          }),
+        );
       }
 
-      wallet.balance = Number(wallet.balance) - amount;
-      wallet.commissionBalance = Number(wallet.commissionBalance) + commission;
-      await repo.save(wallet);
+      const amount = Number(dto.amount);
+      const commission = walletCommission(wallet.type, dto.direction, amount);
+      const feePaymentMode = dto.feePaymentMode ?? 'deducted';
+      if (dto.direction === 'send' && dto.feePaymentMode) {
+        throw new BadRequestException(
+          msg({
+            ar: 'طريقة دفع العمولة تخص استلام التحويل فقط',
+            en: 'Fee payment mode only applies when receiving a transfer',
+          }),
+        );
+      }
+      if (
+        dto.direction === 'receive' &&
+        feePaymentMode === 'deducted' &&
+        amount <= commission
+      ) {
+        throw new BadRequestException(
+          msg({
+            ar: 'المبلغ أقل من العمولة؛ اختر تحصيل العمولة منفصلة',
+            en: 'The amount does not cover the fee; collect the fee separately',
+          }),
+        );
+      }
 
-      const usageEntry = await manager.getRepository(LedgerEntry).save({
-        category: LedgerCategory.WALLET_USAGE,
+      const send = dto.direction === 'send';
+      const cashToCollect = send
+        ? amount + commission
+        : feePaymentMode === 'separate'
+          ? commission
+          : 0;
+      const cashToPay = send
+        ? 0
+        : feePaymentMode === 'separate'
+          ? amount
+          : amount - commission;
+      const treasuryAfter = Number(
+        (Number(treasury.balance) + cashToCollect - cashToPay).toFixed(2),
+      );
+      if (send && Number(wallet.balance) < amount) {
+        throw new BadRequestException(
+          msg({
+            ar: 'رصيد المحفظة غير كافٍ',
+            en: 'Insufficient wallet balance',
+          }),
+        );
+      }
+      if (treasuryAfter < 0) {
+        throw new BadRequestException(
+          msg({
+            ar: 'رصيد الخزنة لا يكفي لتسليم الكاش',
+            en: 'Insufficient treasury cash for the payout',
+          }),
+        );
+      }
+
+      wallet.balance = Number(
+        (Number(wallet.balance) + (send ? -amount : amount)).toFixed(2),
+      );
+      wallet.commissionBalance = Number(
+        (Number(wallet.commissionBalance) + commission).toFixed(2),
+      );
+      treasury.balance = treasuryAfter;
+      await walletRepo.save(wallet);
+      await treasuryRepo.save(treasury);
+
+      const ledger = manager.getRepository(LedgerEntry);
+      const principal = await ledger.save({
+        category: LedgerCategory.INTERNAL_TRANSFER,
         amount,
+        entityType: 'internal_transfer',
+        entityId: null,
+        sourceType: send ? 'wallet' : 'treasury',
+        sourceId: send ? wallet.id : 'main',
+        targetType: send ? 'treasury' : 'wallet',
+        targetId: send ? 'main' : wallet.id,
+        reference: dto.reference ?? null,
+        description: send
+          ? `تحويل لعميل من ${wallet.name} واستلام الكاش في الخزنة`
+          : `استلام تحويل عميل على ${wallet.name} وتسليم الكاش من الخزنة`,
+        performedBy: username,
+        metadata: {
+          customerWalletOperation: true,
+          direction: dto.direction,
+          feePaymentMode: send ? null : feePaymentMode,
+          purpose: dto.purpose ?? null,
+        },
+      });
+      await ledger.save({
+        category: LedgerCategory.WALLET_CASH_FEE,
+        amount: commission,
+        entityType: 'treasury',
+        entityId: 'main',
+        reference: dto.reference ?? null,
+        description: `عمولة كاش عملية ${wallet.name}`,
+        performedBy: username,
+        metadata: { customerWalletTransferEntryId: principal.id },
+      });
+      await ledger.save({
+        category: LedgerCategory.COMMISSION,
+        amount: commission,
         entityType: 'wallet',
         entityId: wallet.id,
         reference: dto.reference ?? null,
-        description: `استخدام ${wallet.name}${wallet.ownerName ? ` باسم ${wallet.ownerName}` : ''}${dto.purpose ? ` — ${dto.purpose}` : ''} وعمولته ${commission}`,
+        description: `عمولة عملية عميل من ${wallet.name}`,
         performedBy: username,
-        metadata: {
-          commission,
-          walletName: wallet.name,
-          ownerName: wallet.ownerName,
-          walletType: wallet.type,
-          purpose: dto.purpose ?? null,
-          balanceAfter: wallet.balance,
-          commissionBalance: wallet.commissionBalance,
-        },
+        metadata: { customerWalletTransferEntryId: principal.id },
       });
 
-      if (commission > 0) {
-        await manager.getRepository(LedgerEntry).save({
-          category: LedgerCategory.COMMISSION,
-          amount: commission,
-          entityType: 'wallet',
-          entityId: wallet.id,
-          reference: dto.reference ?? null,
-          description: `عمولة استخدام ${wallet.name}`,
-          performedBy: username,
-          metadata: { walletUsageEntryId: usageEntry.id },
-        });
-      }
-
-      return wallet;
+      return {
+        wallet,
+        treasuryBalance: treasury.balance,
+        commission,
+        cashToCollect: Number(cashToCollect.toFixed(2)),
+        cashToPay: Number(cashToPay.toFixed(2)),
+        operationEntryId: principal.id,
+      };
     });
   }
 

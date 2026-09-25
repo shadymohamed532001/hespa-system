@@ -213,6 +213,11 @@ export function mapLedgerCategory(category: LedgerCategory): {
           en: 'Deposit — agent collection',
         }),
       };
+    case LedgerCategory.WALLET_CASH_FEE:
+      return {
+        kind: NotificationKind.DEPOSIT,
+        title: msg({ ar: 'دخول عمولة المحفظة للخزنة', en: 'Wallet fee added to treasury' }),
+      };
     case LedgerCategory.COMMISSION:
       return {
         kind: NotificationKind.DEPOSIT,

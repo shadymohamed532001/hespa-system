@@ -10,6 +10,7 @@ import { RefreshTokens1790087699419 } from './database/migrations/1790087699419-
 import { WalletOperations1790087699420 } from './database/migrations/1790087699420-WalletOperations.js';
 import { WalletOwner1790087699421 } from './database/migrations/1790087699421-WalletOwner.js';
 import { DevicePushTokens1790087699422 } from './database/migrations/1790087699422-DevicePushTokens.js';
+import { WalletCustomerCashFee1790087699424 } from './database/migrations/1790087699424-WalletCustomerCashFee.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -100,6 +101,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           WalletOperations1790087699420,
           WalletOwner1790087699421,
           DevicePushTokens1790087699422,
+          WalletCustomerCashFee1790087699424,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

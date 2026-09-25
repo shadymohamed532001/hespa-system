@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -6,10 +7,17 @@ import {
   Min,
 } from 'class-validator';
 
-export class UseWalletDto {
+export class CustomerWalletOperationDto {
+  @IsIn(['send', 'receive'])
+  direction: 'send' | 'receive';
+
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   amount: number;
+
+  @IsOptional()
+  @IsIn(['deducted', 'separate'])
+  feePaymentMode?: 'deducted' | 'separate';
 
   @IsOptional()
   @IsString()

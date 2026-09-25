@@ -13,6 +13,7 @@ import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
 import '../../core/settings/tr.dart';
+import 'wallet_commission.dart';
 
 class WalletsPage extends StatefulWidget {
   const WalletsPage({super.key, required this.session, this.onOpenLedger});
@@ -33,8 +34,15 @@ class _WalletsPageState extends State<WalletsPage> {
   List<dynamic> get _active =>
       data.where((wallet) => wallet['active'] == true).toList();
 
-  List<dynamic> get _walletLedger =>
-      ledger.where((entry) => entry['entityType'] == 'wallet').take(8).toList();
+  List<dynamic> get _walletLedger => ledger
+      .where(
+        (entry) =>
+            entry['entityType'] == 'wallet' ||
+            (entry['category'] == 'internal_transfer' &&
+                entry['metadata']?['customerWalletOperation'] == true),
+      )
+      .take(8)
+      .toList();
 
   @override
   void initState() {
@@ -65,8 +73,8 @@ class _WalletsPageState extends State<WalletsPage> {
   Widget build(BuildContext context) => PageFrame(
     title: 'المحافظ الإلكترونية وInstaPay',
     subtitle: tr(
-      ar: 'أضف كل رقم أو حساب بشكل مستقل، ثم اشحنه أو استخدمه وسجّل العمولة',
-      en: 'Add each number or account separately, then top it up or use it and record commission',
+      ar: 'أضف كل رقم أو حساب بشكل مستقل، وسجّل تحويلات العملاء وعمولتها تلقائيًا',
+      en: 'Add each wallet or account separately and record customer transfers with automatic fees',
     ),
     actions: [
       if (widget.onOpenLedger != null)
@@ -85,14 +93,22 @@ class _WalletsPageState extends State<WalletsPage> {
         FilledButton.tonalIcon(
           onPressed: _active.isEmpty ? null : _topUpWallet,
           icon: const Icon(Icons.add_card_outlined, size: 18),
-          label: Text(tr(ar: 'شحن محفظة', en: 'Wallet top-up')),
+          label: Text(tr(ar: 'شحن رصيد المحفظة', en: 'Fund wallet balance')),
         ),
-      if (widget.session.can(AppPermissions.useWallets))
+      if (widget.session.can(AppPermissions.useWallets)) ...[
         FilledButton.icon(
-          onPressed: _active.isEmpty ? null : _useWallet,
+          onPressed: _active.isEmpty ? null : () => _customerOperation('send'),
           icon: const Icon(Icons.send_outlined, size: 18),
-          label: Text(tr(ar: 'استخدام محفظة', en: 'Wallet usage')),
+          label: Text(tr(ar: 'تحويل لعميل', en: 'Send to customer')),
         ),
+        FilledButton.tonalIcon(
+          onPressed: _active.isEmpty
+              ? null
+              : () => _customerOperation('receive'),
+          icon: const Icon(Icons.call_received_outlined, size: 18),
+          label: Text(tr(ar: 'استلام تحويل', en: 'Receive transfer')),
+        ),
+      ],
     ],
     child: loading
         ? const Center(
@@ -150,7 +166,7 @@ class _WalletsPageState extends State<WalletsPage> {
                                       0),
                             ),
                           ),
-                          note: 'من عمليات استخدام المحافظ',
+                          note: 'من عمليات العملاء والمحافظ',
                           accent: true,
                         ),
                       MetricCard(
@@ -319,71 +335,149 @@ class _WalletsPageState extends State<WalletsPage> {
     );
   }
 
-  Future<void> _useWallet() async {
+  Future<void> _customerOperation(String direction) async {
     var id = '${_active.first['id']}';
     final amount = TextEditingController();
-    final commission = TextEditingController(text: '0');
     final reference = TextEditingController();
     final purpose = TextEditingController();
+    var feePaymentMode = 'deducted';
     final ok = await showHesbaModal<bool>(
       context: context,
       maxWidth: 540,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => HesbaModalCard(
-          title: tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
-          subtitle:
-              'استخدم الرصيد في تحويل أو دفع، وسجّل العمولة والمرجع للمراجعة.',
-          actions: HesbaModalActions(
-            primaryLabel: tr(ar: 'تنفيذ العملية', en: 'Execute operation'),
-            onPrimary: () => Navigator.pop(ctx, true),
-            onCancel: () => Navigator.pop(ctx, false),
-          ),
-          child: Column(
-            children: [
-              _WalletOperationFields(
-                wallets: _active,
-                selectedId: id,
-                onSelected: (value) => setLocal(() => id = value),
-                amount: amount,
-                reference: reference,
-              ),
-              SizedBox(height: 18),
-              HesbaModalField(
-                label: tr(ar: 'العمولة', en: 'Commission'),
-                child: TextField(
-                  controller: commission,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  decoration: const InputDecoration(),
+        builder: (ctx, setLocal) {
+          final selectedWallet = _active.firstWhere(
+            (wallet) => '${wallet['id']}' == id,
+          );
+          final parsedAmount = num.tryParse(amount.text.trim());
+          final fee = customerWalletCommission(
+            type: '${selectedWallet['type']}',
+            direction: direction,
+            amount: parsedAmount,
+          );
+          final canSubmit =
+              fee != null &&
+              !(direction == 'receive' &&
+                  feePaymentMode == 'deducted' &&
+                  parsedAmount! <= fee);
+          final cashToCollect = direction == 'send'
+              ? (parsedAmount ?? 0) + (fee ?? 0)
+              : feePaymentMode == 'separate'
+              ? fee ?? 0
+              : 0;
+          final cashToPay = direction == 'send'
+              ? 0
+              : feePaymentMode == 'separate'
+              ? parsedAmount ?? 0
+              : (parsedAmount ?? 0) - (fee ?? 0);
+          return HesbaModalCard(
+            title: direction == 'send'
+                ? tr(ar: 'تحويل لعميل', en: 'Send to customer')
+                : tr(ar: 'استلام تحويل', en: 'Receive transfer'),
+            subtitle: direction == 'send'
+                ? 'العميل يسلّم الكاش، والتحويل يخرج من محفظتك. الكاش يدخل الخزنة المركزية.'
+                : 'التحويل يدخل محفظتك، وتسلم العميل كاش من الخزنة المركزية.',
+            actions: HesbaModalActions(
+              primaryLabel: tr(ar: 'تنفيذ العملية', en: 'Execute operation'),
+              primaryEnabled: canSubmit,
+              onPrimary: () => Navigator.pop(ctx, true),
+              onCancel: () => Navigator.pop(ctx, false),
+            ),
+            child: Column(
+              children: [
+                _WalletOperationFields(
+                  wallets: _active,
+                  selectedId: id,
+                  onSelected: (value) => setLocal(() => id = value),
+                  amount: amount,
+                  onAmountChanged: (_) => setLocal(() {}),
+                  reference: reference,
                 ),
-              ),
-              const SizedBox(height: 18),
-              HesbaModalField(
-                label: 'الغرض أو المستفيد (اختياري)',
-                child: TextField(
-                  controller: purpose,
-                  maxLength: 200,
-                  decoration: const InputDecoration(
-                    hintText: 'تحويل لعميل، دفع فاتورة…',
+                if (direction == 'receive') ...[
+                  const SizedBox(height: 18),
+                  HesbaModalField(
+                    label: tr(
+                      ar: 'طريقة تحصيل العمولة',
+                      en: 'How the fee is collected',
+                    ),
+                    child: DropdownButtonFormField<String>(
+                      initialValue: feePaymentMode,
+                      items: [
+                        DropdownMenuItem(
+                          value: 'deducted',
+                          child: Text(
+                            tr(
+                              ar: 'خصمها من الكاش المُسلّم',
+                              en: 'Deduct from cash payout',
+                            ),
+                          ),
+                        ),
+                        DropdownMenuItem(
+                          value: 'separate',
+                          child: Text(
+                            tr(ar: 'تحصيلها منفصلة', en: 'Collect separately'),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) =>
+                          setLocal(() => feePaymentMode = value!),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 18),
+                HesbaModalField(
+                  label: tr(
+                    ar: 'الغرض أو المستفيد (اختياري)',
+                    en: 'Purpose or recipient (optional)',
+                  ),
+                  child: TextField(controller: purpose, maxLength: 200),
+                ),
+                const SizedBox(height: 18),
+                HesbaModalCallout(
+                  backgroundColor: fee == null
+                      ? const Color(0xFFEEF4F7)
+                      : canSubmit
+                      ? HesbaColors.tealLight
+                      : HesbaColors.warningLight,
+                  borderColor: fee == null
+                      ? HesbaColors.border
+                      : canSubmit
+                      ? HesbaColors.teal
+                      : HesbaColors.warning,
+                  textStyle: HesbaText.callout.copyWith(
+                    color: fee == null
+                        ? HesbaColors.callout
+                        : canSubmit
+                        ? HesbaColors.tealDark
+                        : HesbaColors.warning,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  child: Text(
+                    fee == null
+                        ? 'اكتب مبلغًا صحيحًا لعرض العمولة والكاش.'
+                        : !canSubmit
+                        ? 'المبلغ أقل من العمولة؛ اختر تحصيل العمولة منفصلة.'
+                        : 'العمولة ${money(fee)} · تستلم كاش ${money(cashToCollect)} · تسلّم كاش ${money(cashToPay)}',
                   ),
                 ),
-              ),
-            ],
-          ),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
     if (ok != true) return;
     await _action(
-      () => widget.session.api.post(ApiEndpoints.walletUse(id), {
+      () => widget.session.api.post(ApiEndpoints.walletCustomerOperation(id), {
+        'direction': direction,
         'amount': num.tryParse(amount.text.trim()) ?? 0,
-        'commission': num.tryParse(commission.text.trim()) ?? 0,
+        if (direction == 'receive') 'feePaymentMode': feePaymentMode,
         if (reference.text.trim().isNotEmpty)
           'reference': reference.text.trim(),
         if (purpose.text.trim().isNotEmpty) 'purpose': purpose.text.trim(),
       }),
-      'تم تسجيل استخدام المحفظة',
+      'تم تسجيل عملية العميل والخزنة',
     );
   }
 
@@ -522,6 +616,7 @@ class _WalletOperationFields extends StatelessWidget {
     required this.onSelected,
     required this.amount,
     required this.reference,
+    this.onAmountChanged,
   });
 
   final List<dynamic> wallets;
@@ -529,6 +624,7 @@ class _WalletOperationFields extends StatelessWidget {
   final ValueChanged<String> onSelected;
   final TextEditingController amount;
   final TextEditingController reference;
+  final ValueChanged<String>? onAmountChanged;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -543,7 +639,7 @@ class _WalletOperationFields extends StatelessWidget {
               DropdownMenuItem(
                 value: '${wallet['id']}',
                 child: Text(
-                  '${wallet['name']} — ${_ownerName(wallet)} — ${money(wallet['balance'])}',
+                  '${_walletType('${wallet['type']}')} — ${wallet['name']} — ${_ownerName(wallet)} — ${money(wallet['balance'])}',
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -558,6 +654,7 @@ class _WalletOperationFields extends StatelessWidget {
         label: tr(ar: 'المبلغ *', en: 'Amount *'),
         child: TextField(
           controller: amount,
+          onChanged: onAmountChanged,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: const InputDecoration(),
         ),
@@ -838,7 +935,9 @@ class _WalletMovements extends StatelessWidget {
 
   DataRow _row(Map<String, dynamic> entry) {
     final category = '${entry['category']}';
-    final outflow = category == 'wallet_usage';
+    final outflow =
+        category == 'wallet_usage' ||
+        (category == 'internal_transfer' && entry['sourceType'] == 'wallet');
     final amount = num.tryParse('${entry['amount']}') ?? 0;
     final color = outflow ? HesbaColors.red : HesbaColors.tealDark;
     final sign = outflow ? '−' : '+';
@@ -849,7 +948,13 @@ class _WalletMovements extends StatelessWidget {
           Text(formatDateTime(entry['createdAt']), style: HesbaText.tableCell),
         ),
         DataCell(
-          Text(_categoryLabel(category), style: HesbaText.tableEmphasis),
+          Text(
+            category == 'internal_transfer' &&
+                    entry['metadata']?['customerWalletOperation'] == true
+                ? tr(ar: 'عملية عميل', en: 'Customer operation')
+                : _categoryLabel(category),
+            style: HesbaText.tableEmphasis,
+          ),
         ),
         DataCell(
           Text('${entry['description'] ?? '—'}', style: HesbaText.tableCell),

@@ -89,7 +89,9 @@ class ApiClient {
     dio.interceptors.add(
       PrettyDioLogger(
         enabled: kDebugMode,
-        requestHeader: true,
+        // PrettyDioLogger wraps long Authorization values across lines, which
+        // can reveal the Bearer token even after masking its first line.
+        requestHeader: false,
         // Request bodies can contain passwords, recovery keys, financial
         // details, and other secrets. Never print them, even in debug builds.
         requestBody: false,
@@ -233,11 +235,7 @@ class ApiClient {
   }) async {
     final response = await dio.post<Map<String, dynamic>>(
       ApiEndpoints.login,
-      data: {
-        'username': username,
-        'password': password,
-        'portal': portal,
-      },
+      data: {'username': username, 'password': password, 'portal': portal},
       options: Options(extra: const {'skipAuthRefresh': true}),
     );
 
@@ -503,16 +501,15 @@ class ApiClient {
               : 'Could not connect to the server. Make sure the backend and database are running.';
 
         case DioExceptionType.badResponse:
-          final status = error.response?.statusCode ??
+          final status =
+              error.response?.statusCode ??
               (isArabic ? 'غير معروف' : 'unknown');
           return isArabic
               ? 'حدث خطأ في استجابة الخادم ($status).'
               : 'Server response error ($status).';
 
         case DioExceptionType.cancel:
-          return isArabic
-              ? 'تم إلغاء الطلب.'
-              : 'The request was cancelled.';
+          return isArabic ? 'تم إلغاء الطلب.' : 'The request was cancelled.';
 
         case DioExceptionType.badCertificate:
           return isArabic
@@ -526,11 +523,10 @@ class ApiClient {
       }
     }
 
-    return isArabic
-        ? 'حدث خطأ غير متوقع'
-        : 'An unexpected error occurred';
+    return isArabic ? 'حدث خطأ غير متوقع' : 'An unexpected error occurred';
   }
 }
+
 String _resolveBaseUrl(String? override) {
   final value =
       override ??
