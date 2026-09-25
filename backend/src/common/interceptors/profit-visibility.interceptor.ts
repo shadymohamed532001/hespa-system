@@ -24,15 +24,20 @@ const PROFIT_KEYS = new Set([
 export function isProfitLedgerEntry(value: unknown): boolean {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
   const record = value as Record<string, unknown>;
-  if (record.category === LedgerCategory.COMMISSION) return true;
+  if (
+    record.category === LedgerCategory.COMMISSION ||
+    record.category === LedgerCategory.WALLET_CASH_FEE
+  )
+    return true;
   if (record.category !== LedgerCategory.REVERSAL) return false;
   const metadata = record.metadata;
   return (
     !!metadata &&
     typeof metadata === 'object' &&
     !Array.isArray(metadata) &&
-    (metadata as Record<string, unknown>).originalCategory ===
-      LedgerCategory.COMMISSION
+    [LedgerCategory.COMMISSION, LedgerCategory.WALLET_CASH_FEE].includes(
+      (metadata as Record<string, unknown>).originalCategory as LedgerCategory,
+    )
   );
 }
 

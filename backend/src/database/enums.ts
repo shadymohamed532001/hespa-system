@@ -75,6 +75,7 @@ export enum LedgerCategory {
   COMMISSION = 'commission',
   MACHINE_USAGE = 'machine_usage',
   WALLET_USAGE = 'wallet_usage',
+  WALLET_CASH_FEE = 'wallet_cash_fee',
   DAILY_ROLLOVER = 'daily_rollover',
   REVERSAL = 'reversal',
   RECONCILIATION = 'reconciliation',

@@ -38,7 +38,8 @@ abstract final class ApiEndpoints {
 
   static String wallet(String id) => '$wallets/$id';
   static String walletTopUp(String id) => '$wallets/$id/top-up';
-  static String walletUse(String id) => '$wallets/$id/use';
+  static String walletCustomerOperation(String id) =>
+      '$wallets/$id/customer-operation';
   static String walletStatus(String id) => '$wallets/$id/status';
 
   // Machines

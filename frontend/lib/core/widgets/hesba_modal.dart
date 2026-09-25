@@ -101,19 +101,29 @@ class HesbaModalField extends StatelessWidget {
 }
 
 class HesbaModalCallout extends StatelessWidget {
-  const HesbaModalCallout({super.key, required this.child});
+  const HesbaModalCallout({
+    super.key,
+    required this.child,
+    this.backgroundColor = const Color(0xFFEEF4F7),
+    this.borderColor,
+    this.textStyle = HesbaText.callout,
+  });
 
   final Widget child;
+  final Color backgroundColor;
+  final Color? borderColor;
+  final TextStyle textStyle;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 17),
       decoration: BoxDecoration(
-        color: const Color(0xFFEEF4F7),
+        color: backgroundColor,
+        border: borderColor == null ? null : Border.all(color: borderColor!),
         borderRadius: BorderRadius.circular(11),
       ),
-      child: DefaultTextStyle(style: HesbaText.callout, child: child),
+      child: DefaultTextStyle(style: textStyle, child: child),
     );
   }
 }
@@ -141,9 +151,7 @@ class HesbaModalActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final resolvedCancel =
-        cancelLabel ??
-        HesbaL10n.maybeOf(context)?.strings.cancel ??
-        'Cancel';
+        cancelLabel ?? HesbaL10n.maybeOf(context)?.strings.cancel ?? 'Cancel';
     return Wrap(
       spacing: 10,
       runSpacing: 10,

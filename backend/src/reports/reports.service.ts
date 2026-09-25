@@ -454,7 +454,8 @@ export class ReportsService {
     if (
       entry.category === LedgerCategory.TOP_UP ||
       entry.category === LedgerCategory.OPENING_BALANCE ||
-      entry.category === LedgerCategory.CASH_RECEIPT
+      entry.category === LedgerCategory.CASH_RECEIPT ||
+      entry.category === LedgerCategory.WALLET_CASH_FEE
     ) {
       return 'deposit';
     }

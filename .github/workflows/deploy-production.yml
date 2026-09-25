@@ -1,0 +1,131 @@
+name: Deploy production backend
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      (github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_SSH_PRIVATE_KEY: ${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+      TARGET_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+    steps:
+      - name: Validate deployment settings
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          missing=()
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH DEPLOY_SSH_PRIVATE_KEY DEPLOY_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("$name")
+            fi
+          done
+          if (( ${#missing[@]} )); then
+            printf 'Missing GitHub production secrets: %s\n' "${missing[*]}" >&2
+            exit 1
+          fi
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_SSH_PRIVATE_KEY" > "$HOME/.ssh/hesba_deploy"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/hesba_deploy" "$HOME/.ssh/known_hosts"
+
+      - name: Deploy tested commit
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          port="${DEPLOY_PORT:-22}"
+          ssh \
+            -i "$HOME/.ssh/hesba_deploy" \
+            -p "$port" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            bash -s -- "$DEPLOY_PATH" "$TARGET_SHA" <<'REMOTE_SCRIPT'
+          set -Eeuo pipefail
+
+          project_dir="$1"
+          target_sha="$2"
+          cd "$project_dir"
+
+          if [[ ! -f .env.production ]]; then
+            echo "Missing $project_dir/.env.production" >&2
+            exit 1
+          fi
+
+          if ! git diff --quiet || ! git diff --cached --quiet; then
+            echo "Tracked files on the production server contain local changes." >&2
+            exit 1
+          fi
+
+          if [[ "$(git branch --show-current)" != "main" ]]; then
+            echo "Production checkout must be on the main branch." >&2
+            exit 1
+          fi
+
+          git fetch --prune origin main
+          git cat-file -e "${target_sha}^{commit}"
+
+          if ! git merge-base --is-ancestor "$target_sha" origin/main; then
+            echo "The selected commit is not part of origin/main." >&2
+            exit 1
+          fi
+
+          if ! git merge-base --is-ancestor HEAD "$target_sha"; then
+            echo "The tested commit cannot be applied as a fast-forward deployment." >&2
+            exit 1
+          fi
+
+          git merge --ff-only "$target_sha"
+
+          compose=(docker compose --env-file .env.production -f docker-compose.prod.yml)
+          "${compose[@]}" build api
+          "${compose[@]}" up -d --remove-orphans
+
+          healthy=false
+          for _ in {1..30}; do
+            if "${compose[@]}" exec -T api node -e \
+              "fetch('http://127.0.0.1:3000/api/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"; then
+              healthy=true
+              break
+            fi
+            sleep 2
+          done
+
+          if [[ "$healthy" != true ]]; then
+            "${compose[@]}" ps
+            "${compose[@]}" logs --tail=150 api
+            echo "Production health check failed." >&2
+            exit 1
+          fi
+
+          "${compose[@]}" ps
+          echo "Deployed ${target_sha} successfully."
+          REMOTE_SCRIPT

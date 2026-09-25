@@ -15,6 +15,7 @@ import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { CreateWalletDto } from './dto/create-wallet.dto.js';
+import { CustomerWalletOperationDto } from './dto/customer-wallet-operation.dto.js';
 import { TopUpWalletDto } from './dto/top-up-wallet.dto.js';
 import { UseWalletDto } from './dto/use-wallet.dto.js';
 import { WalletsService } from './wallets.service.js';
@@ -68,7 +69,22 @@ export class WalletsController {
     @Body() dto: UseWalletDto,
     @Request() request: UserRequest,
   ) {
-    return this.wallets.use(id, dto, request.user.username);
+    return this.wallets.customerOperation(
+      id,
+      { direction: 'send', amount: dto.amount, reference: dto.reference, purpose: dto.purpose },
+      request.user.username,
+    );
+  }
+
+  @RequirePermissions(AppPermission.USE_WALLETS)
+  @Idempotent()
+  @Post(':id/customer-operation')
+  customerOperation(
+    @Param('id') id: string,
+    @Body() dto: CustomerWalletOperationDto,
+    @Request() request: UserRequest,
+  ) {
+    return this.wallets.customerOperation(id, dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.MANAGE_ASSETS)

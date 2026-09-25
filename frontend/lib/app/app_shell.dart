@@ -13,7 +13,6 @@ import '../features/collections/collections_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/inventory/inventory_page.dart';
 import '../features/ledger/ledger_page.dart';
-import '../features/machines/machines_page.dart';
 import '../features/reports/reports_page.dart';
 import '../features/top_up/top_up_page.dart';
 import '../features/treasury/internal_transfer_page.dart';
@@ -59,7 +58,6 @@ class _AppShellState extends State<AppShell> {
         onOpenLedger: () => _selectLabel(t.ledger),
       ),
     ),
-    _NavItem(t.machines, () => MachinesPage(session: widget.session)),
     if (widget.session.can(AppPermissions.receiveCollections))
       _NavItem(t.collections, () => CollectionsPage(session: widget.session)),
     _NavItem(t.inventory, () => InventoryPage(session: widget.session)),

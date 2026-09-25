@@ -181,6 +181,102 @@ export class LedgerService {
     await source.save(source.balance + entry.amount);
   }
 
+  private async reverseCustomerWalletFees(
+    manager: EntityManager,
+    entry: LedgerEntry,
+    reason: string,
+    username: string,
+  ) {
+    const repo = manager.getRepository(LedgerEntry);
+    const related = await repo
+      .createQueryBuilder('entry')
+      .where('entry.metadata @> :metadata::jsonb', {
+        metadata: JSON.stringify({ customerWalletTransferEntryId: entry.id }),
+      })
+      .getMany();
+    const cashFee = related.find(
+      (item) => item.category === LedgerCategory.WALLET_CASH_FEE,
+    );
+    const commission = related.find(
+      (item) => item.category === LedgerCategory.COMMISSION,
+    );
+    if (
+      !cashFee ||
+      !commission ||
+      related.length !== 2 ||
+      cashFee.amount !== commission.amount
+    ) {
+      throw new BadRequestException(
+        msg({
+          ar: 'قيود عمولة العملية غير مكتملة؛ لا يمكن عكسها آليًا',
+          en: 'The operation fee entries are incomplete; automatic reversal is unavailable',
+        }),
+      );
+    }
+    const walletId =
+      entry.sourceType === 'wallet' ? entry.sourceId : entry.targetId;
+    if (!walletId) {
+      throw new BadRequestException(
+        msg({
+          ar: 'المحفظة المرتبطة بالعملية غير معروفة',
+          en: 'The operation wallet is missing',
+        }),
+      );
+    }
+    const treasury = await manager.getRepository(Treasury).findOne({
+      where: { id: 'main' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const wallet = await manager.getRepository(Wallet).findOne({
+      where: { id: walletId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!treasury || !wallet) {
+      throw new NotFoundException(
+        msg({
+          ar: 'الخزنة أو المحفظة غير موجودة',
+          en: 'Treasury or wallet not found',
+        }),
+      );
+    }
+    if (
+      Number(treasury.balance) < Number(cashFee.amount) ||
+      Number(wallet.commissionBalance) < Number(commission.amount)
+    ) {
+      throw new BadRequestException(
+        msg({
+          ar: 'الأرصدة الحالية لا تسمح بعكس عمولة العملية',
+          en: 'Current balances do not allow reversing the operation fee',
+        }),
+      );
+    }
+    treasury.balance = Number(
+      (Number(treasury.balance) - Number(cashFee.amount)).toFixed(2),
+    );
+    wallet.commissionBalance = Number(
+      (Number(wallet.commissionBalance) - Number(commission.amount)).toFixed(2),
+    );
+    await manager.save(treasury);
+    await manager.save(wallet);
+    for (const original of [cashFee, commission]) {
+      await repo.save({
+        category: LedgerCategory.REVERSAL,
+        amount: -Number(original.amount),
+        entityType: original.entityType,
+        entityId: original.entityId,
+        reference: original.reference,
+        description: `عكس: ${original.description} — السبب: ${reason}`,
+        performedBy: username,
+        reversesEntryId: original.id,
+        metadata: {
+          originalCategory: original.category,
+          customerWalletTransferEntryId: entry.id,
+          reason,
+        },
+      });
+    }
+  }
+
   private async reverseMachineUsage(
     manager: EntityManager,
     entry: LedgerEntry,
@@ -264,6 +360,9 @@ export class LedgerService {
         await this.reverseTopUp(manager, entry);
       } else if (entry.category === LedgerCategory.INTERNAL_TRANSFER) {
         await this.reverseTransfer(manager, entry);
+        if (entry.metadata?.customerWalletOperation === true) {
+          await this.reverseCustomerWalletFees(manager, entry, dto.reason, username);
+        }
       } else if (entry.category === LedgerCategory.MACHINE_USAGE) {
         await this.reverseMachineUsage(manager, entry);
       } else if (entry.category === LedgerCategory.WALLET_USAGE) {

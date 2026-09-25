@@ -315,6 +315,111 @@ describe('financial operations (e2e)', () => {
     expect(saved?.balance).toBe(40000);
   });
 
+  it('moves customer cash and wallet balances together and reverses every fee entry', async () => {
+    const suffix = randomUUID();
+    const wallet = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .set(mutation(`customer-wallet-${suffix}`))
+      .send({
+        name: `Customer wallet ${suffix}`,
+        type: 'vodafone_cash',
+        openingBalance: 3000,
+      })
+      .expect(201);
+    const treasuryBefore = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const startingCash = Number(treasuryBefore.body.actualBalance);
+
+    const send = await request(app.getHttpServer())
+      .post(`/api/wallets/${wallet.body.id}/customer-operation`)
+      .set(mutation(`customer-send-${suffix}`))
+      .send({ direction: 'send', amount: 1200, reference: `SEND-${suffix}` })
+      .expect(201);
+    expect(send.body).toMatchObject({
+      commission: 25,
+      cashToCollect: 1225,
+      cashToPay: 0,
+      wallet: { balance: 1800, commissionBalance: 25 },
+      treasuryBalance: startingCash + 1225,
+    });
+
+    const deducted = await request(app.getHttpServer())
+      .post(`/api/wallets/${wallet.body.id}/customer-operation`)
+      .set(mutation(`customer-receive-deducted-${suffix}`))
+      .send({ direction: 'receive', amount: 200, feePaymentMode: 'deducted' })
+      .expect(201);
+    expect(deducted.body).toMatchObject({
+      commission: 5,
+      cashToCollect: 0,
+      cashToPay: 195,
+      wallet: { balance: 2000, commissionBalance: 30 },
+      treasuryBalance: startingCash + 1030,
+    });
+
+    const separate = await request(app.getHttpServer())
+      .post(`/api/wallets/${wallet.body.id}/customer-operation`)
+      .set(mutation(`customer-receive-separate-${suffix}`))
+      .send({ direction: 'receive', amount: 500, feePaymentMode: 'separate' })
+      .expect(201);
+    expect(separate.body).toMatchObject({
+      commission: 10,
+      cashToCollect: 10,
+      cashToPay: 500,
+      wallet: { balance: 2500, commissionBalance: 40 },
+      treasuryBalance: startingCash + 540,
+    });
+
+    for (const operation of [separate, deducted, send]) {
+      await request(app.getHttpServer())
+        .post(`/api/ledger/${operation.body.operationEntryId}/reverse`)
+        .set(mutation(`reverse-customer-${randomUUID()}`))
+        .send({ reason: 'اختبار عكس عملية عميل' })
+        .expect(201);
+    }
+    const wallets = await request(app.getHttpServer())
+      .get('/api/wallets')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (
+        wallets.body as Array<{
+          id: string;
+          balance: number;
+          commissionBalance: number;
+        }>
+      ).find((item) => item.id === wallet.body.id),
+    ).toMatchObject({ balance: 3000, commissionBalance: 0 });
+    const treasuryAfter = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(treasuryAfter.body.actualBalance).toBe(startingCash);
+
+    await request(app.getHttpServer())
+      .post(`/api/wallets/${wallet.body.id}/use`)
+      .set(mutation(`manual-fee-rejected-${suffix}`))
+      .send({ amount: 200, commission: 999 })
+      .expect(400);
+    const legacySend = await request(app.getHttpServer())
+      .post(`/api/wallets/${wallet.body.id}/use`)
+      .set(mutation(`automatic-use-${suffix}`))
+      .send({ amount: 200 })
+      .expect(201);
+    expect(legacySend.body).toMatchObject({
+      commission: 5,
+      cashToCollect: 205,
+      wallet: { balance: 2800, commissionBalance: 5 },
+      treasuryBalance: startingCash + 205,
+    });
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${legacySend.body.operationEntryId}/reverse`)
+      .set(mutation(`reverse-automatic-use-${suffix}`))
+      .send({ reason: 'اختبار عكس المسار القديم' })
+      .expect(201);
+  });
+
   it('prevents concurrent machine usage from overspending its balance', async () => {
     const suffix = randomUUID();
     const machine = await request(app.getHttpServer())
@@ -328,7 +433,7 @@ describe('financial operations (e2e)', () => {
         request(app.getHttpServer())
           .post(`/api/machines/${machine.body.id}/use`)
           .set(mutation(`machine-use-${number}-${suffix}`))
-          .send({ amount: 80, commission: 2 }),
+          .send({ serviceType: 'other', customerNumber: `TEST-${number}`, amount: 80, commission: 2 }),
       ),
     );
     expect(
@@ -384,7 +489,7 @@ describe('financial operations (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/machines/${funded.body.id}/use`)
       .set(mutation(`deplete-machine-${suffix}`))
-      .send({ amount: 75, commission: 3.5, reference: `EMPTY-${suffix}` })
+      .send({ serviceType: 'other', customerNumber: 'TEST-DEPLETED', amount: 75, commission: 3.5, reference: `EMPTY-${suffix}` })
       .expect(201)
       .expect(({ body }) => expect(body.remainingBalance).toBe(0));
 

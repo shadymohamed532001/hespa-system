@@ -379,7 +379,8 @@ class _TreasuryMovements extends StatelessWidget {
   bool _isOutflow(Map<String, dynamic> entry) {
     final category = '${entry['category']}';
     if (category == 'internal_transfer') {
-      return '${entry['description']}'.contains('من الخزنة المركزية');
+      return entry['sourceType'] == 'treasury' ||
+          '${entry['description']}'.contains('من الخزنة المركزية');
     }
     return category == 'company_execution' ||
         category == 'machine_usage' ||
@@ -393,6 +394,7 @@ class _TreasuryMovements extends StatelessWidget {
     'machine_usage' => tr(ar: 'استخدام رصيد ماكينة', en: 'Machine balance usage'),
     'company_execution' => tr(ar: 'توريد وتسوية شركة', en: 'Company settlement'),
     'commission' => tr(ar: 'عمولة', en: 'Commission'),
+    'wallet_cash_fee' => tr(ar: 'عمولة نقدية لمحفظة', en: 'Wallet cash fee'),
     'daily_rollover' => tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
     'opening_balance' => tr(ar: 'رصيد افتتاحي', en: 'Opening balance'),
     'reversal' => 'عكس حركة',
@@ -411,6 +413,7 @@ class _TreasuryMovements extends StatelessWidget {
       'machine_usage' => tr(ar: 'خفض رصيد الماكينة', en: 'Reduce machine balance'),
       'company_execution' => tr(ar: 'خفض رصيد حساب الشركة', en: 'Reduce company account balance'),
       'commission' => tr(ar: 'إضافة عمولة مستقلة', en: 'Add independent commission'),
+      'wallet_cash_fee' => tr(ar: 'إضافة العمولة للخزنة', en: 'Add fee to treasury'),
       'daily_rollover' => tr(ar: 'ترحيل أرصدة اليوم', en: 'Roll over today balances'),
       'opening_balance' => tr(ar: 'إثبات رصيد افتتاحي', en: 'Record opening balance'),
       'reversal' => 'عكس أثر حركة سابقة',

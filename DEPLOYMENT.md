@@ -51,6 +51,36 @@ export BACKUP_ENCRYPTION_PASSWORD='كلمة-مرور-طويلة-خارج-ملف-
 - Docker يفحص الـAPI كل 15 ثانية ويُظهره `unhealthy` عند فشل قاعدة البيانات؛ وسياسة `restart` تعيد تشغيله عند توقف العملية نفسها. اربط حالة `unhealthy` بتنبيه أو مراقب حاويات، مع تدوير logs عند 10MB والاحتفاظ بخمسة ملفات.
 - اربط أداة المراقبة بالأمر `./scripts/monitor-health.sh` أو بالرابط مباشرة، ونبّه عند أي exit code غير صفر.
 
+## النشر التلقائي من GitHub
+
+الملف `.github/workflows/deploy-production.yml` ينشر الـbackend تلقائيًا بعد نجاح Workflow باسم `CI` لأي تحديث يصل إلى فرع `main`. ويمكن تشغيله يدويًا من صفحة Actions عند الحاجة. النشر يستخدم نفس commit الذي اجتاز الاختبارات، ثم يبني حاوية الـAPI ويشغّل الـmigrations ويتأكد من نجاح `/api/health`.
+
+جهّز السيرفر مرة واحدة:
+
+1. أنشئ مستخدم نشر يستطيع تشغيل Docker، وأضف له مفتاح SSH مخصصًا للنشر.
+2. تأكد أن المشروع موجود على فرع `main`، مثل `/srv/hesba`، وأن المستخدم يستطيع تنفيذ `git fetch` من المستودع.
+3. احتفظ بملف `.env.production` وملفات `backend/secrets` على السيرفر فقط. لا تضفها إلى Git.
+4. اترك الملفات المتتبعة داخل نسخة السيرفر بدون تعديلات يدوية؛ الـworkflow يوقف النشر إذا وجد تعديلات حتى لا يستبدلها بالخطأ.
+
+أضف القيم التالية من GitHub في **Settings → Environments → production → Environment secrets**:
+
+| Secret | القيمة |
+| --- | --- |
+| `DEPLOY_HOST` | عنوان السيرفر أو الـIP |
+| `DEPLOY_PORT` | منفذ SSH، ويمكن تركه فارغًا لاستخدام `22` |
+| `DEPLOY_USER` | اسم مستخدم النشر |
+| `DEPLOY_PATH` | مسار المشروع على السيرفر، مثل `/srv/hesba` |
+| `DEPLOY_SSH_PRIVATE_KEY` | المفتاح الخاص لمستخدم النشر |
+| `DEPLOY_KNOWN_HOSTS` | سطر بصمة SSH الموثوق للسيرفر |
+
+استخرج سطر `DEPLOY_KNOWN_HOSTS` من جهاز موثوق بعد مراجعة بصمة السيرفر:
+
+```bash
+ssh-keyscan -p 22 your-server.example.com
+```
+
+بعد إضافة القيم، شغّل **Deploy production backend** يدويًا أول مرة للتأكد من الاتصال. بعد ذلك، كل push أو merge إلى `main` يُنشر تلقائيًا بعد نجاح جميع الاختبارات.
+
 ## بناء تطبيقات سطح المكتب
 
 - macOS: `./packaging/build-macos-dmg.sh`

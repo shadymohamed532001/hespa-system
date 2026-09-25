@@ -27,11 +27,18 @@ describe('profit visibility redaction', () => {
     const result = redactProfitData([
       { id: 'usage', category: LedgerCategory.MACHINE_USAGE, amount: 20 },
       { id: 'profit', category: LedgerCategory.COMMISSION, amount: 2 },
+      { id: 'cash-fee', category: LedgerCategory.WALLET_CASH_FEE, amount: 2 },
       {
         id: 'profit-reversal',
         category: LedgerCategory.REVERSAL,
         amount: -2,
         metadata: { originalCategory: LedgerCategory.COMMISSION },
+      },
+      {
+        id: 'cash-fee-reversal',
+        category: LedgerCategory.REVERSAL,
+        amount: -2,
+        metadata: { originalCategory: LedgerCategory.WALLET_CASH_FEE },
       },
     ]);
 
