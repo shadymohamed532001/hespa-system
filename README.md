@@ -1,6 +1,8 @@
 # حِسبة — نظام إدارة محل التحصيل والمدفوعات
 
-مشروع واحد يحتوي على تطبيق سطح مكتب بـ Flutter وواجهة خلفية بـ NestJS وقاعدة بيانات PostgreSQL.
+مشروع واحد يحتوي على تطبيق Flutter (سطح مكتب + Android/iOS) وواجهة خلفية بـ NestJS وقاعدة بيانات PostgreSQL.
+
+يتضمن المشروع أيضًا موقعًا تعريفيًا وتسويقيًا مستقلًا داخل `website/` لعرض حِسبة واستقبال طلبات العملاء.
 
 ## الحسابات التجريبية
 
@@ -26,7 +28,7 @@
    npm run start:dev
    ```
 
-3. في نافذة أخرى شغّل تطبيق سطح المكتب:
+3. في نافذة أخرى شغّل التطبيق:
 
    ```bash
    cd frontend
@@ -34,7 +36,7 @@
    flutter run -d macos
    ```
 
-لـWindows استخدم `flutter run -d windows`، ولـLinux استخدم `flutter run -d linux`.
+لـWindows استخدم `flutter run -d windows`، ولـLinux استخدم `flutter run -d linux`، ولـAndroid/iOS استخدم `flutter run -d android` أو `flutter run -d ios`. تفاصيل البناء للموبايل في `frontend/README.md`.
 
 ## القواعد المطبقة
 
@@ -58,8 +60,9 @@
 
 ## هيكل المشروع
 
-- `frontend/`: تطبيق Flutter لسطح المكتب.
+- `frontend/`: تطبيق Flutter (سطح مكتب + موبايل).
 - `backend/`: REST API مبني بـNestJS.
+- `website/`: صفحة العرض والتسويق الجاهزة للنشر كملفات static.
 - `docker-compose.yml`: قاعدة PostgreSQL محلية.
 
 `DB_SYNC=true` مناسب للتطوير المحلي فقط. خطوات التشغيل الآمن على السيرفر، الـmigrations، HTTPS والنسخ الاحتياطي موجودة في [DEPLOYMENT.md](./DEPLOYMENT.md).

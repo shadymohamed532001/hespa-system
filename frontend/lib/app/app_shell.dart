@@ -19,6 +19,9 @@ import '../features/treasury/internal_transfer_page.dart';
 import '../features/treasury/treasury_page.dart';
 import '../features/wallets/wallets_page.dart';
 
+/// Width at/under which the shell switches from persistent sidebar to drawer.
+const double kHesbaMobileBreakpoint = 900;
+
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.session, required this.settings});
 
@@ -31,6 +34,7 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int selected = 0;
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
   List<_NavItem> _items(AppStrings t) => [
     _NavItem(
@@ -72,16 +76,19 @@ class _AppShellState extends State<AppShell> {
       _NavItem(t.users, () => AdminPage(session: widget.session)),
   ];
 
-  void _selectPage(int index) {
+  void _selectPage(int index, {bool closeDrawer = false}) {
     final items = _items(AppStrings.of(widget.settings.locale));
     if (index < 0 || index >= items.length) return;
     setState(() => selected = index);
+    if (closeDrawer && _scaffoldKey.currentState?.isDrawerOpen == true) {
+      Navigator.of(context).pop();
+    }
   }
 
   void _selectLabel(String label) {
     final items = _items(AppStrings.of(widget.settings.locale));
     final index = items.indexWhere((item) => item.label == label);
-    _selectPage(index);
+    _selectPage(index, closeDrawer: true);
   }
 
   @override
@@ -89,14 +96,54 @@ class _AppShellState extends State<AppShell> {
     final t = AppStrings.of(widget.settings.locale);
     final items = _items(t);
     final safeSelected = selected.clamp(0, items.length - 1);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final page = KeyedSubtree(
+      key: ValueKey(
+        '$safeSelected-${widget.settings.locale}-${isDark ? 'd' : 'l'}',
+      ),
+      child: items[safeSelected].builder(),
+    );
 
-    return Scaffold(
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final sidebarWidth = constraints.maxWidth <= 1180 ? 245.0 : 300.0;
-          final isDark = Theme.of(context).brightness == Brightness.dark;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < kHesbaMobileBreakpoint;
 
-          return Row(
+        if (isMobile) {
+          return Scaffold(
+            key: _scaffoldKey,
+            drawer: Drawer(
+              backgroundColor: HesbaColors.navy,
+              child: _Sidebar(
+                session: widget.session,
+                strings: t,
+                items: items,
+                selected: safeSelected,
+                onSelected: (index) => _selectPage(index, closeDrawer: true),
+              ),
+            ),
+            body: ColoredBox(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              child: Column(
+                children: [
+                  _ContextBar(
+                    session: widget.session,
+                    settings: widget.settings,
+                    strings: t,
+                    compact: true,
+                    title: items[safeSelected].label,
+                    onMenuPressed: () =>
+                        _scaffoldKey.currentState?.openDrawer(),
+                  ),
+                  Expanded(child: page),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final sidebarWidth = constraints.maxWidth <= 1180 ? 245.0 : 300.0;
+        return Scaffold(
+          body: Row(
             children: [
               SizedBox(
                 width: sidebarWidth,
@@ -118,23 +165,15 @@ class _AppShellState extends State<AppShell> {
                         settings: widget.settings,
                         strings: t,
                       ),
-                      Expanded(
-                        child: KeyedSubtree(
-                          key: ValueKey(
-                            '$safeSelected-${widget.settings.locale}-'
-                            '${isDark ? 'd' : 'l'}',
-                          ),
-                          child: items[safeSelected].builder(),
-                        ),
-                      ),
+                      Expanded(child: page),
                     ],
                   ),
                 ),
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }
@@ -290,11 +329,17 @@ class _ContextBar extends StatelessWidget {
     required this.session,
     required this.settings,
     required this.strings,
+    this.compact = false,
+    this.title,
+    this.onMenuPressed,
   });
 
   final SessionController session;
   final AppSettings settings;
   final AppStrings strings;
+  final bool compact;
+  final String? title;
+  final VoidCallback? onMenuPressed;
 
   @override
   Widget build(BuildContext context) {
@@ -305,6 +350,73 @@ class _ContextBar extends StatelessWidget {
     final ink = isDark ? const Color(0xFFE6EEF2) : HesbaColors.ink;
     final border = isDark ? const Color(0xFF2A4050) : const Color(0xFFE9EEF2);
     final dateLocale = settings.locale.languageCode;
+    final topInset = MediaQuery.paddingOf(context).top;
+
+    if (compact) {
+      return Container(
+        padding: EdgeInsets.fromLTRB(8, topInset + 6, 12, 10),
+        decoration: BoxDecoration(
+          color: surface,
+          border: Border(bottom: BorderSide(color: border)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
+              onPressed: onMenuPressed,
+              icon: Icon(Icons.menu_rounded, color: ink),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title ?? strings.brand,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: HesbaText.contextStrong.copyWith(color: ink),
+                  ),
+                  Text(
+                    strings.branchPath,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: HesbaText.bodyMuted.copyWith(
+                      color: muted,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            HeaderIconButton(
+              tooltip: strings.languageTooltip,
+              onPressed: settings.toggleLocale,
+              child: Text(
+                settings.isArabic ? 'EN' : 'ع',
+                style: TextStyle(
+                  color: ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  fontFamily: HesbaText.family,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            HeaderIconButton(
+              tooltip: settings.isDark
+                  ? strings.themeTooltipLight
+                  : strings.themeTooltip,
+              onPressed: settings.toggleTheme,
+              icon: settings.isDark
+                  ? Icons.light_mode_outlined
+                  : Icons.dark_mode_outlined,
+            ),
+            const SizedBox(width: 4),
+            NotificationsBell(session: session, strings: strings),
+          ],
+        ),
+      );
+    }
 
     return Container(
       height: 92,

@@ -16,33 +16,70 @@ class PageFrame extends StatelessWidget {
   final List<Widget> actions;
 
   @override
-  Widget build(BuildContext context) => SingleChildScrollView(
-    padding: const EdgeInsets.fromLTRB(34, 34, 34, 48),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The content area can still be narrow on a desktop window because the
+        // persistent sidebar occupies part of the viewport. Base the header on
+        // the space PageFrame actually receives instead of the device type.
+        final isCompact = constraints.maxWidth < 800;
+        final horizontalPadding = constraints.maxWidth < 600 ? 16.0 : 34.0;
+        final titleBlock = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: HesbaText.pageTitle),
-                  const SizedBox(height: 5),
-                  Text(subtitle, style: HesbaText.bodyMuted),
-                ],
+            Text(
+              title,
+              style: HesbaText.pageTitle.copyWith(
+                fontSize: isCompact ? 30 : null,
               ),
             ),
-            ...actions.map(
-              (e) =>
-                  Padding(padding: const EdgeInsets.only(right: 10), child: e),
-            ),
+            const SizedBox(height: 5),
+            Text(subtitle, style: HesbaText.bodyMuted),
           ],
-        ),
-        const SizedBox(height: 25),
-        child,
-      ],
-    ),
-  );
+        );
+        final actionBar = Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          alignment: WrapAlignment.start,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: actions,
+        );
+
+        final header = isCompact
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  titleBlock,
+                  if (actions.isNotEmpty) ...[
+                    const SizedBox(height: 18),
+                    actionBar,
+                  ],
+                ],
+              )
+            : Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(child: titleBlock),
+                  if (actions.isNotEmpty) ...[
+                    const SizedBox(width: 24),
+                    Flexible(flex: 2, child: actionBar),
+                  ],
+                ],
+              );
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            isCompact ? 24 : 34,
+            horizontalPadding,
+            48,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [header, const SizedBox(height: 25), child],
+          ),
+        );
+      },
+    );
+  }
 }

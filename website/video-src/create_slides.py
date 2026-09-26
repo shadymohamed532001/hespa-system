@@ -1,0 +1,387 @@
+#!/usr/bin/env python3
+"""Generate 16:9 Arabic promo slides for the Hesba website video."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import arabic_reshaper
+from bidi.algorithm import get_display
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageFont, ImageOps
+
+
+WIDTH = 1920
+HEIGHT = 1080
+NAVY = "#102f3e"
+NAVY_DARK = "#09242f"
+INK = "#173443"
+TEAL = "#0b8c7e"
+TEAL_DARK = "#08776b"
+TEAL_LIGHT = "#e4f5f1"
+MUTED = "#718792"
+BG = "#f4f7f8"
+WHITE = "#ffffff"
+AMBER = "#d89236"
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+SITE_DIR = SCRIPT_DIR.parent
+ASSET_DIR = SITE_DIR / "assets"
+FONT_DIR = ASSET_DIR / "fonts"
+
+
+def font(size: int, weight: str = "regular") -> ImageFont.FreeTypeFont:
+    names = {
+        "regular": "IBMPlexSansArabic-Regular.ttf",
+        "medium": "IBMPlexSansArabic-Medium.ttf",
+        "semibold": "IBMPlexSansArabic-SemiBold.ttf",
+        "bold": "IBMPlexSansArabic-Bold.ttf",
+    }
+    return ImageFont.truetype(str(FONT_DIR / names[weight]), size=size)
+
+
+def rtl(text: str) -> str:
+    return get_display(arabic_reshaper.reshape(text))
+
+
+def draw_rtl(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[int, int],
+    text: str,
+    text_font: ImageFont.FreeTypeFont,
+    fill: str,
+    *,
+    anchor: str = "ra",
+    spacing: int = 12,
+) -> None:
+    draw.multiline_text(
+        xy,
+        rtl(text),
+        font=text_font,
+        fill=fill,
+        anchor=anchor,
+        align="right",
+        spacing=spacing,
+    )
+
+
+def gradient(start: str, end: str) -> Image.Image:
+    top = tuple(int(start[i : i + 2], 16) for i in (1, 3, 5))
+    bottom = tuple(int(end[i : i + 2], 16) for i in (1, 3, 5))
+    image = Image.new("RGB", (WIDTH, HEIGHT), top)
+    pixels = image.load()
+    for y in range(HEIGHT):
+        ratio = y / max(HEIGHT - 1, 1)
+        color = tuple(round(top[c] * (1 - ratio) + bottom[c] * ratio) for c in range(3))
+        for x in range(WIDTH):
+            pixels[x, y] = color
+    return image.convert("RGBA")
+
+
+def rounded_shadow(
+    image: Image.Image,
+    box: tuple[int, int, int, int],
+    radius: int,
+    *,
+    blur: int = 35,
+    offset: tuple[int, int] = (0, 18),
+    opacity: int = 42,
+) -> None:
+    layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(layer)
+    x1, y1, x2, y2 = box
+    ox, oy = offset
+    shadow_draw.rounded_rectangle((x1 + ox, y1 + oy, x2 + ox, y2 + oy), radius, fill=(9, 36, 47, opacity))
+    image.alpha_composite(layer.filter(ImageFilter.GaussianBlur(blur)))
+
+
+def circle_glow(image: Image.Image, xy: tuple[int, int], radius: int, color: tuple[int, int, int, int]) -> None:
+    layer = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    glow_draw = ImageDraw.Draw(layer)
+    x, y = xy
+    glow_draw.ellipse((x - radius, y - radius, x + radius, y + radius), fill=color)
+    image.alpha_composite(layer.filter(ImageFilter.GaussianBlur(radius // 3)))
+
+
+def paste_logo(image: Image.Image, x: int, y: int, size: int) -> None:
+    logo = Image.open(ASSET_DIR / "hesba-icon.png").convert("RGBA")
+    logo = ImageOps.fit(logo, (size, size), Image.Resampling.LANCZOS)
+    # The source icon has opaque square corners. Mask them so the app icon
+    # reads as a polished brand mark over the video background.
+    corner_mask = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(corner_mask).rounded_rectangle(
+        (0, 0, size - 1, size - 1),
+        radius=round(size * 0.19),
+        fill=255,
+    )
+    logo.putalpha(ImageChops.multiply(logo.getchannel("A"), corner_mask))
+    image.alpha_composite(logo, (x, y))
+
+
+def phone(image: Image.Image, screenshot_path: Path, box: tuple[int, int, int, int], angle: float = 0) -> None:
+    x1, y1, x2, y2 = box
+    width, height = x2 - x1, y2 - y1
+    phone_layer = Image.new("RGBA", (width + 80, height + 80), (0, 0, 0, 0))
+    phone_draw = ImageDraw.Draw(phone_layer)
+    outer = (20, 20, width + 60, height + 60)
+    phone_draw.rounded_rectangle(outer, radius=55, fill="#102630", outline="#36515c", width=3)
+    screenshot = Image.open(screenshot_path).convert("RGBA")
+    screenshot = ImageOps.fit(screenshot, (width + 22, height + 22), Image.Resampling.LANCZOS, centering=(0.5, 0.0))
+    mask = Image.new("L", screenshot.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, screenshot.width, screenshot.height), radius=43, fill=255)
+    phone_layer.paste(screenshot, (39, 39), mask)
+    if angle:
+        phone_layer = phone_layer.rotate(angle, resample=Image.Resampling.BICUBIC, expand=True)
+    shadow = Image.new("RGBA", phone_layer.size, (0, 0, 0, 0))
+    shadow.alpha_composite(phone_layer)
+    shadow = shadow.filter(ImageFilter.GaussianBlur(22))
+    position = (x1 - (phone_layer.width - width) // 2, y1 - (phone_layer.height - height) // 2)
+    image.alpha_composite(shadow, (position[0], position[1] + 22))
+    image.alpha_composite(phone_layer, position)
+
+
+def desktop_dashboard(image: Image.Image, box: tuple[int, int, int, int]) -> None:
+    """Draw a clear desktop dashboard preview before the mobile scenes."""
+    x1, y1, x2, y2 = box
+    rounded_shadow(image, box, 30, blur=34, offset=(0, 22), opacity=38)
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle(box, radius=30, fill=WHITE, outline="#d4e0e3", width=3)
+
+    # Browser chrome.
+    chrome_h = 64
+    draw.rounded_rectangle((x1, y1, x2, y1 + chrome_h), radius=30, fill="#edf3f4")
+    draw.rectangle((x1, y1 + 30, x2, y1 + chrome_h), fill="#edf3f4")
+    for offset, color in ((0, "#ef6b65"), (24, "#eab64c"), (48, "#55b886")):
+        draw.ellipse((x1 + 28 + offset, y1 + 25, x1 + 40 + offset, y1 + 37), fill=color)
+    draw.rounded_rectangle((x1 + 365, y1 + 17, x2 - 365, y1 + 47), radius=15, fill=WHITE)
+    draw.text(((x1 + x2) // 2, y1 + 32), "app.hesba", font=font(15, "medium"), fill=MUTED, anchor="mm")
+
+    body_top = y1 + chrome_h
+    sidebar_w = 235
+    sidebar_x = x2 - sidebar_w
+    draw.rounded_rectangle((sidebar_x, body_top, x2, y2), radius=0, fill=NAVY)
+    draw_rtl(draw, (x2 - 28, body_top + 50), "حِسْبَة", font(29, "bold"), WHITE)
+    draw_rtl(draw, (x2 - 28, body_top + 82), "إدارة التحصيل والمدفوعات", font(13), "#9bb5bf")
+
+    menu = ["لوحة المتابعة", "الخزنة المركزية", "فوري والشركات", "المحافظ", "سجل العمليات"]
+    for index, label in enumerate(menu):
+        row_y = body_top + 125 + index * 61
+        if index == 0:
+            draw.rounded_rectangle((sidebar_x + 18, row_y - 12, x2 - 18, row_y + 34), radius=12, fill="#164b57")
+        draw.ellipse((x2 - 46, row_y, x2 - 32, row_y + 14), fill="#66d0c1" if index == 0 else "#68828c")
+        draw_rtl(draw, (x2 - 60, row_y + 8), label, font(17, "medium"), WHITE if index == 0 else "#bfd0d5", anchor="rm")
+
+    main_left = x1 + 28
+    main_right = sidebar_x - 28
+    draw.rectangle((x1, body_top, sidebar_x, y2), fill="#f5f8f9")
+    draw_rtl(draw, (main_right, body_top + 54), "لوحة المتابعة", font(31, "bold"), NAVY)
+    draw_rtl(draw, (main_right, body_top + 87), "ملخص حركة المحل اليوم", font(15), MUTED)
+
+    cards = [
+        ("رصيد الخزنة", "84,500 ج.م", "#e8f5f2", TEAL),
+        ("المتاح للتصرف", "72,250 ج.م", "#fff4e3", AMBER),
+        ("إجمالي العمولات", "6,840 ج.م", "#e9eff7", "#5479a5"),
+    ]
+    gap = 18
+    card_w = (main_right - main_left - gap * 2) // 3
+    for index, (label, value, badge_fill, badge_color) in enumerate(cards):
+        cx = main_right - (index + 1) * card_w - index * gap
+        cy = body_top + 125
+        draw.rounded_rectangle((cx, cy, cx + card_w, cy + 140), radius=18, fill=WHITE, outline="#dce6e9", width=2)
+        draw.ellipse((cx + card_w - 49, cy + 20, cx + card_w - 21, cy + 48), fill=badge_fill)
+        draw.ellipse((cx + card_w - 41, cy + 28, cx + card_w - 29, cy + 40), fill=badge_color)
+        draw_rtl(draw, (cx + card_w - 62, cy + 34), label, font(16, "medium"), MUTED, anchor="rm")
+        draw_rtl(draw, (cx + card_w - 20, cy + 91), value, font(25, "bold"), INK)
+
+    panel_y = body_top + 290
+    draw.rounded_rectangle((main_left, panel_y, main_right, y2 - 30), radius=20, fill=WHITE, outline="#dce6e9", width=2)
+    draw_rtl(draw, (main_right - 22, panel_y + 38), "آخر العمليات", font(21, "semibold"), INK)
+    draw_rtl(draw, (main_right - 22, panel_y + 66), "تحديث واضح لكل حركة", font(13), MUTED)
+
+    rows = [
+        ("استلام تحصيل مندوب", "+12,250 ج.م", TEAL),
+        ("شحن محفظة فودافون", "-5,000 ج.م", "#cb665e"),
+        ("عمولة ماكينة فوري", "+320 ج.م", TEAL),
+    ]
+    for index, (label, value, value_color) in enumerate(rows):
+        row_y = panel_y + 105 + index * 76
+        if index:
+            draw.line((main_left + 22, row_y - 18, main_right - 22, row_y - 18), fill="#e7edef", width=2)
+        draw.ellipse((main_right - 48, row_y - 5, main_right - 28, row_y + 15), fill="#daf1ed")
+        draw_rtl(draw, (main_right - 63, row_y + 5), label, font(17, "medium"), INK, anchor="rm")
+        draw_rtl(draw, (main_left + 25, row_y + 5), value, font(17, "semibold"), value_color, anchor="lm")
+
+
+def pill(draw: ImageDraw.ImageDraw, box: tuple[int, int, int, int], text: str, *, fill: str, text_fill: str) -> None:
+    draw.rounded_rectangle(box, radius=(box[3] - box[1]) // 2, fill=fill)
+    draw_rtl(
+        draw,
+        ((box[0] + box[2]) // 2, (box[1] + box[3]) // 2 - 2),
+        text,
+        font(28, "semibold"),
+        text_fill,
+        anchor="mm",
+    )
+
+
+def slide_intro() -> Image.Image:
+    image = gradient(NAVY_DARK, NAVY)
+    circle_glow(image, (1550, 160), 430, (11, 140, 126, 62))
+    circle_glow(image, (250, 930), 360, (216, 146, 54, 22))
+
+    # Show the product immediately: desktop overview, mobile access and the
+    # primary logo all land in the first frame before the rapid montage begins.
+    desktop_dashboard(image, (55, 145, 1240, 945))
+    phone(image, ASSET_DIR / "hesba-mobile-accounts.png", (1245, 235, 1615, 965), angle=3)
+
+    rounded_shadow(image, (1580, 95, 1830, 345), 48, blur=30, offset=(0, 18), opacity=58)
+    paste_logo(image, 1580, 95, 250)
+
+    draw = ImageDraw.Draw(image)
+    draw.ellipse((1500, 18, 1910, 428), outline=(126, 224, 211, 42), width=2)
+    draw.ellipse((1665, 735, 1710, 780), fill="#7ee0d3")
+    draw.ellipse((1745, 810, 1765, 830), fill="#d89236")
+    draw.line((1690, 760, 1755, 820), fill=(126, 224, 211, 90), width=3)
+    return image
+
+
+def slide_all_in_one() -> Image.Image:
+    image = gradient("#f8fbfb", "#edf5f4")
+    circle_glow(image, (440, 540), 470, (11, 140, 126, 28))
+    draw = ImageDraw.Draw(image)
+    desktop_dashboard(image, (70, 145, 1215, 930))
+    draw_rtl(draw, (1770, 190), "كل شغلك", font(88, "bold"), NAVY)
+    draw_rtl(draw, (1770, 300), "في مكان واحد", font(88, "bold"), TEAL)
+    draw_rtl(
+        draw,
+        (1770, 430),
+        "تابع الأرصدة والحركات لحظة بلحظة\nمن شاشة واحدة واضحة.",
+        font(37, "regular"),
+        MUTED,
+        spacing=20,
+    )
+    labels = ["الخزنة", "المحافظ", "الماكينات", "المندوبون"]
+    positions = [(1550, 600), (1330, 600), (1550, 690), (1330, 690)]
+    for label, (x, y) in zip(labels, positions):
+        pill(draw, (x - 195, y, x, y + 68), label, fill=WHITE, text_fill=TEAL_DARK)
+    draw.rounded_rectangle((1285, 805, 1770, 895), radius=22, fill=WHITE, outline="#dce6e9", width=2)
+    draw_rtl(draw, (1715, 850), "من أول العملية لحد التقرير", font(27, "semibold"), INK)
+    draw.ellipse((1318, 831, 1354, 867), fill=TEAL_LIGHT)
+    draw.line((1328, 849, 1338, 859, 1347, 839), fill=TEAL, width=4)
+    return image
+
+
+def slide_accounts() -> Image.Image:
+    image = gradient("#ffffff", "#f2f6f7")
+    circle_glow(image, (380, 500), 440, (11, 140, 126, 26))
+    draw = ImageDraw.Draw(image)
+    phone(image, ASSET_DIR / "hesba-mobile-accounts.png", (160, 85, 630, 1010), angle=-2)
+    draw_rtl(draw, (1770, 155), "فوري والشركات", font(82, "bold"), NAVY)
+    draw_rtl(draw, (1770, 270), "تحت عينك", font(82, "bold"), TEAL)
+    items = [
+        ("الأرصدة والعمولات", "متابعة مستقلة لكل حساب"),
+        ("الشحن والترحيل", "كل حركة محفوظة وواضحة"),
+        ("حدود وتشغيل آمن", "قواعد تمنع الأخطاء قبل وقوعها"),
+    ]
+    y = 445
+    for title, subtitle in items:
+        rounded_shadow(image, (870, y, 1770, y + 145), 24, blur=18, offset=(0, 10), opacity=22)
+        draw.rounded_rectangle((870, y, 1770, y + 145), radius=24, fill=WHITE, outline="#dce6e9", width=2)
+        draw.ellipse((1630, y + 40, 1695, y + 105), fill=TEAL_LIGHT)
+        draw.line((1648, y + 72, 1661, y + 86, 1680, y + 60), fill=TEAL, width=6)
+        draw_rtl(draw, (1585, y + 50), title, font(34, "semibold"), INK)
+        draw_rtl(draw, (1585, y + 100), subtitle, font(25), MUTED)
+        y += 170
+    return image
+
+
+def slide_mobile() -> Image.Image:
+    image = gradient(NAVY_DARK, NAVY)
+    circle_glow(image, (960, 600), 520, (11, 140, 126, 55))
+    phone(image, ASSET_DIR / "hesba-mobile-accounts.png", (235, 200, 610, 940), angle=-7)
+    phone(image, ASSET_DIR / "hesba-mobile-dashboard.png", (580, 120, 1015, 975), angle=2)
+    draw = ImageDraw.Draw(image)
+    draw_rtl(draw, (1780, 170), "حِسبة معاك", font(78, "bold"), WHITE)
+    draw_rtl(draw, (1780, 280), "على الموبايل", font(78, "bold"), "#7ee0d3")
+    draw_rtl(
+        draw,
+        (1780, 410),
+        "نفس البيانات، نفس الحساب،\nونفس صلاحيات كل موظف.",
+        font(34),
+        "#b9cbd1",
+        spacing=18,
+    )
+    draw.rounded_rectangle((1135, 625, 1780, 790), radius=28, fill="#173d4d", outline="#285567", width=2)
+    draw.text((1200, 680), "Android", font=font(39, "semibold"), fill=WHITE, anchor="lm")
+    draw.text((1710, 680), "iOS", font=font(39, "semibold"), fill=WHITE, anchor="rm")
+    draw.line((1455, 660, 1455, 755), fill="#285567", width=2)
+    draw_rtl(draw, (1457, 855), "كمبيوتر • موبايل • تابلت", font(30, "medium"), "#78d9cc", anchor="mm")
+    return image
+
+
+def slide_control() -> Image.Image:
+    image = gradient("#f7fafb", "#eef3f5")
+    draw = ImageDraw.Draw(image)
+    draw_rtl(draw, (1720, 150), "إدارة أوضح.", font(78, "bold"), NAVY)
+    draw_rtl(draw, (1720, 255), "قرار أسرع.", font(78, "bold"), TEAL)
+    cards = [
+        (160, 430, "تقارير شاملة", "اعرف حركة شغلك وأداء كل أصل"),
+        (680, 430, "صلاحيات الموظفين", "كل مستخدم يشوف المسموح له فقط"),
+        (1200, 430, "مخزون ومبيعات", "الموبايلات والإكسسوارات في نفس النظام"),
+    ]
+    for index, (x, y, title, subtitle) in enumerate(cards):
+        rounded_shadow(image, (x, y, x + 460, y + 360), 32, blur=28, offset=(0, 18), opacity=28)
+        draw.rounded_rectangle((x, y, x + 460, y + 360), radius=32, fill=WHITE, outline="#dce6e9", width=2)
+        icon_fill = [TEAL_LIGHT, "#fff3df", "#e8eef8"][index]
+        icon_color = [TEAL, AMBER, "#5479a5"][index]
+        draw.rounded_rectangle((x + 330, y + 45, x + 405, y + 120), radius=18, fill=icon_fill)
+        if index == 0:
+            draw.line((x + 349, y + 99, x + 365, y + 78, x + 378, y + 88, x + 393, y + 61), fill=icon_color, width=6)
+        elif index == 1:
+            draw.ellipse((x + 348, y + 60, x + 369, y + 81), outline=icon_color, width=4)
+            draw.ellipse((x + 375, y + 60, x + 396, y + 81), outline=icon_color, width=4)
+            draw.arc((x + 345, y + 75, x + 373, y + 105), 180, 360, fill=icon_color, width=4)
+            draw.arc((x + 372, y + 75, x + 400, y + 105), 180, 360, fill=icon_color, width=4)
+        else:
+            draw.rectangle((x + 350, y + 66, x + 392, y + 103), outline=icon_color, width=4)
+            draw.line((x + 350, y + 79, x + 392, y + 79), fill=icon_color, width=4)
+        draw_rtl(draw, (x + 400, y + 165), title, font(37, "semibold"), INK)
+        draw_rtl(draw, (x + 400, y + 235), subtitle, font(26), MUTED, spacing=10)
+        draw_rtl(draw, (x + 400, y + 315), "حِسبة", font(22, "medium"), TEAL)
+    draw_rtl(draw, (960, 920), "كل حركة مسجلة • كل رقم واضح • كل صلاحية تحت تحكمك", font(31, "medium"), MUTED, anchor="mm")
+    return image
+
+
+def slide_cta() -> Image.Image:
+    image = gradient(NAVY_DARK, NAVY)
+    circle_glow(image, (1520, 150), 400, (11, 140, 126, 55))
+    draw = ImageDraw.Draw(image)
+    paste_logo(image, 820, 100, 280)
+    draw_rtl(draw, (960, 500), "جرّب حِسبة على شغلك", font(76, "bold"), WHITE, anchor="mm")
+    draw_rtl(draw, (960, 610), "وابدأ حسابات أوضح من أول يوم", font(42, "regular"), "#b9cbd1", anchor="mm")
+    draw.rounded_rectangle((470, 730, 1450, 890), radius=30, fill="#173d4d", outline="#285567", width=2)
+    draw.text((590, 790), "0100 661 8377", font=font(38, "semibold"), fill="#7ee0d3", anchor="lm")
+    draw.text((1330, 790), "shadysteha571@gmail.com", font=font(31, "medium"), fill=WHITE, anchor="rm")
+    draw.line((960, 765, 960, 855), fill="#285567", width=2)
+    draw_rtl(draw, (960, 980), "حِسبة — كل جنيه في حسابه", font(28, "medium"), "#78a0ab", anchor="mm")
+    return image
+
+
+def main() -> None:
+    output_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else SCRIPT_DIR / "slides"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    slides = [
+        slide_intro(),
+        slide_all_in_one(),
+        slide_accounts(),
+        slide_mobile(),
+        slide_control(),
+        slide_cta(),
+    ]
+    for index, image in enumerate(slides, start=1):
+        image.convert("RGB").save(output_dir / f"slide-{index:02d}.png", quality=95, optimize=True)
+        print(output_dir / f"slide-{index:02d}.png")
+
+
+if __name__ == "__main__":
+    main()
