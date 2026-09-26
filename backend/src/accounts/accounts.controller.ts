@@ -12,10 +12,12 @@ import {
 } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
-import { AppPermission } from '../database/enums.js';
+import { Roles } from '../common/decorators/roles.decorator.js';
+import { AppPermission, UserRole } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { AccountsService } from './accounts.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
+import { RecordFawryDailyDropDto } from './dto/record-fawry-daily-drop.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -27,6 +29,12 @@ export class AccountsController {
     private readonly accounts: AccountsService,
     private readonly users: UsersService,
   ) {}
+
+  @Roles(UserRole.ADMIN)
+  @Get('fawry-daily-drops')
+  todayDrops() {
+    return this.accounts.todayDrops();
+  }
 
   @Get()
   findAll(
@@ -41,6 +49,17 @@ export class AccountsController {
   @Post()
   create(@Body() dto: CreateAccountDto, @Request() request: UserRequest) {
     return this.accounts.create(dto, request.user.username);
+  }
+
+  @Roles(UserRole.ADMIN)
+  @Idempotent()
+  @Post(':id/fawry-daily-drop')
+  recordDailyDrop(
+    @Param('id') id: string,
+    @Body() dto: RecordFawryDailyDropDto,
+    @Request() request: UserRequest,
+  ) {
+    return this.accounts.recordDailyDrop(id, dto.amount, request.user.username);
   }
 
   @RequirePermissions(AppPermission.TOP_UP_ASSETS)

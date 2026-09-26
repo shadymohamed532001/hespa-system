@@ -41,6 +41,18 @@ export class AppNotification {
   @Column({ name: 'is_read', default: false })
   isRead: boolean;
 
+  @Column({ name: 'admin_only', default: false })
+  adminOnly: boolean;
+
+  @Column({
+    name: 'dedupe_key',
+    type: 'varchar',
+    length: 120,
+    nullable: true,
+    unique: true,
+  })
+  dedupeKey: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }

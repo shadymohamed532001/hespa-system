@@ -8,9 +8,11 @@ import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, Repository } from 'typeorm';
+import { FawryDailyDrop } from '../database/entities/fawry-daily-drop.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AccountType, LedgerCategory } from '../database/enums.js';
+import { cairoParts } from './cairo-time.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
@@ -24,6 +26,8 @@ export class AccountsService implements OnModuleInit {
     private readonly accounts: Repository<FinancialAccount>,
     @InjectRepository(LedgerEntry)
     private readonly ledger: Repository<LedgerEntry>,
+    @InjectRepository(FawryDailyDrop)
+    private readonly drops: Repository<FawryDailyDrop>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
   ) {}
@@ -119,6 +123,96 @@ export class AccountsService implements OnModuleInit {
         performedBy: username,
       });
       return account;
+    });
+  }
+
+  async todayDrops(now = new Date()) {
+    const date = cairoParts(now).date;
+    const drops = await this.drops.find({
+      where: { businessDate: date },
+      order: { createdAt: 'ASC' },
+    });
+    return {
+      date,
+      drops: drops.map((drop) => ({
+        accountId: drop.accountId,
+        amount: Number(drop.amount),
+      })),
+    };
+  }
+
+  async recordDailyDrop(
+    id: string,
+    amount: number,
+    username: string,
+    now = new Date(),
+  ) {
+    const date = cairoParts(now).date;
+    const normalized = Number(Number(amount).toFixed(2));
+    return this.dataSource.transaction(async (manager) => {
+      await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+        `hesba:fawry-drop:${id}:${date}`,
+      ]);
+      const accounts = manager.getRepository(FinancialAccount);
+      const account = await accounts.findOne({
+        where: { id, active: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!account) {
+        throw new NotFoundException(
+          msg({ ar: 'الحساب غير موجود أو موقوف', en: 'Account not found or inactive' }),
+        );
+      }
+      if (account.type !== AccountType.FAWRY) {
+        throw new BadRequestException(
+          msg({
+            ar: 'نزلة العمولة اليومية تخص حسابات فوري فقط',
+            en: 'The daily drop is only for Fawry accounts',
+          }),
+        );
+      }
+      const drops = manager.getRepository(FawryDailyDrop);
+      const existing = await drops.findOne({
+        where: { accountId: id, businessDate: date },
+      });
+      if (existing) {
+        throw new BadRequestException(
+          msg({
+            ar: 'نزلة النهاردة متسجلة بالفعل على الحساب ده',
+            en: 'Today’s drop is already recorded for this account',
+          }),
+        );
+      }
+
+      let ledgerEntryId: string | null = null;
+      if (normalized > 0) {
+        account.commissionBalance = Number(
+          (Number(account.commissionBalance) + normalized).toFixed(2),
+        );
+        await accounts.save(account);
+        const entry = await manager.getRepository(LedgerEntry).save({
+          category: LedgerCategory.COMMISSION,
+          amount: normalized,
+          entityType: 'account',
+          entityId: account.id,
+          reference: `FAWRY-DROP-${date}`,
+          description: `نزلة عمولة فوري اليومية لحساب ${account.name}`,
+          performedBy: username,
+          metadata: { fawryDailyDrop: true, businessDate: date },
+        });
+        ledgerEntryId = entry.id;
+      }
+
+      const drop = await drops.save(
+        drops.create({
+          accountId: account.id,
+          businessDate: date,
+          amount: normalized,
+          performedBy: username,
+          ledgerEntryId,
+        }),
+      );
+      return { date, account, amount: normalized, id: drop.id };
     });
   }
 

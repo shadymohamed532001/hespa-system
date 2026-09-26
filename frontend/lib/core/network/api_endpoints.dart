@@ -16,6 +16,8 @@ abstract final class ApiEndpoints {
   static String account(String id) => '$accounts/$id';
   static String accountTopUp(String id) => '${account(id)}/top-up';
   static String accountStatus(String id) => '${account(id)}/status';
+  static const String fawryDailyDrops = '$accounts/fawry-daily-drops';
+  static String fawryDailyDrop(String id) => '${account(id)}/fawry-daily-drop';
 
   // Notifications
   static const String notifications = '/notifications';

@@ -33,6 +33,7 @@ export class NotificationsService implements OnModuleInit {
   async findAll(limit = 40, includeProfits = true) {
     const take = Math.min(Math.max(limit, 1), 100);
     const rows = await this.notifications.find({
+      where: includeProfits ? {} : { adminOnly: false },
       order: { createdAt: 'DESC' },
       take: includeProfits ? take : 100,
     });
@@ -51,7 +52,9 @@ export class NotificationsService implements OnModuleInit {
       });
       return { count };
     }
-    const rows = await this.notifications.find({ where: { isRead: false } });
+    const rows = await this.notifications.find({
+      where: { isRead: false, adminOnly: false },
+    });
     const profitIds = await this.profitNotificationIds(rows);
     return { count: rows.filter((row) => !profitIds.has(row.id)).length };
   }
@@ -81,6 +84,11 @@ export class NotificationsService implements OnModuleInit {
       throw new NotFoundException(
         msg({ ar: 'الإشعار غير موجود', en: 'Notification not found' }),
       );
+    if (!includeProfits && notification.adminOnly) {
+      throw new NotFoundException(
+        msg({ ar: 'الإشعار غير موجود', en: 'Notification not found' }),
+      );
+    }
     if (!includeProfits && notification.ledgerEntryId) {
       const entry = await this.ledger.findOne({
         where: { id: notification.ledgerEntryId },
@@ -103,7 +111,7 @@ export class NotificationsService implements OnModuleInit {
       .where('is_read = false');
     if (!includeProfits) {
       const unread = await this.notifications.find({
-        where: { isRead: false },
+        where: { isRead: false, adminOnly: false },
       });
       const profitIds = await this.profitNotificationIds(unread);
       const visibleIds = unread

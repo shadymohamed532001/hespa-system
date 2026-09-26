@@ -31,7 +31,6 @@ class _ReceiveCollectionDialog extends StatefulWidget {
 
 class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _agent = TextEditingController();
   final _company = TextEditingController();
   final _amount = TextEditingController();
   final _commission = TextEditingController(text: '0');
@@ -39,6 +38,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   List<dynamic> _accounts = [];
   String _mode = 'immediate';
   String? _accountId;
+  String? _companyName;
   TimeOfDay _receivedAt = TimeOfDay.now();
   bool _loadingAccounts = true;
   bool _saving = false;
@@ -46,19 +46,43 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   bool get _isImmediate => _mode == 'immediate';
 
+  bool get _selectedIsFawry {
+    for (final item in _accounts) {
+      if ('${item['id']}' == _accountId) return item['type'] == 'fawry';
+    }
+    return false;
+  }
+
+  List<String> get _companyNames {
+    final names = <String>[];
+    for (final item in _accounts) {
+      if (item['type'] != 'company') continue;
+      final name = '${item['name']}'.trim();
+      if (name.isEmpty || names.contains(name)) continue;
+      names.add(name);
+    }
+    return names;
+  }
+
   @override
   void initState() {
     super.initState();
+    _company.addListener(_syncCompanySelection);
     _loadAccounts();
   }
 
   @override
   void dispose() {
-    _agent.dispose();
+    _company.removeListener(_syncCompanySelection);
     _company.dispose();
     _amount.dispose();
     _commission.dispose();
     super.dispose();
+  }
+
+  void _syncCompanySelection() {
+    final typed = _company.text.trim();
+    _companyName = _companyNames.contains(typed) ? typed : null;
   }
 
   Future<void> _loadAccounts() async {
@@ -112,12 +136,12 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       _receivedAt.minute,
     );
     final request = <String, dynamic>{
-      'agentName': _agent.text.trim(),
-      'companyName': _company.text.trim(),
+      'agentName': _recordedAgentName(),
+      'companyName': _companyName!,
       'amount': num.parse(_amount.text.trim()),
       'executionMode': _mode,
       'receivedAt': receivedAt.toIso8601String(),
-      'commission': _isImmediate
+      'commission': _isImmediate && !_selectedIsFawry
           ? num.tryParse(_commission.text.trim()) ?? 0
           : 0,
       if (_isImmediate) 'accountId': _accountId,
@@ -135,8 +159,24 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     }
   }
 
+  String _recordedAgentName() {
+    final username = widget.session.username?.trim() ?? '';
+    return username.length >= 2 ? username : 'موظف';
+  }
+
   String _requiredText(String? value) {
     return value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : '';
+  }
+
+  String _searchKey(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll('أ', 'ا')
+        .replaceAll('إ', 'ا')
+        .replaceAll('آ', 'ا')
+        .replaceAll('ى', 'ي')
+        .replaceAll('ة', 'ه');
   }
 
   @override
@@ -169,17 +209,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                   runSpacing: 20,
                   children: [
                     SizedBox(width: width, child: _modeField()),
-                    SizedBox(
-                      width: width,
-                      child: _textField(label: 'المندوب *', controller: _agent),
-                    ),
-                    SizedBox(
-                      width: width,
-                      child: _textField(
-                        label: 'الشركة *',
-                        controller: _company,
-                      ),
-                    ),
+                    SizedBox(width: width, child: _companyField()),
                     SizedBox(
                       width: width,
                       child: _textField(
@@ -198,10 +228,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                       ),
                     ),
                     SizedBox(width: width, child: _timeField()),
-                    if (twoColumns) SizedBox(width: width),
                     if (_isImmediate)
                       SizedBox(width: width, child: _accountField()),
-                    if (_isImmediate)
+                    if (_isImmediate && !_selectedIsFawry)
                       SizedBox(
                         width: width,
                         child: _textField(
@@ -223,6 +252,15 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                           },
                         ),
                       ),
+                    if (_isImmediate && _selectedIsFawry)
+                      SizedBox(
+                        width: width,
+                        child: const HesbaModalCallout(
+                          child: Text(
+                            'حساب فوري: العمولة مش بتتسجل مع العملية. الأدمن بيكتب النزلة في اليوم التالي.',
+                          ),
+                        ),
+                      ),
                   ],
                 );
               },
@@ -238,7 +276,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     ),
                     TextSpan(
                       text: _isImmediate
-                          ? 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.'
+                          ? (_selectedIsFawry
+                                ? 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.'
+                                : 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.')
                           : 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.',
                     ),
                   ],
@@ -301,6 +341,80 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                 _error = null;
               }),
       ),
+    );
+  }
+
+  Widget _companyField() {
+    final names = _companyNames;
+    return FormField<String>(
+      autovalidateMode: AutovalidateMode.onUserInteraction,
+      validator: (_) {
+        if (_loadingAccounts) {
+          return tr(ar: 'جارٍ تحميل الشركات', en: 'Loading companies');
+        }
+        if (names.isEmpty) {
+          return tr(
+            ar: 'لا توجد شركات. أضف حساب شركة من فوري والشركات',
+            en: 'No companies yet. Add a company account first',
+          );
+        }
+        if (_companyName == null) {
+          return tr(
+            ar: 'اختر شركة من القائمة',
+            en: 'Choose a company from the list',
+          );
+        }
+        return null;
+      },
+      builder: (field) {
+        return HesbaModalField(
+          label: tr(ar: 'الشركة *', en: 'Company *'),
+          child: DropdownMenu<String>(
+            controller: _company,
+            enabled: !_saving && !_loadingAccounts,
+            enableFilter: true,
+            enableSearch: true,
+            requestFocusOnTap: true,
+            expandedInsets: EdgeInsets.zero,
+            menuHeight: 240,
+            hintText: _loadingAccounts
+                ? tr(ar: 'جارٍ تحميل الشركات...', en: 'Loading companies...')
+                : tr(
+                    ar: 'اكتب حرفًا للبحث في أسماء الشركات',
+                    en: 'Type a letter to search companies',
+                  ),
+            errorText: field.errorText,
+            textStyle: const TextStyle(color: HesbaColors.ink, fontSize: 15),
+            inputDecorationTheme: Theme.of(context).inputDecorationTheme,
+            menuStyle: const MenuStyle(
+              backgroundColor: WidgetStatePropertyAll(Colors.white),
+              surfaceTintColor: WidgetStatePropertyAll(Colors.transparent),
+            ),
+            filterCallback: (entries, filter) {
+              final query = _searchKey(filter);
+              if (query.isEmpty) return entries;
+              return entries
+                  .where(
+                    (entry) => _searchKey(entry.label).contains(query),
+                  )
+                  .toList();
+            },
+            dropdownMenuEntries: [
+              for (final name in names)
+                DropdownMenuEntry<String>(value: name, label: name),
+            ],
+            onSelected: _saving
+                ? null
+                : (value) {
+                    setState(() {
+                      _companyName = value;
+                      _error = null;
+                    });
+                    field.didChange(value);
+                  },
+          ),
+        );
+      },
     );
   }
 

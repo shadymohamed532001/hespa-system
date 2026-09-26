@@ -24,6 +24,7 @@ class AccountsPage extends StatefulWidget {
 
 class _AccountsPageState extends State<AccountsPage> {
   List<dynamic> data = [];
+  Map<String, num> todayDrops = {};
   bool loading = true;
   String? error;
 
@@ -40,6 +41,16 @@ class _AccountsPageState extends State<AccountsPage> {
           includeInactive: widget.session.can(AppPermissions.manageAssets),
         ),
       );
+      todayDrops = {};
+      if (widget.session.isAdmin) {
+        final payload = await widget.session.api.getMap(
+          ApiEndpoints.fawryDailyDrops,
+        );
+        for (final drop in (payload['drops'] as List? ?? const [])) {
+          todayDrops['${drop['accountId']}'] =
+              num.tryParse('${drop['amount']}') ?? 0;
+        }
+      }
       error = null;
     } catch (e) {
       error = ApiClient.errorMessage(e);
@@ -52,7 +63,7 @@ class _AccountsPageState extends State<AccountsPage> {
     return PageFrame(
       title: 'حسابات فوري والشركات',
       subtitle: widget.session.isAdmin
-          ? 'متابعة الرصيد والترحيل والعمولات لكل حساب'
+          ? 'عمولة فوري مش بتتحسب مع العملية. سجّل نزلة النهاردة على الحساب'
           : 'متابعة الرصيد والترحيل لكل حساب',
       actions: [
         if (widget.session.can(AppPermissions.manageAssets))
@@ -142,7 +153,9 @@ class _AccountsPageState extends State<AccountsPage> {
                   rows: data,
                   canManage: widget.session.can(AppPermissions.manageAssets),
                   showProfits: widget.session.isAdmin,
+                  todayDrops: todayDrops,
                   onManage: _manageAccount,
+                  onRecordDrop: _recordDrop,
                 ),
               ],
             ),
@@ -446,6 +459,67 @@ class _AccountsPageState extends State<AccountsPage> {
     }
   }
 
+  Future<void> _recordDrop(Map<String, dynamic> account) async {
+    final amount = TextEditingController();
+    String? fieldError;
+    final value = await showHesbaModal<num>(
+      context: context,
+      maxWidth: 480,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: 'نزلة فوري اليومية',
+          subtitle: '${account['name']} · عمولة أمس بتنزل النهاردة',
+          actions: HesbaModalActions(
+            primaryLabel: 'تسجيل النزلة',
+            onPrimary: () {
+              final parsed = num.tryParse(amount.text.trim());
+              if (parsed == null || parsed < 0) {
+                setLocal(() => fieldError = 'اكتب مبلغًا صحيحًا، أو 0 لو منزّلش حاجة');
+                return;
+              }
+              Navigator.pop(ctx, parsed);
+            },
+            onCancel: () => Navigator.pop(ctx),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              HesbaModalCallout(
+                child: const Text(
+                  'المبلغ يتضاف على عمولة الحساب، ومش بيتخصم من الرصيد. لو منزّلش حاجة اكتب 0 عشان التنبيه الصباحي يقف.',
+                ),
+              ),
+              const SizedBox(height: 18),
+              HesbaModalField(
+                label: 'نزل كام',
+                child: TextField(
+                  controller: amount,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  textDirection: TextDirection.ltr,
+                  decoration: const InputDecoration(),
+                ),
+              ),
+              if (fieldError != null) ...[
+                const SizedBox(height: 12),
+                Text(fieldError!, style: const TextStyle(color: HesbaColors.red)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+    amount.dispose();
+    if (value == null) return;
+    await _action(
+      () => widget.session.api.post(
+        ApiEndpoints.fawryDailyDrop('${account['id']}'),
+        {'amount': value},
+      ),
+    );
+  }
+
   Future<void> _action(Future<dynamic> Function() operation) async {
     try {
       await operation();
@@ -466,13 +540,17 @@ class _AccountsTable extends StatelessWidget {
     required this.rows,
     required this.canManage,
     required this.showProfits,
+    required this.todayDrops,
     required this.onManage,
+    required this.onRecordDrop,
   });
 
   final List<dynamic> rows;
   final bool canManage;
   final bool showProfits;
+  final Map<String, num> todayDrops;
   final Future<void> Function(Map<String, dynamic> account) onManage;
+  final Future<void> Function(Map<String, dynamic> account) onRecordDrop;
 
   @override
   Widget build(BuildContext context) {
@@ -567,8 +645,18 @@ class _AccountsTable extends StatelessWidget {
                           ),
                         DataCell(SoftBadge.status(active: e['active'] == true)),
                         DataCell(
-                          canManage
-                              ? OutlinedButton(
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (showProfits && e['type'] == 'fawry')
+                                Padding(
+                                  padding: const EdgeInsetsDirectional.only(
+                                    end: 8,
+                                  ),
+                                  child: _dropAction(e as Map<String, dynamic>),
+                                ),
+                              if (canManage)
+                                OutlinedButton(
                                   onPressed: () =>
                                       onManage(e as Map<String, dynamic>),
                                   style: OutlinedButton.styleFrom(
@@ -587,7 +675,10 @@ class _AccountsTable extends StatelessWidget {
                                   ),
                                   child: Text(tr(ar: 'إدارة', en: 'Admin')),
                                 )
-                              : const Text('—'),
+                              else if (!showProfits || e['type'] != 'fawry')
+                                const Text('—'),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -597,6 +688,28 @@ class _AccountsTable extends StatelessWidget {
           );
         },
       ),
+    );
+  }
+
+  Widget _dropAction(Map<String, dynamic> account) {
+    final recorded = todayDrops['${account['id']}'];
+    if (recorded != null) {
+      return Text(
+        'اتسجلت ${money(recorded)}',
+        style: HesbaText.tableCell.copyWith(color: HesbaColors.tealDark),
+      );
+    }
+    if (account['active'] != true) return const Text('—');
+    return OutlinedButton(
+      onPressed: () => onRecordDrop(account),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: HesbaColors.tealDark,
+        side: const BorderSide(color: HesbaColors.border),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        minimumSize: const Size(0, 36),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: const Text('نزلة النهاردة'),
     );
   }
 }

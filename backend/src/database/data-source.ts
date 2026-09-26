@@ -5,6 +5,7 @@ import {
   DailyClose,
   Collection,
   DevicePushToken,
+  FawryDailyDrop,
   FinancialAccount,
   IdempotencyRecord,
   InventoryProduct,
@@ -28,6 +29,7 @@ const AppDataSource = new DataSource({
   database: process.env.DB_NAME ?? 'hesba',
   entities: [
     User,
+    FawryDailyDrop,
     FinancialAccount,
     Wallet,
     Machine,

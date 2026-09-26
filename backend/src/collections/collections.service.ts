@@ -13,6 +13,7 @@ import { FinancialAccount } from '../database/entities/financial-account.entity.
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import {
+  AccountType,
   CollectionStatus,
   ExecutionMode,
   LedgerCategory,
@@ -104,6 +105,7 @@ export class CollectionsService implements OnModuleInit {
           throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
         if (account.balance < dto.amount)
           throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
+        assertNoFawryOperationCommission(account, dto.commission);
         account.balance -= dto.amount;
         account.commissionBalance += dto.commission;
         await manager.getRepository(FinancialAccount).save(account);
@@ -180,6 +182,7 @@ export class CollectionsService implements OnModuleInit {
         throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
       if (account.balance < collection.amount)
         throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
+      assertNoFawryOperationCommission(account, dto.commission);
       account.balance -= collection.amount;
       account.commissionBalance += dto.commission;
       await manager.getRepository(FinancialAccount).save(account);
@@ -210,5 +213,19 @@ export class CollectionsService implements OnModuleInit {
       }
       return collection;
     });
+  }
+}
+
+function assertNoFawryOperationCommission(
+  account: FinancialAccount,
+  commission: number,
+) {
+  if (account.type === AccountType.FAWRY && commission > 0) {
+    throw new BadRequestException(
+      msg({
+        ar: 'عمولة فوري لا تُسجل مع العملية. الأدمن يسجل النزلة في اليوم التالي',
+        en: 'Fawry commission is not recorded on the operation. The admin records the next-day drop',
+      }),
+    );
   }
 }
