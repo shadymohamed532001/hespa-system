@@ -186,6 +186,19 @@ export class AccountsService implements OnModuleInit {
 
       let ledgerEntryId: string | null = null;
       if (normalized > 0) {
+        if (Number(account.balance) + normalized > FAWRY_MAX_BALANCE) {
+          throw new BadRequestException({
+            message: msg({
+              ar: 'سيتم تجاوز الحد الأقصى لحساب فوري',
+              en: 'This would exceed the Fawry account maximum',
+            }),
+            limit: FAWRY_MAX_BALANCE,
+            available: Math.max(0, FAWRY_MAX_BALANCE - Number(account.balance)),
+          });
+        }
+        account.balance = Number(
+          (Number(account.balance) + normalized).toFixed(2),
+        );
         account.commissionBalance = Number(
           (Number(account.commissionBalance) + normalized).toFixed(2),
         );
@@ -198,7 +211,11 @@ export class AccountsService implements OnModuleInit {
           reference: `FAWRY-DROP-${date}`,
           description: `نزلة عمولة فوري اليومية لحساب ${account.name}`,
           performedBy: username,
-          metadata: { fawryDailyDrop: true, businessDate: date },
+          metadata: {
+            fawryDailyDrop: true,
+            businessDate: date,
+            appliedToBalance: true,
+          },
         });
         ledgerEntryId = entry.id;
       }

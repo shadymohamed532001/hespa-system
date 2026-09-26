@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
@@ -41,16 +42,7 @@ class _AccountsPageState extends State<AccountsPage> {
           includeInactive: widget.session.can(AppPermissions.manageAssets),
         ),
       );
-      todayDrops = {};
-      if (widget.session.isAdmin) {
-        final payload = await widget.session.api.getMap(
-          ApiEndpoints.fawryDailyDrops,
-        );
-        for (final drop in (payload['drops'] as List? ?? const [])) {
-          todayDrops['${drop['accountId']}'] =
-              num.tryParse('${drop['amount']}') ?? 0;
-        }
-      }
+      todayDrops = await _loadTodayDrops();
       error = null;
     } catch (e) {
       error = ApiClient.errorMessage(e);
@@ -58,12 +50,28 @@ class _AccountsPageState extends State<AccountsPage> {
     if (mounted) setState(() => loading = false);
   }
 
+  Future<Map<String, num>> _loadTodayDrops() async {
+    if (!widget.session.isAdmin) return {};
+    try {
+      final payload = await widget.session.api.getMap(
+        ApiEndpoints.fawryDailyDrops,
+      );
+      final drops = <String, num>{};
+      for (final drop in (payload['drops'] as List? ?? const [])) {
+        drops['${drop['accountId']}'] = num.tryParse('${drop['amount']}') ?? 0;
+      }
+      return drops;
+    } catch (_) {
+      return {};
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PageFrame(
       title: 'حسابات فوري والشركات',
       subtitle: widget.session.isAdmin
-          ? 'عمولة فوري مش بتتحسب مع العملية. سجّل نزلة النهاردة على الحساب'
+          ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
           : 'متابعة الرصيد والترحيل لكل حساب',
       actions: [
         if (widget.session.can(AppPermissions.manageAssets))
@@ -71,6 +79,12 @@ class _AccountsPageState extends State<AccountsPage> {
             onPressed: () => _accountDialog(context),
             icon: const Icon(Icons.add, size: 18),
             label: Text(tr(ar: 'إضافة حساب', en: 'Add account')),
+          ),
+        if (widget.session.isAdmin)
+          OutlinedButton.icon(
+            onPressed: loading ? null : _openDailyCommission,
+            icon: const Icon(Icons.today_outlined, size: 18),
+            label: const Text('عمولة فوري اليومية'),
           ),
         if (widget.session.can(AppPermissions.topUpAssets))
           FilledButton.icon(
@@ -131,7 +145,7 @@ class _AccountsPageState extends State<AccountsPage> {
                                         0),
                               ),
                             ),
-                            note: 'منفصلة عن أصل الرصيد',
+                            note: 'نزلة فوري داخلة في رصيد الحساب',
                             accent: true,
                           ),
                         MetricCard(
@@ -153,9 +167,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   rows: data,
                   canManage: widget.session.can(AppPermissions.manageAssets),
                   showProfits: widget.session.isAdmin,
-                  todayDrops: todayDrops,
                   onManage: _manageAccount,
-                  onRecordDrop: _recordDrop,
                 ),
               ],
             ),
@@ -459,65 +471,34 @@ class _AccountsPageState extends State<AccountsPage> {
     }
   }
 
-  Future<void> _recordDrop(Map<String, dynamic> account) async {
-    final amount = TextEditingController();
-    String? fieldError;
-    final value = await showHesbaModal<num>(
+  Future<void> _openDailyCommission() async {
+    final accounts = [
+      for (final item in data)
+        if (item is Map && item['type'] == 'fawry' && item['active'] == true)
+          Map<String, dynamic>.from(item),
+    ];
+    if (accounts.isEmpty) {
+      showAppSnack(context, 'مفيش حساب فوري نشط', error: true);
+      return;
+    }
+    final amounts = await showHesbaModal<Map<String, num>>(
       context: context,
-      maxWidth: 480,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'نزلة فوري اليومية',
-          subtitle: '${account['name']} · عمولة أمس بتنزل النهاردة',
-          actions: HesbaModalActions(
-            primaryLabel: 'تسجيل النزلة',
-            onPrimary: () {
-              final parsed = num.tryParse(amount.text.trim());
-              if (parsed == null || parsed < 0) {
-                setLocal(() => fieldError = 'اكتب مبلغًا صحيحًا، أو 0 لو منزّلش حاجة');
-                return;
-              }
-              Navigator.pop(ctx, parsed);
-            },
-            onCancel: () => Navigator.pop(ctx),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              HesbaModalCallout(
-                child: const Text(
-                  'المبلغ يتضاف على عمولة الحساب، ومش بيتخصم من الرصيد. لو منزّلش حاجة اكتب 0 عشان التنبيه الصباحي يقف.',
-                ),
-              ),
-              const SizedBox(height: 18),
-              HesbaModalField(
-                label: 'نزل كام',
-                child: TextField(
-                  controller: amount,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  textDirection: TextDirection.ltr,
-                  decoration: const InputDecoration(),
-                ),
-              ),
-              if (fieldError != null) ...[
-                const SizedBox(height: 12),
-                Text(fieldError!, style: const TextStyle(color: HesbaColors.red)),
-              ],
-            ],
-          ),
-        ),
+      maxWidth: 560,
+      builder: (ctx) => _DailyCommissionDialog(
+        accounts: accounts,
+        todayDrops: todayDrops,
+        todayLabel: formatDate(DateTime.now().toIso8601String()),
       ),
     );
-    amount.dispose();
-    if (value == null) return;
-    await _action(
-      () => widget.session.api.post(
-        ApiEndpoints.fawryDailyDrop('${account['id']}'),
-        {'amount': value},
-      ),
-    );
+    if (amounts == null || amounts.isEmpty || !mounted) return;
+    await _action(() async {
+      for (final entry in amounts.entries) {
+        await widget.session.api.post(
+          ApiEndpoints.fawryDailyDrop(entry.key),
+          {'amount': entry.value},
+        );
+      }
+    });
   }
 
   Future<void> _action(Future<dynamic> Function() operation) async {
@@ -535,22 +516,137 @@ class _AccountsPageState extends State<AccountsPage> {
 
 enum _ManageAction { activate, deactivate, delete }
 
+class _DailyCommissionDialog extends StatefulWidget {
+  const _DailyCommissionDialog({
+    required this.accounts,
+    required this.todayDrops,
+    required this.todayLabel,
+  });
+
+  final List<Map<String, dynamic>> accounts;
+  final Map<String, num> todayDrops;
+  final String todayLabel;
+
+  @override
+  State<_DailyCommissionDialog> createState() => _DailyCommissionDialogState();
+}
+
+class _DailyCommissionDialogState extends State<_DailyCommissionDialog> {
+  final _amount = TextEditingController();
+  late String _accountId;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _accountId = '${widget.accounts.first['id']}';
+  }
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    super.dispose();
+  }
+
+  num? get _recorded => widget.todayDrops[_accountId];
+
+  void _submit() {
+    if (_recorded != null) return;
+    final amount = num.tryParse(_amount.text.trim());
+    if (amount == null || amount < 0) {
+      setState(() => _error = 'اكتب عمولة صحيحة، أو 0 لو منزّلش حاجة');
+      return;
+    }
+    Navigator.pop(context, {_accountId: amount});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final recorded = _recorded;
+    return HesbaModalCard(
+      title: 'عمولة فوري اليومية',
+      subtitle: 'تاريخ اليوم ${widget.todayLabel}',
+      actions: HesbaModalActions(
+        primaryLabel: 'تسجيل العمولة',
+        primaryEnabled: recorded == null,
+        onPrimary: _submit,
+        onCancel: () => Navigator.pop(context),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const HesbaModalCallout(
+            child: Text(
+              'اختار حساب فوري من القائمة، وبعدين اكتب العمولة اللي نزلت النهاردة. المبلغ يتضاف على رصيد الحساب.',
+            ),
+          ),
+          const SizedBox(height: 18),
+          HesbaModalField(
+            label: 'الحساب *',
+            child: DropdownButtonFormField<String>(
+              key: ValueKey(_accountId),
+              initialValue: _accountId,
+              isExpanded: true,
+              decoration: const InputDecoration(),
+              items: [
+                for (final account in widget.accounts)
+                  DropdownMenuItem(
+                    value: '${account['id']}',
+                    child: Text(
+                      '${account['name']} — ${money(account['balance'])}',
+                    ),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _accountId = value;
+                  _error = null;
+                  _amount.clear();
+                });
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+          if (recorded != null)
+            Text(
+              'اتسجلت النهاردة ${money(recorded)}',
+              style: HesbaText.tableCell.copyWith(color: HesbaColors.tealDark),
+            )
+          else
+            HesbaModalField(
+              label: 'العمولة كام *',
+              child: TextField(
+                controller: _amount,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                textDirection: TextDirection.ltr,
+                decoration: const InputDecoration(),
+              ),
+            ),
+          if (_error != null) ...[
+            const SizedBox(height: 12),
+            Text(_error!, style: const TextStyle(color: HesbaColors.red)),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
 class _AccountsTable extends StatelessWidget {
   const _AccountsTable({
     required this.rows,
     required this.canManage,
     required this.showProfits,
-    required this.todayDrops,
     required this.onManage,
-    required this.onRecordDrop,
   });
 
   final List<dynamic> rows;
   final bool canManage;
   final bool showProfits;
-  final Map<String, num> todayDrops;
   final Future<void> Function(Map<String, dynamic> account) onManage;
-  final Future<void> Function(Map<String, dynamic> account) onRecordDrop;
 
   @override
   Widget build(BuildContext context) {
@@ -645,18 +741,8 @@ class _AccountsTable extends StatelessWidget {
                           ),
                         DataCell(SoftBadge.status(active: e['active'] == true)),
                         DataCell(
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              if (showProfits && e['type'] == 'fawry')
-                                Padding(
-                                  padding: const EdgeInsetsDirectional.only(
-                                    end: 8,
-                                  ),
-                                  child: _dropAction(e as Map<String, dynamic>),
-                                ),
-                              if (canManage)
-                                OutlinedButton(
+                          canManage
+                              ? OutlinedButton(
                                   onPressed: () =>
                                       onManage(e as Map<String, dynamic>),
                                   style: OutlinedButton.styleFrom(
@@ -675,10 +761,7 @@ class _AccountsTable extends StatelessWidget {
                                   ),
                                   child: Text(tr(ar: 'إدارة', en: 'Admin')),
                                 )
-                              else if (!showProfits || e['type'] != 'fawry')
-                                const Text('—'),
-                            ],
-                          ),
+                              : const Text('—'),
                         ),
                       ],
                     ),
@@ -688,28 +771,6 @@ class _AccountsTable extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-
-  Widget _dropAction(Map<String, dynamic> account) {
-    final recorded = todayDrops['${account['id']}'];
-    if (recorded != null) {
-      return Text(
-        'اتسجلت ${money(recorded)}',
-        style: HesbaText.tableCell.copyWith(color: HesbaColors.tealDark),
-      );
-    }
-    if (account['active'] != true) return const Text('—');
-    return OutlinedButton(
-      onPressed: () => onRecordDrop(account),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: HesbaColors.tealDark,
-        side: const BorderSide(color: HesbaColors.border),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        minimumSize: const Size(0, 36),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-      child: const Text('نزلة النهاردة'),
     );
   }
 }

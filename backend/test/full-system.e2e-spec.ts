@@ -1047,7 +1047,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .expect(201);
     expect(recorded.body).toMatchObject({
       amount: 15,
-      account: { balance: 990, commissionBalance: 15 },
+      account: { balance: 1005, commissionBalance: 15 },
     });
     await request(app.getHttpServer())
       .post(`/api/accounts/${fawry.body.id}/fawry-daily-drop`)
