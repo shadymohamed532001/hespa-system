@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/utils/digits.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/data_card.dart';
 import '../../core/widgets/error_box.dart';
@@ -155,6 +156,7 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
                 child: TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [ArabicDigitsFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -177,7 +179,7 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
     if (ok == true) {
       try {
         await widget.session.api.post(widget.adminTopUpPath!(id), {
-          'amount': num.tryParse(amount.text) ?? 0,
+          'amount': parseNum(amount.text) ?? 0,
           if (reference.text.isNotEmpty) 'reference': reference.text,
         });
         await load();

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
+import '../../core/utils/digits.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
@@ -167,7 +168,7 @@ class _InternalTransferPageState extends State<InternalTransferPage> {
         if (from.id != null) 'fromId': from.id,
         'toType': to.type,
         if (to.id != null) 'toId': to.id,
-        'amount': num.parse(_amount.text.trim()),
+        'amount': parseNum(_amount.text.trim())!,
         if (_reference.text.trim().isNotEmpty)
           'reference': _reference.text.trim(),
       });
@@ -312,10 +313,13 @@ class _TransferFormCard extends StatelessWidget {
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                inputFormatters: const [
+                                  ArabicDigitsFormatter(),
+                                ],
                                 textDirection: TextDirection.ltr,
                                 textAlign: TextAlign.left,
                                 validator: (value) {
-                                  final number = num.tryParse(
+                                  final number = parseNum(
                                     value?.trim() ?? '',
                                   );
                                   return number == null || number <= 0

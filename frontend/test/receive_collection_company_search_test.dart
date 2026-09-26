@@ -117,7 +117,7 @@ void main() {
     await tester.tap(split);
     await tester.pumpAndSettle();
 
-    expect(find.text('الكاش اللي يدخل الخزنة *'), findsOneWidget);
+    expect(find.text('الكاش اللي يدخل الخزنة *'), findsNothing);
     expect(find.text('المحفظة *'), findsOneWidget);
     expect(find.text('مبلغ المحفظة *'), findsOneWidget);
   });

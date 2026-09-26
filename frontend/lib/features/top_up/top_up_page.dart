@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/digits.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
@@ -222,7 +223,7 @@ class _TopUpPageState extends State<TopUpPage> {
       final reference = _reference.text.trim();
       final note = _note.text.trim();
       await widget.session.api.post(path, {
-        'amount': num.parse(_amount.text.trim()),
+        'amount': parseNum(_amount.text.trim())!,
         if (reference.isNotEmpty || note.isNotEmpty)
           'reference': note.isEmpty
               ? reference
@@ -407,9 +408,12 @@ class _TopUpFormCard extends StatelessWidget {
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
+                                inputFormatters: const [
+                                  ArabicDigitsFormatter(),
+                                ],
                                 decoration: const InputDecoration(),
                                 validator: (value) {
-                                  final parsed = num.tryParse(
+                                  final parsed = parseNum(
                                     value?.trim() ?? '',
                                   );
                                   if (parsed == null || parsed <= 0) {

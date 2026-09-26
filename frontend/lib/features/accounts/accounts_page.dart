@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/digits.dart';
 import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
@@ -375,6 +376,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 child: TextField(
                   controller: opening,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [ArabicDigitsFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -388,7 +390,7 @@ class _AccountsPageState extends State<AccountsPage> {
         () => widget.session.api.post(ApiEndpoints.accounts, {
           'name': name.text,
           'type': type,
-          'openingBalance': num.tryParse(opening.text) ?? 0,
+          'openingBalance': parseNum(opening.text) ?? 0,
         }),
       );
     }
@@ -442,6 +444,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 child: TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [ArabicDigitsFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -464,7 +467,7 @@ class _AccountsPageState extends State<AccountsPage> {
     if (ok == true) {
       await _action(
         () => widget.session.api.post(ApiEndpoints.accountTopUp(id), {
-          'amount': num.tryParse(amount.text) ?? 0,
+          'amount': parseNum(amount.text) ?? 0,
           if (reference.text.isNotEmpty) 'reference': reference.text,
         }),
       );
@@ -552,7 +555,7 @@ class _DailyCommissionDialogState extends State<_DailyCommissionDialog> {
 
   void _submit() {
     if (_recorded != null) return;
-    final amount = num.tryParse(_amount.text.trim());
+    final amount = parseNum(_amount.text.trim());
     if (amount == null || amount < 0) {
       setState(() => _error = 'اكتب عمولة صحيحة، أو 0 لو منزّلش حاجة');
       return;
@@ -621,6 +624,7 @@ class _DailyCommissionDialogState extends State<_DailyCommissionDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: const [ArabicDigitsFormatter()],
                 textDirection: TextDirection.ltr,
                 decoration: const InputDecoration(),
               ),

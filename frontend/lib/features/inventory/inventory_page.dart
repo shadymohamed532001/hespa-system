@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/digits.dart';
 import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
@@ -237,6 +238,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 child: TextField(
                   controller: stock,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [ArabicDigitsFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -248,6 +250,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  inputFormatters: const [ArabicDigitsFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -257,6 +260,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 child: TextField(
                   controller: price,
                   keyboardType: TextInputType.number,
+                  inputFormatters: const [ArabicDigitsFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -270,9 +274,9 @@ class _InventoryPageState extends State<InventoryPage> {
       await widget.session.api.post(ApiEndpoints.inventoryProducts, {
         'name': name.text.trim(),
         'category': category,
-        'openingStock': int.tryParse(stock.text) ?? 0,
-        'defaultPrice': num.tryParse(price.text) ?? 0,
-        'costPrice': num.tryParse(cost.text) ?? 0,
+        'openingStock': parseInt(stock.text) ?? 0,
+        'defaultPrice': parseNum(price.text) ?? 0,
+        'costPrice': parseNum(cost.text) ?? 0,
       });
       await load();
       if (mounted) showAppSnack(context, 'تمت إضافة الصنف');
@@ -308,6 +312,7 @@ class _InventoryPageState extends State<InventoryPage> {
               child: TextField(
                 controller: qty,
                 keyboardType: TextInputType.number,
+                inputFormatters: const [ArabicDigitsFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -319,6 +324,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: const [ArabicDigitsFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -339,8 +345,8 @@ class _InventoryPageState extends State<InventoryPage> {
       await widget.session.api.post(
         ApiEndpoints.inventoryStockIn('${product['id']}'),
         {
-          'quantity': int.tryParse(qty.text) ?? 0,
-          if (num.tryParse(cost.text) != null) 'unitCost': num.parse(cost.text),
+          'quantity': parseInt(qty.text) ?? 0,
+          if (parseNum(cost.text) != null) 'unitCost': parseNum(cost.text),
           if (supplier.text.trim().isNotEmpty) 'supplier': supplier.text.trim(),
         },
       );
@@ -382,6 +388,7 @@ class _InventoryPageState extends State<InventoryPage> {
               child: TextField(
                 controller: qty,
                 keyboardType: TextInputType.number,
+                inputFormatters: const [ArabicDigitsFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -393,6 +400,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: const [ArabicDigitsFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -412,8 +420,8 @@ class _InventoryPageState extends State<InventoryPage> {
     try {
       final response = await widget.session.api
           .post(ApiEndpoints.inventorySell('${product['id']}'), {
-            'quantity': int.tryParse(qty.text) ?? 0,
-            'unitPrice': num.tryParse(price.text) ?? 0,
+            'quantity': parseInt(qty.text) ?? 0,
+            'unitPrice': parseNum(price.text) ?? 0,
             if (note.text.trim().isNotEmpty) 'note': note.text.trim(),
           });
       await load();

@@ -10,6 +10,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
+import '../../core/utils/digits.dart';
 import '../../core/settings/tr.dart';
 
 class AdminPage extends StatefulWidget {
@@ -330,6 +331,7 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxReceive,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
+                              const ArabicDigitsFormatter(),
                               FilteringTextInputFormatter.allow(
                                 RegExp(r'[0-9.]'),
                               ),
@@ -348,6 +350,7 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxTopUp,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
+                              const ArabicDigitsFormatter(),
                               FilteringTextInputFormatter.allow(
                                 RegExp(r'[0-9.]'),
                               ),
@@ -366,6 +369,7 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxSale,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
+                              const ArabicDigitsFormatter(),
                               FilteringTextInputFormatter.allow(
                                 RegExp(r'[0-9.]'),
                               ),
@@ -384,6 +388,7 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxTransfer,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
+                              const ArabicDigitsFormatter(),
                               FilteringTextInputFormatter.allow(
                                 RegExp(r'[0-9.]'),
                               ),
@@ -460,7 +465,7 @@ class _AdminPageState extends State<AdminPage> {
   num? _parseLimit(String text) {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return null;
-    return num.tryParse(trimmed);
+    return parseNum(trimmed);
   }
 }
 

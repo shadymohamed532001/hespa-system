@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/digits.dart';
 import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
@@ -142,6 +143,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
                     child: TextField(
                       controller: commission,
                       keyboardType: TextInputType.number,
+                      inputFormatters: const [ArabicDigitsFormatter()],
                       decoration: const InputDecoration(),
                     ),
                   )
@@ -165,7 +167,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
             'accountId': accountId,
             'commission': isFawry(accountId)
                 ? 0
-                : num.tryParse(commission.text) ?? 0,
+                : parseNum(commission.text) ?? 0,
           },
         );
         await load();

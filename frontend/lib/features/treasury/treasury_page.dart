@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/digits.dart';
 import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/error_box.dart';
@@ -80,6 +81,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
+                inputFormatters: const [ArabicDigitsFormatter()],
                 decoration: const InputDecoration(labelText: 'الرصيد المعدود'),
               ),
               const SizedBox(height: 14),
@@ -103,7 +105,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
         ],
       ),
     );
-    final counted = num.tryParse(balance.text.trim());
+    final counted = parseNum(balance.text.trim());
     final noteValue = note.text.trim();
     balance.dispose();
     note.dispose();

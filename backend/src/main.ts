@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
+import { normalizeRequestNumbers } from './common/normalize-digits.js';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -27,6 +28,18 @@ async function bootstrap() {
   app.set('trust proxy', trustProxy);
   app.use(helmet());
   app.setGlobalPrefix('api');
+  app.use(
+    (
+      request: { body?: unknown },
+      _response: unknown,
+      next: () => void,
+    ) => {
+      if (request.body !== undefined) {
+        request.body = normalizeRequestNumbers(request.body);
+      }
+      next();
+    },
+  );
   const allowedOrigins = config
     .get<string>('CORS_ORIGINS', '')
     .split(',')

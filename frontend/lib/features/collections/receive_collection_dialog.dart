@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/digits.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/hesba_modal.dart';
 import '../auth/session_controller.dart';
@@ -33,7 +34,6 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   final _formKey = GlobalKey<FormState>();
   final _company = TextEditingController();
   final _amount = TextEditingController();
-  final _cashAmount = TextEditingController();
   final _commission = TextEditingController(text: '0');
   final List<_WalletPart> _parts = [];
 
@@ -73,7 +73,6 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     super.initState();
     _company.addListener(_syncCompanySelection);
     _amount.addListener(_onMoneyChanged);
-    _cashAmount.addListener(_onMoneyChanged);
     _loadAccounts();
   }
 
@@ -81,10 +80,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   void dispose() {
     _company.removeListener(_syncCompanySelection);
     _amount.removeListener(_onMoneyChanged);
-    _cashAmount.removeListener(_onMoneyChanged);
     _company.dispose();
     _amount.dispose();
-    _cashAmount.dispose();
     _commission.dispose();
     for (final part in _parts) {
       part.amount.removeListener(_onMoneyChanged);
@@ -172,11 +169,11 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     final request = <String, dynamic>{
       'agentName': _recordedAgentName(),
       'companyName': _companyName!,
-      'amount': num.parse(_amount.text.trim()),
+      'amount': parseNum(_amount.text.trim())!,
       'executionMode': _mode,
       'receivedAt': receivedAt.toIso8601String(),
       'commission': _isImmediate && !_selectedIsFawry
-          ? num.tryParse(_commission.text.trim()) ?? 0
+          ? parseNum(_commission.text.trim()) ?? 0
           : 0,
       if (_isImmediate) 'accountId': _accountId,
       if (_splitIncoming) ..._splitPayload(),
@@ -262,49 +259,54 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     _ => '',
   };
 
+  num? _treasuryCash() {
+    final total = parseNum(_amount.text.trim());
+    if (total == null) return null;
+    var walletTotal = 0.0;
+    for (final part in _parts) {
+      final amount = parseNum(part.amount.text.trim());
+      if (amount == null) return null;
+      walletTotal += amount;
+    }
+    return ((total - walletTotal) * 100).round() / 100;
+  }
+
   String? _splitError() {
     if (!_splitIncoming) return null;
     if (_wallets.isEmpty) {
       return 'أضف محفظة نشطة زي فودافون كاش قبل تقسيم الداخل.';
     }
-    final total = num.tryParse(_amount.text.trim());
-    final cash = num.tryParse(_cashAmount.text.trim());
-    if (total == null || total <= 0 || cash == null || cash < 0) {
-      return 'أدخل المبلغ الكلي والكاش اللي يدخل الخزنة.';
-    }
+    final total = parseNum(_amount.text.trim());
+    if (total == null || total <= 0) return 'أدخل المبلغ الكلي.';
     final ids = <String>[];
-    var walletTotal = 0.0;
     for (final part in _parts) {
       final walletId = part.walletId;
-      final amount = num.tryParse(part.amount.text.trim());
+      final amount = parseNum(part.amount.text.trim());
       if (walletId == null || _walletById(walletId) == null) {
         return 'اختر المحفظة اللي هتستلم الجزء.';
       }
-      if (amount == null || amount <= 0) {
-        return 'أدخل مبلغ المحفظة.';
-      }
+      if (amount == null || amount <= 0) return 'أدخل مبلغ المحفظة.';
       if (ids.contains(walletId)) {
         return 'المحفظة متكررة. اجمع مبلغها في سطر واحد.';
       }
       ids.add(walletId);
-      walletTotal += amount;
     }
     if (ids.isEmpty) return 'أضف جزء المحفظة.';
-    final sum = cash + walletTotal;
-    if ((sum - total).abs() > 0.009) {
-      return 'مجموع الكاش والمحافظ ${money(sum)} لازم يساوي المبلغ ${money(total)}.';
+    final cash = _treasuryCash();
+    if (cash == null || cash < 0) {
+      return 'جزء المحفظة أكبر من المبلغ. الباقي بس هو اللي يدخل الخزنة.';
     }
     return null;
   }
 
   Map<String, dynamic> _splitPayload() {
     return {
-      'cashAmount': num.parse(_cashAmount.text.trim()),
+      'cashAmount': _treasuryCash(),
       'incomingParts': [
         for (final part in _parts)
           {
             'walletId': part.walletId,
-            'amount': num.parse(part.amount.text.trim()),
+            'amount': parseNum(part.amount.text.trim())!,
           },
       ],
     };
@@ -315,14 +317,17 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       return 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.';
     }
     if (_splitIncoming && _splitError() == null) {
-      final total = num.parse(_amount.text.trim());
-      final cash = num.parse(_cashAmount.text.trim());
+      final total = parseNum(_amount.text.trim())!;
+      final cash = _treasuryCash()!;
       final wallets = _parts.map((part) {
         final wallet = _walletById(part.walletId);
         final name = wallet == null ? 'المحفظة' : '${wallet['name']}';
         return '$name ${money(part.amount.text.trim())}';
       }).join('، ');
-      return 'يتسحب ${money(total)} من حساب التنفيذ. يدخل الخزنة ${money(cash)}. يدخل $wallets.';
+      final treasury = cash == 0
+          ? 'مفيش كاش يدخل الخزنة.'
+          : 'يدخل الخزنة ${money(cash)}.';
+      return 'يتسحب ${money(total)} من حساب التنفيذ. $treasury يدخل $wallets.';
     }
     if (_selectedIsFawry) {
       return 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.';
@@ -368,7 +373,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                         controller: _amount,
                         numeric: true,
                         validator: (value) {
-                          final number = num.tryParse(value?.trim() ?? '');
+                          final number = parseNum(value?.trim() ?? '');
                           return number == null || number <= 0
                               ? tr(
                                   ar: 'أدخل مبلغًا صحيحًا',
@@ -389,7 +394,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                           controller: _commission,
                           numeric: true,
                           validator: (value) {
-                            final number = num.tryParse(
+                            final number = parseNum(
                               value?.trim().isEmpty ?? true
                                   ? '0'
                                   : value!.trim(),
@@ -488,23 +493,29 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             value: _splitIncoming,
             title: const Text('تقسيم المبلغ الداخل'),
             subtitle: const Text(
-              'السحب من حساب التنفيذ على المبلغ كله. الكاش بس يدخل الخزنة، والباقي يدخل المحفظة.',
+              'اكتب جزء المحفظة بس. الباقي من المبلغ يدخل الخزنة، والمبلغ كله يتسحب من حساب التنفيذ.',
             ),
             onChanged: _saving ? null : (value) => _setSplit(value ?? false),
           ),
         ),
         if (_splitIncoming) ...[
           const SizedBox(height: 8),
-          _textField(
-            label: 'الكاش اللي يدخل الخزنة *',
-            controller: _cashAmount,
-            numeric: true,
-            validator: (value) {
-              final number = num.tryParse(value?.trim() ?? '');
-              return number == null || number < 0 ? 'أدخل مبلغ الكاش' : null;
-            },
-          ),
           for (var index = 0; index < _parts.length; index++) _partRow(index),
+          if (_treasuryCash() case final cash?)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                cash < 0
+                    ? 'جزء المحفظة أكبر من المبلغ.'
+                    : cash == 0
+                    ? 'المبلغ كله يدخل المحفظة.'
+                    : 'الباقي ${money(cash)} يدخل الخزنة.',
+                style: TextStyle(
+                  color: cash < 0 ? HesbaColors.red : HesbaColors.teal,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ),
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
@@ -560,7 +571,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
               controller: part.amount,
               numeric: true,
               validator: (value) {
-                final number = num.tryParse(value?.trim() ?? '');
+                final number = parseNum(value?.trim() ?? '');
                 return number == null || number <= 0
                     ? 'أدخل مبلغ المحفظة'
                     : null;
@@ -720,6 +731,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         keyboardType: numeric
             ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,
+        inputFormatters: numeric ? const [ArabicDigitsFormatter()] : null,
         textDirection: numeric ? TextDirection.ltr : TextDirection.rtl,
         textAlign: numeric ? TextAlign.left : TextAlign.right,
         validator:

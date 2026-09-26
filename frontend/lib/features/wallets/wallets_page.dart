@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/digits.dart';
 import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
@@ -262,6 +263,7 @@ class _WalletsPageState extends State<WalletsPage> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
+                  inputFormatters: const [ArabicDigitsFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -292,7 +294,7 @@ class _WalletsPageState extends State<WalletsPage> {
         'name': name.text.trim(),
         'ownerName': ownerName.text.trim(),
         'type': type,
-        'openingBalance': num.tryParse(opening.text.trim()) ?? 0,
+        'openingBalance': parseNum(opening.text.trim()) ?? 0,
       }),
       'تمت إضافة المحفظة بنجاح',
     );
@@ -327,7 +329,7 @@ class _WalletsPageState extends State<WalletsPage> {
     if (ok != true) return;
     await _action(
       () => widget.session.api.post(ApiEndpoints.walletTopUp(id), {
-        'amount': num.tryParse(amount.text.trim()) ?? 0,
+        'amount': parseNum(amount.text.trim()) ?? 0,
         if (reference.text.trim().isNotEmpty)
           'reference': reference.text.trim(),
       }),
@@ -349,7 +351,7 @@ class _WalletsPageState extends State<WalletsPage> {
           final selectedWallet = _active.firstWhere(
             (wallet) => '${wallet['id']}' == id,
           );
-          final parsedAmount = num.tryParse(amount.text.trim());
+          final parsedAmount = parseNum(amount.text.trim());
           final fee = customerWalletCommission(
             type: '${selectedWallet['type']}',
             direction: direction,
@@ -471,7 +473,7 @@ class _WalletsPageState extends State<WalletsPage> {
     await _action(
       () => widget.session.api.post(ApiEndpoints.walletCustomerOperation(id), {
         'direction': direction,
-        'amount': num.tryParse(amount.text.trim()) ?? 0,
+        'amount': parseNum(amount.text.trim()) ?? 0,
         if (direction == 'receive') 'feePaymentMode': feePaymentMode,
         if (reference.text.trim().isNotEmpty)
           'reference': reference.text.trim(),
@@ -656,6 +658,7 @@ class _WalletOperationFields extends StatelessWidget {
           controller: amount,
           onChanged: onAmountChanged,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: const [ArabicDigitsFormatter()],
           decoration: const InputDecoration(),
         ),
       ),
