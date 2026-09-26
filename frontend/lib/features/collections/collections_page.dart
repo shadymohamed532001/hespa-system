@@ -95,49 +95,66 @@ class _CollectionsPageState extends State<CollectionsPage> {
     if (accounts.isEmpty) return;
     var accountId = '${accounts.first['id']}';
     final commission = TextEditingController(text: '0');
+    bool isFawry(String id) {
+      for (final account in accounts) {
+        if ('${account['id']}' == id) return account['type'] == 'fawry';
+      }
+      return false;
+    }
+
     final ok = await showHesbaModal<bool>(
       context: context,
       maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'تنفيذ المعلّق ${collection['reference']}',
-          subtitle:
-              '${collection['companyName']} · ${collection['agentName']} · ${money(collection['amount'])}',
-          actions: HesbaModalActions(
-            primaryLabel: 'تأكيد التنفيذ',
-            onPrimary: () => Navigator.pop(ctx, true),
-            onCancel: () => Navigator.pop(ctx, false),
-          ),
-          child: Column(
-            children: [
-              HesbaModalField(
-                label: 'الحساب المستخدم *',
-                child: DropdownButtonFormField<String>(
-                  initialValue: accountId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(),
-                  items: [
-                    for (final e in accounts)
-                      DropdownMenuItem(
-                        value: '${e['id']}',
-                        child: Text('${e['name']} — ${money(e['balance'])}'),
-                      ),
-                  ],
-                  onChanged: (v) => setLocal(() => accountId = v!),
+        builder: (ctx, setLocal) {
+          final fawry = isFawry(accountId);
+          return HesbaModalCard(
+            title: 'تنفيذ المعلّق ${collection['reference']}',
+            subtitle:
+                '${collection['companyName']} · ${collection['agentName']} · ${money(collection['amount'])}',
+            actions: HesbaModalActions(
+              primaryLabel: 'تأكيد التنفيذ',
+              onPrimary: () => Navigator.pop(ctx, true),
+              onCancel: () => Navigator.pop(ctx, false),
+            ),
+            child: Column(
+              children: [
+                HesbaModalField(
+                  label: 'الحساب المستخدم *',
+                  child: DropdownButtonFormField<String>(
+                    initialValue: accountId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(),
+                    items: [
+                      for (final e in accounts)
+                        DropdownMenuItem(
+                          value: '${e['id']}',
+                          child: Text('${e['name']} — ${money(e['balance'])}'),
+                        ),
+                    ],
+                    onChanged: (v) => setLocal(() => accountId = v!),
+                  ),
                 ),
-              ),
-              SizedBox(height: 18),
-              HesbaModalField(
-                label: tr(ar: 'العمولة', en: 'Commission'),
-                child: TextField(
-                  controller: commission,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(),
-                ),
-              ),
-            ],
-          ),
-        ),
+                const SizedBox(height: 18),
+                if (!fawry)
+                  HesbaModalField(
+                    label: tr(ar: 'العمولة', en: 'Commission'),
+                    child: TextField(
+                      controller: commission,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(),
+                    ),
+                  )
+                else
+                  const HesbaModalCallout(
+                    child: Text(
+                      'حساب فوري: العمولة مش بتتسجل مع التنفيذ. الأدمن بيكتب النزلة في اليوم التالي.',
+                    ),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
     );
     if (ok == true) {
@@ -146,7 +163,9 @@ class _CollectionsPageState extends State<CollectionsPage> {
           ApiEndpoints.executeCollection('${collection['id']}'),
           {
             'accountId': accountId,
-            'commission': num.tryParse(commission.text) ?? 0,
+            'commission': isFawry(accountId)
+                ? 0
+                : num.tryParse(commission.text) ?? 0,
           },
         );
         await load();

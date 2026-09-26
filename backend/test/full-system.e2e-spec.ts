@@ -158,6 +158,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'WalletOwner1790087699421',
       'DevicePushTokens1790087699422',
       'WalletCustomerCashFee1790087699424',
+      'FawryDailyDrop1790087699425',
     ]);
   });
 
@@ -960,5 +961,163 @@ describe.sequential('full system lifecycle (e2e)', () => {
       leaked_passwords: '0',
     });
     expect(Number(invariants.reversal_count)).toBeGreaterThanOrEqual(7);
+  });
+
+  it('records Fawry commission as the next-day admin drop, not on the operation', async () => {
+    const fawry = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(adminToken, 'fawry-drop-account'))
+      .send({
+        name: `فوري النزلة ${randomUUID()}`,
+        type: 'fawry',
+        openingBalance: 1000,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'fawry-commission-rejected'))
+      .send({
+        agentName: 'مندوب فوري',
+        companyName: 'شركة فوري',
+        amount: 10,
+        executionMode: 'immediate',
+        accountId: fawry.body.id,
+        commission: 4,
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'fawry-without-commission'))
+      .send({
+        agentName: 'مندوب فوري',
+        companyName: 'شركة فوري',
+        amount: 10,
+        executionMode: 'immediate',
+        accountId: fawry.body.id,
+        commission: 0,
+      })
+      .expect(201);
+
+    const afterPayment = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (afterPayment.body as Array<Record<string, unknown>>).find(
+        (item) => item.id === fawry.body.id,
+      ),
+    ).toMatchObject({ balance: 990, commissionBalance: 0 });
+
+    const viewer = await request(app.getHttpServer())
+      .post('/api/users')
+      .set(mutation(adminToken, 'fawry-viewer'))
+      .send({
+        username: `fawry-viewer-${randomUUID().slice(0, 8)}`,
+        password: 'FawryViewerPassword123!',
+        displayName: 'متابع فوري',
+        role: 'employee',
+        permissions: ['view_balances'],
+      })
+      .expect(201);
+    const { AuthService } = await import('../src/auth/auth.service.js');
+    const { LoginPortal } = await import('../src/auth/dto/login.dto.js');
+    const viewerLogin = await app.get(AuthService).login({
+      username: viewer.body.username as string,
+      password: 'FawryViewerPassword123!',
+      portal: LoginPortal.EMPLOYEE,
+    });
+    const viewerToken = viewerLogin.accessToken;
+
+    await request(app.getHttpServer())
+      .get('/api/accounts/fawry-daily-drops')
+      .set(bearer(viewerToken))
+      .expect(403);
+    await request(app.getHttpServer())
+      .post(`/api/accounts/${fawry.body.id}/fawry-daily-drop`)
+      .set(mutation(viewerToken, 'employee-fawry-drop'))
+      .send({ amount: 15 })
+      .expect(403);
+
+    const recorded = await request(app.getHttpServer())
+      .post(`/api/accounts/${fawry.body.id}/fawry-daily-drop`)
+      .set(mutation(adminToken, 'admin-fawry-drop'))
+      .send({ amount: 15 })
+      .expect(201);
+    expect(recorded.body).toMatchObject({
+      amount: 15,
+      account: { balance: 990, commissionBalance: 15 },
+    });
+    await request(app.getHttpServer())
+      .post(`/api/accounts/${fawry.body.id}/fawry-daily-drop`)
+      .set(mutation(adminToken, 'repeat-fawry-drop'))
+      .send({ amount: 1 })
+      .expect(400);
+
+    const listed = await request(app.getHttpServer())
+      .get('/api/accounts/fawry-daily-drops')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(listed.body.drops).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accountId: fawry.body.id, amount: 15 }),
+      ]),
+    );
+
+    const hold = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'fawry-hold'))
+      .send({
+        agentName: 'مندوب معلّق',
+        companyName: 'شركة معلّقة',
+        amount: 20,
+        executionMode: 'hold',
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/collections/${hold.body.id}/execute`)
+      .set(mutation(adminToken, 'fawry-hold-commission'))
+      .send({ accountId: fawry.body.id, commission: 2 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post(`/api/collections/${hold.body.id}/execute`)
+      .set(mutation(adminToken, 'fawry-hold-execute'))
+      .send({ accountId: fawry.body.id, commission: 0 })
+      .expect(201);
+
+    const { FawryDropReminderService } = await import(
+      '../src/accounts/fawry-drop-reminder.service.js'
+    );
+    const { instantAtCairoHour } = await import('../src/accounts/cairo-time.js');
+    const reminder = app.get(FawryDropReminderService);
+    expect(
+      (await reminder.remindIfDue(instantAtCairoHour('2099-01-15', 7))).sent,
+    ).toBe(false);
+    expect(
+      (await reminder.remindIfDue(instantAtCairoHour('2099-01-15', 9))).sent,
+    ).toBe(true);
+    expect(
+      (await reminder.remindIfDue(instantAtCairoHour('2099-01-15', 10))).sent,
+    ).toBe(false);
+
+    const adminNotes = await request(app.getHttpServer())
+      .get('/api/notifications?limit=100')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (adminNotes.body as Array<{ title: string }>).some((item) =>
+        item.title.includes('نزلة فوري'),
+      ),
+    ).toBe(true);
+    const employeeNotes = await request(app.getHttpServer())
+      .get('/api/notifications?limit=100')
+      .set(bearer(viewerToken))
+      .expect(200);
+    expect(
+      (employeeNotes.body as Array<{ title: string }>).some((item) =>
+        item.title.includes('نزلة فوري'),
+      ),
+    ).toBe(false);
   });
 });
