@@ -6,7 +6,6 @@ import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
-import { ReversalDto } from '../common/dto/reversal.dto.js';
 
 type UserRequest = { user: { userId: string; username: string } };
 
@@ -53,16 +52,5 @@ export class CollectionsController {
       Number(hold.amount),
     );
     return this.collections.execute(id, dto, request.user.username);
-  }
-
-  @RequirePermissions(AppPermission.REVERSE_OPERATIONS)
-  @Idempotent()
-  @Post(':id/reverse')
-  reverse(
-    @Param('id') id: string,
-    @Body() dto: ReversalDto,
-    @Request() request: UserRequest,
-  ) {
-    return this.collections.reverse(id, dto, request.user.username);
   }
 }

@@ -70,9 +70,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
           : _CollectionsTable(
               rows: data,
               onExecute: (row) => _execute(row),
-              canReverse: widget.session.can(AppPermissions.reverseOperations),
               showProfits: widget.session.isAdmin,
-              onReverse: _reverse,
             ),
     );
   }
@@ -161,62 +159,18 @@ class _CollectionsPageState extends State<CollectionsPage> {
     }
   }
 
-  Future<void> _reverse(Map<String, dynamic> collection) async {
-    final reason = TextEditingController();
-    final ok = await showHesbaModal<bool>(
-      context: context,
-      maxWidth: 480,
-      builder: (ctx) => HesbaModalCard(
-        title: 'عكس التحصيل ${collection['reference']}',
-        subtitle: 'سيتم عكس أثر الخزنة والحساب والعمولة كوحدة واحدة.',
-        actions: HesbaModalActions(
-          primaryLabel: tr(ar: 'تأكيد العكس', en: 'Confirm reversal'),
-          onPrimary: () => Navigator.pop(ctx, true),
-          onCancel: () => Navigator.pop(ctx, false),
-        ),
-        child: HesbaModalField(
-          label: tr(ar: 'سبب العكس *', en: 'Reversal reason *'),
-          child: TextField(
-            controller: reason,
-            minLines: 2,
-            maxLines: 4,
-            maxLength: 300,
-            decoration: const InputDecoration(),
-          ),
-        ),
-      ),
-    );
-    final value = reason.text.trim();
-    if (ok != true || value.length < 3) return;
-    try {
-      await widget.session.api.post(
-        ApiEndpoints.reverseCollection('${collection['id']}'),
-        {'reason': value},
-      );
-      await load();
-      if (mounted) showAppSnack(context, 'تم عكس التحصيل وتسجيل السبب');
-    } catch (e) {
-      if (mounted) {
-        showAppSnack(context, ApiClient.errorMessage(e), error: true);
-      }
-    }
-  }
 }
 
 class _CollectionsTable extends StatelessWidget {
   const _CollectionsTable({
     required this.rows,
     required this.onExecute,
-    required this.canReverse,
     required this.showProfits,
-    required this.onReverse,
   });
 
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onExecute;
-  final bool canReverse;
   final bool showProfits;
-  final Future<void> Function(Map<String, dynamic> row) onReverse;
 
   @override
   Widget build(BuildContext context) {
@@ -360,17 +314,8 @@ class _CollectionsTable extends StatelessWidget {
                                   onPressed: () =>
                                       onExecute(e as Map<String, dynamic>),
                                   child: const Text('تنفيذ'),
-                                ),
-                              if (canReverse && e['status'] != 'reversed') ...[
-                                SizedBox(width: 6),
-                                TextButton(
-                                  onPressed: () =>
-                                      onReverse(e as Map<String, dynamic>),
-                                  child: Text(tr(ar: 'عكس', en: 'Reverse')),
-                                ),
-                              ],
-                              if (e['status'] != 'pending' &&
-                                  (!canReverse || e['status'] == 'reversed'))
+                                )
+                              else
                                 Text('—', style: HesbaText.tableCell),
                             ],
                           ),

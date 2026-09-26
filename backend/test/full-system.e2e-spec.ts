@@ -535,7 +535,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
     ).toMatchObject({ remainingBalance: 500, commissionBalance: 0 });
   });
 
-  it('executes and reverses collections without breaking treasury or commission balances', async () => {
+  it('executes collections without breaking treasury or commission balances', async () => {
     const correctionKey = `full-corrected-collection-${randomUUID()}`;
     const largePayload = {
       agentName: 'مندوب الاختبار',
@@ -571,16 +571,12 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .send({ accountId, commission: 5 })
       .expect(201)
       .expect(({ body }) => expect(body.status).toBe('done'));
+    // Collection reversal was removed; the route must not exist anymore.
     await request(app.getHttpServer())
       .post(`/api/collections/${hold.body.id}/reverse`)
       .set(mutation(adminToken, 'reverse-hold'))
       .send({ reason: 'إلغاء التحصيل المعلق بعد التنفيذ' })
-      .expect(201);
-    await request(app.getHttpServer())
-      .post(`/api/collections/${hold.body.id}/reverse`)
-      .set(mutation(adminToken, 'reverse-hold-twice'))
-      .send({ reason: 'محاولة عكس التحصيل مرتين' })
-      .expect(400);
+      .expect(404);
 
     const immediate = await request(app.getHttpServer())
       .post('/api/collections/receive')
@@ -601,9 +597,9 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .set(bearer(adminToken))
       .expect(200);
     expect(finalSummary.body).toMatchObject({
-      actualBalance: 30,
+      actualBalance: 80,
       pendingAmount: 0,
-      availableBalance: 30,
+      availableBalance: 80,
     });
     const accounts = await request(app.getHttpServer())
       .get('/api/accounts')
@@ -613,7 +609,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       (accounts.body as Array<Record<string, unknown>>).find(
         (item) => item.id === accountId,
       ),
-    ).toMatchObject({ balance: 1110, commissionBalance: 3 });
+    ).toMatchObject({ balance: 1060, commissionBalance: 8 });
   });
 
   it('tracks weighted inventory cost, profit, stock movements, limits, and sale reversal', async () => {
@@ -724,13 +720,13 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .query(range)
       .expect(200);
     expect(report.body.summary).toMatchObject({
-      commissions: 3,
+      commissions: 8,
       salesAmount: 80,
       salesCount: 1,
       soldUnits: 1,
       grossProfit: -70,
-      collectionsAmount: 30,
-      collectionsCount: 1,
+      collectionsAmount: 80,
+      collectionsCount: 2,
       pendingCollectionsCount: 0,
     });
     expect(report.body.inventory).toMatchObject({
@@ -835,7 +831,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       closedBy: 'full-admin',
     });
     expect(close.body.close.snapshot).toMatchObject({
-      treasury: { balance: 30 },
+      treasury: { balance: 80 },
     });
     await request(app.getHttpServer())
       .post('/api/treasury/close-day')
@@ -859,7 +855,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       (accountsAfterClose.body as Array<Record<string, unknown>>).find(
         (item) => item.id === accountId,
       ),
-    ).toMatchObject({ balance: 1110, openingBalance: 1110, todayTopUp: 0 });
+    ).toMatchObject({ balance: 1060, openingBalance: 1060, todayTopUp: 0 });
 
     await request(app.getHttpServer())
       .patch(`/api/users/${employeeId}`)
