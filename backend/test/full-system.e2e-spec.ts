@@ -159,6 +159,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'DevicePushTokens1790087699422',
       'WalletCustomerCashFee1790087699424',
       'FawryDailyDrop1790087699425',
+      'CollectionIncomingSplits1790087699426',
     ]);
   });
 
@@ -555,6 +556,8 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .send({ ...largePayload, amount: 50 })
       .expect(201);
     expect(hold.body.status).toBe('pending');
+    expect(hold.body.cashAmount).toBe(50);
+    expect(hold.body.incomingSplits).toBeNull();
 
     const pendingSummary = await request(app.getHttpServer())
       .get('/api/treasury/summary')
@@ -592,6 +595,8 @@ describe.sequential('full system lifecycle (e2e)', () => {
       })
       .expect(201);
     expect(immediate.body.status).toBe('done');
+    expect(immediate.body.cashAmount).toBe(30);
+    expect(immediate.body.incomingSplits).toBeNull();
 
     const finalSummary = await request(app.getHttpServer())
       .get('/api/treasury/summary')
@@ -1119,5 +1124,163 @@ describe.sequential('full system lifecycle (e2e)', () => {
         item.title.includes('نزلة فوري'),
       ),
     ).toBe(false);
+  });
+
+  it('splits an agent receipt so one account is debited in full while cash and a wallet are credited separately', async () => {
+    const account = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(adminToken, 'split-fawry'))
+      .send({
+        name: `فوري التقسيم ${randomUUID()}`,
+        type: 'fawry',
+        openingBalance: 100000,
+      })
+      .expect(201);
+    const wallet = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .set(mutation(adminToken, 'split-vodafone'))
+      .send({
+        name: `فودافون التقسيم ${randomUUID()}`,
+        ownerName: 'المحل',
+        type: 'vodafone_cash',
+        openingBalance: 500,
+      })
+      .expect(201);
+
+    const before = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'split-mismatch'))
+      .send({
+        agentName: 'مندوب التقسيم',
+        companyName: 'شركة التقسيم',
+        amount: 50000,
+        executionMode: 'immediate',
+        accountId: account.body.id,
+        commission: 0,
+        cashAmount: 40000,
+        incomingParts: [{ walletId: wallet.body.id, amount: 9000 }],
+      })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'split-hold'))
+      .send({
+        agentName: 'مندوب التقسيم',
+        companyName: 'شركة التقسيم',
+        amount: 50000,
+        executionMode: 'hold',
+        cashAmount: 40000,
+        incomingParts: [{ walletId: wallet.body.id, amount: 10000 }],
+      })
+      .expect(400);
+
+    const received = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'split-receive'))
+      .send({
+        agentName: 'مندوب التقسيم',
+        companyName: 'شركة التقسيم',
+        amount: 50000,
+        executionMode: 'immediate',
+        accountId: account.body.id,
+        commission: 0,
+        cashAmount: 40000,
+        incomingParts: [{ walletId: wallet.body.id, amount: 10000 }],
+      })
+      .expect(201);
+    expect(received.body).toMatchObject({
+      amount: 50000,
+      cashAmount: 40000,
+      status: 'done',
+      incomingSplits: [
+        {
+          walletId: wallet.body.id,
+          walletName: wallet.body.name,
+          amount: 10000,
+        },
+      ],
+    });
+
+    const after = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(after.body.actualBalance).toBe(before.body.actualBalance + 40000);
+
+    const accounts = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (accounts.body as Array<Record<string, unknown>>).find(
+        (item) => item.id === account.body.id,
+      ),
+    ).toMatchObject({ balance: 50000 });
+
+    const wallets = await request(app.getHttpServer())
+      .get('/api/wallets')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (wallets.body as Array<Record<string, unknown>>).find(
+        (item) => item.id === wallet.body.id,
+      ),
+    ).toMatchObject({
+      balance: 10500,
+      dailyTopUp: 10000,
+      monthlyTopUp: 10000,
+    });
+
+    const ledger = (await dataSource.query(
+      `SELECT id, category, amount::float AS amount, entity_type
+       FROM ledger_entries WHERE reference = $1`,
+      [received.body.reference],
+    )) as Array<{
+      id: string;
+      category: string;
+      amount: number;
+      entity_type: string;
+    }>;
+    expect(ledger).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          category: 'cash_receipt',
+          amount: 40000,
+          entity_type: 'collection',
+        }),
+        expect.objectContaining({
+          category: 'top_up',
+          amount: 10000,
+          entity_type: 'wallet',
+        }),
+        expect.objectContaining({
+          category: 'company_execution',
+          amount: -50000,
+          entity_type: 'account',
+        }),
+      ]),
+    );
+    expect(ledger).toHaveLength(3);
+
+    const walletEntry = ledger.find((entry) => entry.category === 'top_up');
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${walletEntry!.id}/reverse`)
+      .set(mutation(adminToken, 'split-reverse-wallet'))
+      .send({ reason: 'محاولة عكس جزء المحفظة لوحده' })
+      .expect(400);
+    const unchanged = await request(app.getHttpServer())
+      .get('/api/wallets')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (unchanged.body as Array<Record<string, unknown>>).find(
+        (item) => item.id === wallet.body.id,
+      ),
+    ).toMatchObject({ balance: 10500 });
   });
 });

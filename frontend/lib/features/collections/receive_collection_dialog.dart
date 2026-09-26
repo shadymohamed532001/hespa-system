@@ -33,14 +33,18 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   final _formKey = GlobalKey<FormState>();
   final _company = TextEditingController();
   final _amount = TextEditingController();
+  final _cashAmount = TextEditingController();
   final _commission = TextEditingController(text: '0');
+  final List<_WalletPart> _parts = [];
 
   List<dynamic> _accounts = [];
+  List<dynamic> _wallets = [];
   String _mode = 'immediate';
   String? _accountId;
   String? _companyName;
   TimeOfDay _receivedAt = TimeOfDay.now();
   bool _loadingAccounts = true;
+  bool _splitIncoming = false;
   bool _saving = false;
   String? _error;
 
@@ -68,16 +72,29 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   void initState() {
     super.initState();
     _company.addListener(_syncCompanySelection);
+    _amount.addListener(_onMoneyChanged);
+    _cashAmount.addListener(_onMoneyChanged);
     _loadAccounts();
   }
 
   @override
   void dispose() {
     _company.removeListener(_syncCompanySelection);
+    _amount.removeListener(_onMoneyChanged);
+    _cashAmount.removeListener(_onMoneyChanged);
     _company.dispose();
     _amount.dispose();
+    _cashAmount.dispose();
     _commission.dispose();
+    for (final part in _parts) {
+      part.amount.removeListener(_onMoneyChanged);
+      part.amount.dispose();
+    }
     super.dispose();
+  }
+
+  void _onMoneyChanged() {
+    if (mounted && _splitIncoming) setState(() {});
   }
 
   void _syncCompanySelection() {
@@ -87,10 +104,20 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   Future<void> _loadAccounts() async {
     try {
-      final accounts = await widget.session.api.list(ApiEndpoints.accounts);
+      final walletsFuture = widget.session.api
+          .list(ApiEndpoints.wallets)
+          .catchError((_) => <dynamic>[]);
+      final results = await Future.wait([
+        widget.session.api.list(ApiEndpoints.accounts),
+        walletsFuture,
+      ]);
       if (!mounted) return;
+      final accounts = results[0];
       setState(() {
         _accounts = accounts.where((item) => item['active'] != false).toList();
+        _wallets = results[1]
+            .where((item) => item['active'] != false)
+            .toList();
         _accountId = _accounts.isEmpty ? null : '${_accounts.first['id']}';
         _loadingAccounts = false;
       });
@@ -121,6 +148,13 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       setState(() => _error = 'لا يوجد حساب متاح لتنفيذ العملية فورًا.');
       return;
     }
+    if (_splitIncoming) {
+      final splitError = _splitError();
+      if (splitError != null) {
+        setState(() => _error = splitError);
+        return;
+      }
+    }
 
     setState(() {
       _saving = true;
@@ -145,6 +179,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
           ? num.tryParse(_commission.text.trim()) ?? 0
           : 0,
       if (_isImmediate) 'accountId': _accountId,
+      if (_splitIncoming) ..._splitPayload(),
     };
 
     try {
@@ -177,6 +212,122 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         .replaceAll('آ', 'ا')
         .replaceAll('ى', 'ي')
         .replaceAll('ة', 'ه');
+  }
+
+  void _setSplit(bool enabled) {
+    if (enabled && _parts.isEmpty) _addPart(rebuild: false);
+    setState(() {
+      _splitIncoming = enabled && _isImmediate;
+      _error = null;
+    });
+  }
+
+  void _addPart({bool rebuild = true}) {
+    final part = _WalletPart();
+    part.amount.addListener(_onMoneyChanged);
+    _parts.add(part);
+    if (rebuild) setState(() {});
+  }
+
+  void _removePart(int index) {
+    final part = _parts.removeAt(index);
+    part.amount.removeListener(_onMoneyChanged);
+    part.amount.dispose();
+    setState(() {});
+  }
+
+  Map<String, dynamic>? _walletById(String? id) {
+    if (id == null) return null;
+    for (final wallet in _wallets) {
+      if ('${wallet['id']}' == id) return wallet as Map<String, dynamic>;
+    }
+    return null;
+  }
+
+  String _walletLabel(Map<String, dynamic> wallet) {
+    final type = _walletTypeLabel('${wallet['type']}');
+    final name = '${wallet['name']}';
+    final balance = money(wallet['balance']);
+    return type.isEmpty ? '$name — $balance' : '$name · $type — $balance';
+  }
+
+  String _walletTypeLabel(String type) => switch (type) {
+    'vodafone_cash' => 'Vodafone Cash',
+    'orange_cash' => 'Orange Cash',
+    'etisalat_cash' => 'e& cash (اتصالات كاش)',
+    'we_pay' => 'WE Pay',
+    'instapay' => 'InstaPay',
+    'other_wallet' => 'محفظة أخرى',
+    'wallet' => 'محفظة',
+    _ => '',
+  };
+
+  String? _splitError() {
+    if (!_splitIncoming) return null;
+    if (_wallets.isEmpty) {
+      return 'أضف محفظة نشطة زي فودافون كاش قبل تقسيم الداخل.';
+    }
+    final total = num.tryParse(_amount.text.trim());
+    final cash = num.tryParse(_cashAmount.text.trim());
+    if (total == null || total <= 0 || cash == null || cash < 0) {
+      return 'أدخل المبلغ الكلي والكاش اللي يدخل الخزنة.';
+    }
+    final ids = <String>[];
+    var walletTotal = 0.0;
+    for (final part in _parts) {
+      final walletId = part.walletId;
+      final amount = num.tryParse(part.amount.text.trim());
+      if (walletId == null || _walletById(walletId) == null) {
+        return 'اختر المحفظة اللي هتستلم الجزء.';
+      }
+      if (amount == null || amount <= 0) {
+        return 'أدخل مبلغ المحفظة.';
+      }
+      if (ids.contains(walletId)) {
+        return 'المحفظة متكررة. اجمع مبلغها في سطر واحد.';
+      }
+      ids.add(walletId);
+      walletTotal += amount;
+    }
+    if (ids.isEmpty) return 'أضف جزء المحفظة.';
+    final sum = cash + walletTotal;
+    if ((sum - total).abs() > 0.009) {
+      return 'مجموع الكاش والمحافظ ${money(sum)} لازم يساوي المبلغ ${money(total)}.';
+    }
+    return null;
+  }
+
+  Map<String, dynamic> _splitPayload() {
+    return {
+      'cashAmount': num.parse(_cashAmount.text.trim()),
+      'incomingParts': [
+        for (final part in _parts)
+          {
+            'walletId': part.walletId,
+            'amount': num.parse(part.amount.text.trim()),
+          },
+      ],
+    };
+  }
+
+  String _flowText() {
+    if (!_isImmediate) {
+      return 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.';
+    }
+    if (_splitIncoming && _splitError() == null) {
+      final total = num.parse(_amount.text.trim());
+      final cash = num.parse(_cashAmount.text.trim());
+      final wallets = _parts.map((part) {
+        final wallet = _walletById(part.walletId);
+        final name = wallet == null ? 'المحفظة' : '${wallet['name']}';
+        return '$name ${money(part.amount.text.trim())}';
+      }).join('، ');
+      return 'يتسحب ${money(total)} من حساب التنفيذ. يدخل الخزنة ${money(cash)}. يدخل $wallets.';
+    }
+    if (_selectedIsFawry) {
+      return 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.';
+    }
+    return 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.';
   }
 
   @override
@@ -265,6 +416,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                 );
               },
             ),
+            if (_isImmediate) ...[
+              const SizedBox(height: 16),
+              _splitSection(),
+            ],
             const SizedBox(height: 18),
             HesbaModalCallout(
               child: Text.rich(
@@ -275,11 +430,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                       style: const TextStyle(fontWeight: FontWeight.w400),
                     ),
                     TextSpan(
-                      text: _isImmediate
-                          ? (_selectedIsFawry
-                                ? 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.'
-                                : 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.')
-                          : 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.',
+                      text: _flowText(),
                     ),
                   ],
                 ),
@@ -317,6 +468,116 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     );
   }
 
+  Widget _splitSection() {
+    if (_wallets.isEmpty) {
+      return const HesbaModalCallout(
+        child: Text(
+          'عشان تقسّم الداخل بين الخزنة ومحفظة، أضف محفظة نشطة زي فودافون كاش.',
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: CheckboxListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            value: _splitIncoming,
+            title: const Text('تقسيم المبلغ الداخل'),
+            subtitle: const Text(
+              'السحب من حساب التنفيذ على المبلغ كله. الكاش بس يدخل الخزنة، والباقي يدخل المحفظة.',
+            ),
+            onChanged: _saving ? null : (value) => _setSplit(value ?? false),
+          ),
+        ),
+        if (_splitIncoming) ...[
+          const SizedBox(height: 8),
+          _textField(
+            label: 'الكاش اللي يدخل الخزنة *',
+            controller: _cashAmount,
+            numeric: true,
+            validator: (value) {
+              final number = num.tryParse(value?.trim() ?? '');
+              return number == null || number < 0 ? 'أدخل مبلغ الكاش' : null;
+            },
+          ),
+          for (var index = 0; index < _parts.length; index++) _partRow(index),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: TextButton.icon(
+              onPressed: _saving || _parts.length >= 5 ? null : _addPart,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('إضافة محفظة'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _partRow(int index) {
+    final part = _parts[index];
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 3,
+            child: HesbaModalField(
+              label: 'المحفظة *',
+              child: DropdownButtonFormField<String>(
+                key: ValueKey('wallet-$index-${part.walletId}'),
+                initialValue: part.walletId,
+                isExpanded: true,
+                decoration: const InputDecoration(),
+                hint: const Text('اختر المحفظة'),
+                items: [
+                  for (final wallet in _wallets)
+                    DropdownMenuItem(
+                      value: '${wallet['id']}',
+                      child: Text(
+                        _walletLabel(wallet as Map<String, dynamic>),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _saving
+                    ? null
+                    : (value) => setState(() => part.walletId = value),
+                validator: (_) => part.walletId == null ? 'اختر المحفظة' : null,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: _textField(
+              label: 'مبلغ المحفظة *',
+              controller: part.amount,
+              numeric: true,
+              validator: (value) {
+                final number = num.tryParse(value?.trim() ?? '');
+                return number == null || number <= 0
+                    ? 'أدخل مبلغ المحفظة'
+                    : null;
+              },
+            ),
+          ),
+          if (_parts.length > 1)
+            IconButton(
+              tooltip: 'حذف',
+              onPressed: _saving ? null : () => _removePart(index),
+              icon: const Icon(Icons.close, size: 18),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _modeField() {
     return HesbaModalField(
       label: 'طريقة التنفيذ *',
@@ -338,6 +599,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             ? null
             : (value) => setState(() {
                 _mode = value ?? 'immediate';
+                if (_mode != 'immediate') _splitIncoming = false;
                 _error = null;
               }),
       ),
@@ -502,4 +764,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     final period = time.period == DayPeriod.am ? 'AM' : 'PM';
     return '${hour.toString().padLeft(2, '0')}:$minute $period';
   }
+}
+
+class _WalletPart {
+  String? walletId;
+  final TextEditingController amount = TextEditingController();
 }

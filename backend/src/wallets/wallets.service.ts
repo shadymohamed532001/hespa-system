@@ -22,6 +22,47 @@ import { shouldSeedDemoData } from '../config/demo-data.js';
 export const WALLET_DAILY_TOP_UP_LIMIT = 60_000;
 export const WALLET_MONTHLY_TOP_UP_LIMIT = 200_000;
 
+export function recordWalletIncoming(wallet: Wallet, amount: number): void {
+  const period = cairoPeriod();
+  if (wallet.counterDay !== period.day) {
+    wallet.counterDay = period.day;
+    wallet.dailyTopUp = 0;
+    wallet.todayTopUp = 0;
+    wallet.openingBalance = wallet.balance;
+  }
+  if (wallet.counterMonth !== period.month) {
+    wallet.counterMonth = period.month;
+    wallet.monthlyTopUp = 0;
+  }
+  if (wallet.dailyTopUp + amount > WALLET_DAILY_TOP_UP_LIMIT) {
+    throw new BadRequestException({
+      message: msg({
+        ar: `سيتم تجاوز حد شحن محفظة ${wallet.name} اليومي`,
+        en: `This would exceed the daily top-up limit for ${wallet.name}`,
+      }),
+      limit: WALLET_DAILY_TOP_UP_LIMIT,
+      available: Math.max(0, WALLET_DAILY_TOP_UP_LIMIT - wallet.dailyTopUp),
+    });
+  }
+  if (wallet.monthlyTopUp + amount > WALLET_MONTHLY_TOP_UP_LIMIT) {
+    throw new BadRequestException({
+      message: msg({
+        ar: `سيتم تجاوز حد شحن محفظة ${wallet.name} الشهري`,
+        en: `This would exceed the monthly top-up limit for ${wallet.name}`,
+      }),
+      limit: WALLET_MONTHLY_TOP_UP_LIMIT,
+      available: Math.max(
+        0,
+        WALLET_MONTHLY_TOP_UP_LIMIT - wallet.monthlyTopUp,
+      ),
+    });
+  }
+  wallet.balance += amount;
+  wallet.todayTopUp += amount;
+  wallet.dailyTopUp += amount;
+  wallet.monthlyTopUp += amount;
+}
+
 function cairoPeriod() {
   const day = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Cairo',
@@ -108,38 +149,7 @@ export class WalletsService implements OnModuleInit {
         lock: { mode: 'pessimistic_write' },
       });
       if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
-      const period = cairoPeriod();
-      if (wallet.counterDay !== period.day) {
-        wallet.counterDay = period.day;
-        wallet.dailyTopUp = 0;
-        wallet.todayTopUp = 0;
-        wallet.openingBalance = wallet.balance;
-      }
-      if (wallet.counterMonth !== period.month) {
-        wallet.counterMonth = period.month;
-        wallet.monthlyTopUp = 0;
-      }
-      if (wallet.dailyTopUp + dto.amount > WALLET_DAILY_TOP_UP_LIMIT) {
-        throw new BadRequestException({
-          message: msg({ ar: 'سيتم تجاوز حد شحن المحفظة اليومي', en: 'This would exceed the wallet daily top-up limit' }),
-          limit: WALLET_DAILY_TOP_UP_LIMIT,
-          available: Math.max(0, WALLET_DAILY_TOP_UP_LIMIT - wallet.dailyTopUp),
-        });
-      }
-      if (wallet.monthlyTopUp + dto.amount > WALLET_MONTHLY_TOP_UP_LIMIT) {
-        throw new BadRequestException({
-          message: msg({ ar: 'سيتم تجاوز حد شحن المحفظة الشهري', en: 'This would exceed the wallet monthly top-up limit' }),
-          limit: WALLET_MONTHLY_TOP_UP_LIMIT,
-          available: Math.max(
-            0,
-            WALLET_MONTHLY_TOP_UP_LIMIT - wallet.monthlyTopUp,
-          ),
-        });
-      }
-      wallet.balance += dto.amount;
-      wallet.todayTopUp += dto.amount;
-      wallet.dailyTopUp += dto.amount;
-      wallet.monthlyTopUp += dto.amount;
+      recordWalletIncoming(wallet, dto.amount);
       await repo.save(wallet);
       await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.TOP_UP,

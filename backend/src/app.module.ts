@@ -12,6 +12,7 @@ import { WalletOwner1790087699421 } from './database/migrations/1790087699421-Wa
 import { DevicePushTokens1790087699422 } from './database/migrations/1790087699422-DevicePushTokens.js';
 import { WalletCustomerCashFee1790087699424 } from './database/migrations/1790087699424-WalletCustomerCashFee.js';
 import { FawryDailyDrop1790087699425 } from './database/migrations/1790087699425-FawryDailyDrop.js';
+import { CollectionIncomingSplits1790087699426 } from './database/migrations/1790087699426-CollectionIncomingSplits.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -106,6 +107,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           DevicePushTokens1790087699422,
           WalletCustomerCashFee1790087699424,
           FawryDailyDrop1790087699425,
+          CollectionIncomingSplits1790087699426,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

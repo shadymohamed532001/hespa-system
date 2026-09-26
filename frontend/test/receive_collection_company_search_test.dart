@@ -75,6 +75,52 @@ void main() {
     expect(find.text('جهينة'), findsOneWidget);
     expect(find.text('حساب شركة 01'), findsNothing);
   });
+
+  testWidgets('split option credits treasury cash and a wallet from one account', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 900);
+    addTearDown(tester.view.reset);
+
+    final session = SessionController(
+      ApiClient(
+        baseUrl: 'https://example.test/api',
+        adapter: _AccountsAdapter(),
+        retryBaseDelay: Duration.zero,
+        delay: (_) async {},
+      )..setToken('test-token'),
+    )..username = 'shady';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: hesbaTheme(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showReceiveCollectionDialog(
+                context: context,
+                session: session,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    final split = find.text('تقسيم المبلغ الداخل');
+    await tester.ensureVisible(split);
+    await tester.tap(split);
+    await tester.pumpAndSettle();
+
+    expect(find.text('الكاش اللي يدخل الخزنة *'), findsOneWidget);
+    expect(find.text('المحفظة *'), findsOneWidget);
+    expect(find.text('مبلغ المحفظة *'), findsOneWidget);
+  });
 }
 
 class _AccountsAdapter implements HttpClientAdapter {

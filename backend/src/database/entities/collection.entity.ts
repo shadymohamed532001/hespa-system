@@ -6,9 +6,18 @@ import {
   ManyToOne,
   PrimaryGeneratedColumn,
 } from 'typeorm';
-import { decimalTransformer } from '../decimal.transformer.js';
+import {
+  decimalTransformer,
+  nullableDecimalTransformer,
+} from '../decimal.transformer.js';
 import { CollectionStatus, ExecutionMode } from '../enums.js';
 import { FinancialAccount } from './financial-account.entity.js';
+
+export type CollectionIncomingSplit = {
+  walletId: string;
+  walletName: string;
+  amount: number;
+};
 
 @Entity('collections')
 export class Collection {
@@ -31,6 +40,19 @@ export class Collection {
     transformer: decimalTransformer,
   })
   amount: number;
+
+  @Column({
+    name: 'cash_amount',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    nullable: true,
+    transformer: nullableDecimalTransformer,
+  })
+  cashAmount: number | null;
+
+  @Column({ name: 'incoming_splits', type: 'jsonb', nullable: true })
+  incomingSplits: CollectionIncomingSplit[] | null;
 
   @Column({ type: 'enum', enum: ExecutionMode })
   executionMode: ExecutionMode;

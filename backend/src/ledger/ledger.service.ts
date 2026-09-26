@@ -357,6 +357,14 @@ export class LedgerService {
       }
 
       if (entry.category === LedgerCategory.TOP_UP) {
+        if (entry.metadata?.collectionReceipt === true) {
+          throw new BadRequestException(
+            msg({
+              ar: 'جزء المحفظة في استلام المندوب مرتبط بالعملية كلها ولا يُعكس لوحده',
+              en: 'The wallet portion of an agent receipt belongs to the whole operation and cannot be reversed alone',
+            }),
+          );
+        }
         await this.reverseTopUp(manager, entry);
       } else if (entry.category === LedgerCategory.INTERNAL_TRANSFER) {
         await this.reverseTransfer(manager, entry);

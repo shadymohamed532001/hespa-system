@@ -1,4 +1,7 @@
+import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsDateString,
   IsEnum,
   IsNumber,
@@ -8,8 +11,18 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import { ExecutionMode } from '../../database/enums.js';
+
+export class IncomingPartDto {
+  @IsUUID()
+  walletId: string;
+
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  amount: number;
+}
 
 export class ReceiveCollectionDto {
   @IsString()
@@ -41,4 +54,16 @@ export class ReceiveCollectionDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   commission = 0;
+
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  cashAmount?: number;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(5)
+  @ValidateNested({ each: true })
+  @Type(() => IncomingPartDto)
+  incomingParts?: IncomingPartDto[];
 }

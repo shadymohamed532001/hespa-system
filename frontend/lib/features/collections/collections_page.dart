@@ -214,7 +214,7 @@ class _CollectionsTable extends StatelessWidget {
                 horizontalMargin: 16,
                 columnSpacing: 22,
                 dataRowMinHeight: 58,
-                dataRowMaxHeight: 64,
+                dataRowMaxHeight: 84,
                 columns: [
                   DataColumn(
                     label: Text('الرقم', style: HesbaText.tableHeader),
@@ -277,9 +277,7 @@ class _CollectionsTable extends StatelessWidget {
                             style: HesbaText.tableCell,
                           ),
                         ),
-                        DataCell(
-                          Text(money(e['amount']), style: HesbaText.tableCell),
-                        ),
+                        DataCell(_CollectionAmount(row: e as Map<String, dynamic>)),
                         DataCell(
                           Text(
                             formatDateTime(e['receivedAt'] ?? e['createdAt']),
@@ -330,8 +328,7 @@ class _CollectionsTable extends StatelessWidget {
                             children: [
                               if (e['status'] == 'pending')
                                 FilledButton(
-                                  onPressed: () =>
-                                      onExecute(e as Map<String, dynamic>),
+                                  onPressed: () => onExecute(e),
                                   child: const Text('تنفيذ'),
                                 )
                               else
@@ -349,4 +346,40 @@ class _CollectionsTable extends StatelessWidget {
       ),
     );
   }
+}
+
+class _CollectionAmount extends StatelessWidget {
+  const _CollectionAmount({required this.row});
+
+  final Map<String, dynamic> row;
+
+  @override
+  Widget build(BuildContext context) {
+    final breakdown = _incomingBreakdown(row);
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(money(row['amount']), style: HesbaText.tableCell),
+        if (breakdown != null)
+          Text(
+            breakdown,
+            style: HesbaText.tableCell.copyWith(
+              fontSize: 11,
+              color: HesbaColors.muted,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+String? _incomingBreakdown(Map<String, dynamic> row) {
+  final splits = row['incomingSplits'];
+  if (splits is! List || splits.isEmpty) return null;
+  final cash = money(row['cashAmount'] ?? 0);
+  final wallets = splits
+      .map((part) => '${part['walletName']} ${money(part['amount'])}')
+      .join(' · ');
+  return 'خزنة $cash · $wallets';
 }
