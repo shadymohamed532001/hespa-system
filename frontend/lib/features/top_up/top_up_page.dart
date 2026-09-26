@@ -396,7 +396,10 @@ class _TopUpFormCard extends StatelessWidget {
                           SizedBox(
                             width: fieldWidth,
                             child: _LabeledField(
-                              label: tr(ar: 'مبلغ الشحن *', en: 'Top-up amount *'),
+                              label: tr(
+                                ar: 'مبلغ الشحن *',
+                                en: 'Top-up amount *',
+                              ),
                               child: TextFormField(
                                 controller: amount,
                                 enabled: !saving,
@@ -410,7 +413,10 @@ class _TopUpFormCard extends StatelessWidget {
                                     value?.trim() ?? '',
                                   );
                                   if (parsed == null || parsed <= 0) {
-                                    return tr(ar: 'أدخل مبلغًا صحيحًا', en: 'Enter a valid amount');
+                                    return tr(
+                                      ar: 'أدخل مبلغًا صحيحًا',
+                                      en: 'Enter a valid amount',
+                                    );
                                   }
                                   return null;
                                 },

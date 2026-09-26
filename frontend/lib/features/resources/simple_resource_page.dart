@@ -160,7 +160,10 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
               ),
               SizedBox(height: 18),
               HesbaModalField(
-                label: tr(ar: 'رقم المرجع (اختياري)', en: 'Reference number (optional)'),
+                label: tr(
+                  ar: 'رقم المرجع (اختياري)',
+                  en: 'Reference number (optional)',
+                ),
                 child: TextField(
                   controller: reference,
                   decoration: const InputDecoration(),

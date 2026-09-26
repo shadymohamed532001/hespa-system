@@ -319,7 +319,10 @@ class _TransferFormCard extends StatelessWidget {
                                     value?.trim() ?? '',
                                   );
                                   return number == null || number <= 0
-                                      ? tr(ar: 'أدخل مبلغًا صحيحًا', en: 'Enter a valid amount')
+                                      ? tr(
+                                          ar: 'أدخل مبلغًا صحيحًا',
+                                          en: 'Enter a valid amount',
+                                        )
                                       : null;
                                 },
                               ),

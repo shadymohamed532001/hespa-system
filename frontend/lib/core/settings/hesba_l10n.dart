@@ -5,11 +5,7 @@ import 'app_strings.dart';
 
 /// Provides locale-aware UI copy + helpers under the MaterialApp tree.
 class HesbaL10n extends InheritedWidget {
-  const HesbaL10n({
-    super.key,
-    required this.settings,
-    required super.child,
-  });
+  const HesbaL10n({super.key, required this.settings, required super.child});
 
   final AppSettings settings;
 

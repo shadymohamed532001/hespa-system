@@ -1,26 +1,45 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:hesba_desktop/app/app.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:hesba_desktop/core/network/api_client.dart';
+import 'package:hesba_desktop/core/settings/app_settings.dart';
+import 'package:hesba_desktop/features/auth/session_controller.dart';
+
+HesbaApp buildTestApp() {
+  final session = SessionController(ApiClient())..ready = true;
+  final settings = AppSettings()..ready = true;
+  return HesbaApp(
+    checkSystemAvailability: false,
+    sessionController: session,
+    appSettings: settings,
+  );
+}
 
 void main() {
-  testWidgets('shows the Hesba login page', (tester) async {
-    SharedPreferences.setMockInitialValues({});
-    FlutterSecureStorage.setMockInitialValues({});
-    await tester.pumpWidget(const HesbaApp());
+  testWidgets('opens the admin login form from the portal chooser', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildTestApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('تسجيل الدخول'), findsOneWidget);
-    expect(find.text('دخول إلى النظام'), findsOneWidget);
+    expect(find.text('مدخل الأدمن'), findsOneWidget);
+    expect(find.text('مدخل الموظفين'), findsOneWidget);
+
+    await tester.tap(find.text('مدخل الأدمن'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('اسم المستخدم'), findsOneWidget);
+    expect(find.text('كلمة المرور'), findsOneWidget);
+    expect(find.text('دخول مدخل الأدمن'), findsOneWidget);
   });
 
   testWidgets('reveals admin recovery after five bottom-left taps', (
     tester,
   ) async {
-    SharedPreferences.setMockInitialValues({});
-    FlutterSecureStorage.setMockInitialValues({});
-    await tester.pumpWidget(const HesbaApp());
+    await tester.pumpWidget(buildTestApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('مدخل الأدمن'));
     await tester.pumpAndSettle();
 
     const recoveryIcon = Icons.admin_panel_settings_outlined;

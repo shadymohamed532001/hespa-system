@@ -62,7 +62,10 @@ class _AdminPageState extends State<AdminPage> {
   Widget build(BuildContext context) {
     return PageFrame(
       title: 'المستخدمون والصلاحيات',
-      subtitle: tr(ar: 'أضف حسابات للموظفين وحدد صلاحياتهم وحدود المبالغ', en: 'Add staff accounts and set their permissions and amount limits'),
+      subtitle: tr(
+        ar: 'أضف حسابات للموظفين وحدد صلاحياتهم وحدود المبالغ',
+        en: 'Add staff accounts and set their permissions and amount limits',
+      ),
       actions: [
         FilledButton.icon(
           onPressed: () => _openUserEditor(),
@@ -192,10 +195,15 @@ class _AdminPageState extends State<AdminPage> {
       maxWidth: 640,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: isEdit ? 'تعديل المستخدم' : tr(ar: 'إضافة مستخدم', en: 'Add user'),
+          title: isEdit
+              ? 'تعديل المستخدم'
+              : tr(ar: 'إضافة مستخدم', en: 'Add user'),
           subtitle: isEdit
               ? 'حدّث الصلاحيات أو الحدود أو كلمة المرور'
-              : tr(ar: 'أنشئ حسابًا لشخص يعمل معك وحدد ما يُسمح له به', en: 'Create an account for someone who works with you and define what they can do'),
+              : tr(
+                  ar: 'أنشئ حسابًا لشخص يعمل معك وحدد ما يُسمح له به',
+                  en: 'Create an account for someone who works with you and define what they can do',
+                ),
           actions: HesbaModalActions(
             primaryLabel: isEdit ? tr(ar: 'حفظ', en: 'Save') : 'إنشاء الحساب',
             onPrimary: () => Navigator.pop(ctx, true),
@@ -235,7 +243,12 @@ class _AdminPageState extends State<AdminPage> {
                     items: [
                       DropdownMenuItem(
                         value: 'admin',
-                        child: Text(tr(ar: 'أدمن — كل الصلاحيات', en: 'Admin — all permissions')),
+                        child: Text(
+                          tr(
+                            ar: 'أدمن — كل الصلاحيات',
+                            en: 'Admin — all permissions',
+                          ),
+                        ),
                       ),
                       DropdownMenuItem(
                         value: 'employee',
@@ -268,7 +281,10 @@ class _AdminPageState extends State<AdminPage> {
                 ),
               ),
               SizedBox(height: 20),
-              Text(tr(ar: 'الصلاحيات', en: 'Permissions'), style: HesbaText.sectionTitle),
+              Text(
+                tr(ar: 'الصلاحيات', en: 'Permissions'),
+                style: HesbaText.sectionTitle,
+              ),
               const SizedBox(height: 8),
               for (final item in catalogItems)
                 CheckboxListTile(
@@ -461,7 +477,10 @@ final _fallbackCatalog = [
   },
   {
     'key': AppPermissions.manageAssets,
-    'label': tr(ar: 'إضافة أو تعديل الحسابات والمحافظ والماكينات', en: 'Add or edit accounts, wallets, and machines'),
+    'label': tr(
+      ar: 'إضافة أو تعديل الحسابات والمحافظ والماكينات',
+      en: 'Add or edit accounts, wallets, and machines',
+    ),
     'note': 'إعدادات الأصول',
   },
   {
@@ -481,7 +500,10 @@ final _fallbackCatalog = [
   },
   {
     'key': AppPermissions.manageUsers,
-    'label': tr(ar: 'إدارة المستخدمين والصلاحيات', en: 'Manage users and permissions'),
+    'label': tr(
+      ar: 'إدارة المستخدمين والصلاحيات',
+      en: 'Manage users and permissions',
+    ),
     'note': 'إعدادات النظام',
   },
   {
@@ -491,7 +513,10 @@ final _fallbackCatalog = [
   },
   {
     'key': AppPermissions.manageInventory,
-    'label': tr(ar: 'إضافة أصناف وتوريد مخزون للمخزن', en: 'Add items and stock inventory'),
+    'label': tr(
+      ar: 'إضافة أصناف وتوريد مخزون للمخزن',
+      en: 'Add items and stock inventory',
+    ),
     'note': 'إعدادات مخزن منفصل عن الكاش',
   },
   {
@@ -571,14 +596,30 @@ class _UsersCard extends StatelessWidget {
                       dataRowMaxHeight: 72,
                       columns: [
                         DataColumn(
-                          label: Text(tr(ar: 'المستخدم', en: 'User'), style: _headerStyle),
+                          label: Text(
+                            tr(ar: 'المستخدم', en: 'User'),
+                            style: _headerStyle,
+                          ),
                         ),
                         DataColumn(label: Text('الدور', style: _headerStyle)),
-                        DataColumn(label: Text(tr(ar: 'الحالة', en: 'Status'), style: _headerStyle)),
                         DataColumn(
-                          label: Text(tr(ar: 'الصلاحيات', en: 'Permissions'), style: _headerStyle),
+                          label: Text(
+                            tr(ar: 'الحالة', en: 'Status'),
+                            style: _headerStyle,
+                          ),
                         ),
-                        DataColumn(label: Text(tr(ar: 'إجراء', en: 'Action'), style: _headerStyle)),
+                        DataColumn(
+                          label: Text(
+                            tr(ar: 'الصلاحيات', en: 'Permissions'),
+                            style: _headerStyle,
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            tr(ar: 'إجراء', en: 'Action'),
+                            style: _headerStyle,
+                          ),
+                        ),
                       ],
                       rows: [
                         for (final raw in users)
@@ -631,7 +672,14 @@ class _UsersCard extends StatelessWidget {
             ],
           ),
         ),
-        DataCell(Text(isAdmin ? tr(ar: 'أدمن', en: 'Admin') : tr(ar: 'موظف', en: 'Employee'), style: HesbaText.tableCell)),
+        DataCell(
+          Text(
+            isAdmin
+                ? tr(ar: 'أدمن', en: 'Admin')
+                : tr(ar: 'موظف', en: 'Employee'),
+            style: HesbaText.tableCell,
+          ),
+        ),
         DataCell(SoftBadge.status(active: user['active'] == true)),
         DataCell(
           Text(
@@ -715,7 +763,12 @@ class _PermissionMatrixCard extends StatelessWidget {
                       DataColumn(
                         label: Text('موظف (افتراضي)', style: _headerStyle),
                       ),
-                      DataColumn(label: Text(tr(ar: 'ملاحظة', en: 'Note'), style: _headerStyle)),
+                      DataColumn(
+                        label: Text(
+                          tr(ar: 'ملاحظة', en: 'Note'),
+                          style: _headerStyle,
+                        ),
+                      ),
                     ],
                     rows: [
                       for (final item in rows)

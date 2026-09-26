@@ -85,17 +85,16 @@ class AppStrings {
   String get password => _ar ? 'كلمة المرور' : 'Password';
   String get backToPortals =>
       _ar ? 'العودة لاختيار المدخل' : 'Back to portal selection';
-  String get adminCreated =>
-      _ar ? 'تم إنشاء المدير. يمكنك تسجيل الدخول الآن' : 'Admin created. You can sign in now';
+  String get adminCreated => _ar
+      ? 'تم إنشاء المدير. يمكنك تسجيل الدخول الآن'
+      : 'Admin created. You can sign in now';
   String get recoverAdminTitle =>
       _ar ? 'إنشاء مدير استعادة' : 'Create recovery admin';
   String get recoverAdminSubtitle => _ar
       ? 'سيحصل هذا الحساب على كل صلاحيات النظام'
       : 'This account will receive full system access';
-  String get recoverAdminAction =>
-      _ar ? 'إنشاء المدير' : 'Create admin';
-  String get recoverAdminBusy =>
-      _ar ? 'جارٍ الإنشاء...' : 'Creating...';
+  String get recoverAdminAction => _ar ? 'إنشاء المدير' : 'Create admin';
+  String get recoverAdminBusy => _ar ? 'جارٍ الإنشاء...' : 'Creating...';
   String get recoverAdminTooltip =>
       _ar ? 'استعادة حساب مدير' : 'Recover admin account';
   String get recoveryKey =>
@@ -108,8 +107,9 @@ class AppStrings {
   String get recoveryRequiredFields => _ar
       ? 'كود الاستعادة واسم المستخدم وكلمة المرور مطلوبة'
       : 'Recovery code, username, and password are required';
-  String get passwordTooShort =>
-      _ar ? 'كلمة المرور يجب ألا تقل عن 10 أحرف' : 'Password must be at least 10 characters';
+  String get passwordTooShort => _ar
+      ? 'كلمة المرور يجب ألا تقل عن 10 أحرف'
+      : 'Password must be at least 10 characters';
   String get passwordsMismatch =>
       _ar ? 'كلمتا المرور غير متطابقتين' : 'Passwords do not match';
 
@@ -142,7 +142,8 @@ class AppStrings {
   String get badCertificate => _ar
       ? 'حدث خطأ في شهادة الاتصال بالخادم.'
       : 'There was a problem with the server certificate.';
-  String get genericNetworkError =>
-      _ar ? 'تعذر إكمال الاتصال بالخادم.' : 'Could not complete the server request.';
+  String get genericNetworkError => _ar
+      ? 'تعذر إكمال الاتصال بالخادم.'
+      : 'Could not complete the server request.';
   String get unknownStatus => _ar ? 'غير معروف' : 'unknown';
 }

@@ -280,10 +280,7 @@ class _AdminRecoveryDialogState extends State<_AdminRecoveryDialog> {
     } catch (exception) {
       if (!mounted) return;
       setState(
-        () => error = ApiClient.errorMessage(
-          exception,
-          locale: t.localeCode,
-        ),
+        () => error = ApiClient.errorMessage(exception, locale: t.localeCode),
       );
     } finally {
       if (mounted) setState(() => busy = false);
@@ -507,9 +504,7 @@ class _PortalCard extends StatelessWidget {
                 width: 46,
                 height: 46,
                 decoration: BoxDecoration(
-                  color: isAdmin
-                      ? const Color(0x331F8C7E)
-                      : Colors.white,
+                  color: isAdmin ? const Color(0x331F8C7E) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: isAdmin
