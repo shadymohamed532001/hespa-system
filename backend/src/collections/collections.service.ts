@@ -20,7 +20,6 @@ import {
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
-import { ReversalDto } from '../common/dto/reversal.dto.js';
 
 @Injectable()
 export class CollectionsService implements OnModuleInit {
@@ -210,89 +209,6 @@ export class CollectionsService implements OnModuleInit {
         });
       }
       return collection;
-    });
-  }
-
-  async reverse(id: string, dto: ReversalDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const collectionRepo = manager.getRepository(Collection);
-      const collection = await collectionRepo.findOne({
-        where: { id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!collection) throw new NotFoundException(msg({ ar: 'التحصيل غير موجود', en: 'Collection not found' }));
-      if (collection.status === CollectionStatus.REVERSED) {
-        throw new BadRequestException(msg({ ar: 'تم عكس التحصيل بالفعل', en: 'Collection already reversed' }));
-      }
-
-      const treasury = await manager.getRepository(Treasury).findOne({
-        where: { id: 'main' },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
-      if (treasury.balance < collection.amount) {
-        throw new BadRequestException(msg({ ar: 'رصيد الخزنة لا يكفي لعكس التحصيل', en: 'Treasury balance is insufficient to reverse the collection' }));
-      }
-
-      let account: FinancialAccount | null = null;
-      if (collection.status === CollectionStatus.DONE) {
-        if (!collection.accountId) {
-          throw new BadRequestException(msg({ ar: 'التحصيل المنفذ غير مرتبط بحساب', en: 'Executed collection is not linked to an account' }));
-        }
-        account = await manager.getRepository(FinancialAccount).findOne({
-          where: { id: collection.accountId },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!account) throw new NotFoundException(msg({ ar: 'الحساب المرتبط غير موجود', en: 'Linked account not found' }));
-        if (account.commissionBalance < collection.commission) {
-          throw new BadRequestException(
-            msg({ ar: 'رصيد العمولة الحالي لا يكفي لعكس عمولة التحصيل', en: 'Current commission balance is insufficient to reverse collection commission' }),
-          );
-        }
-        account.balance += collection.amount;
-        account.commissionBalance -= collection.commission;
-        await manager.getRepository(FinancialAccount).save(account);
-      }
-
-      treasury.balance -= collection.amount;
-      collection.status = CollectionStatus.REVERSED;
-      collection.reversedAt = new Date();
-      collection.reversalReason = dto.reason;
-      await manager.getRepository(Treasury).save(treasury);
-      await collectionRepo.save(collection);
-
-      const originalEntries = await manager.getRepository(LedgerEntry).find({
-        where: { reference: collection.reference },
-        order: { createdAt: 'ASC' },
-      });
-      const reversalRepo = manager.getRepository(LedgerEntry);
-      for (const original of originalEntries) {
-        await reversalRepo.save({
-          category: LedgerCategory.REVERSAL,
-          amount: -original.amount,
-          entityType: original.entityType,
-          entityId: original.entityId,
-          reference: collection.reference,
-          description: `عكس ${original.description} — السبب: ${dto.reason}`,
-          performedBy: username,
-          sourceType: original.targetType,
-          sourceId: original.targetId,
-          targetType: original.sourceType,
-          targetId: original.sourceId,
-          reversesEntryId: original.id,
-          metadata: {
-            collectionId: collection.id,
-            reason: dto.reason,
-            originalCategory: original.category,
-          },
-        });
-      }
-      return {
-        reversed: true,
-        collectionId: collection.id,
-        reference: collection.reference,
-        reason: dto.reason,
-      };
     });
   }
 }

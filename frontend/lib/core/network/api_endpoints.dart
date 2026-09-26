@@ -58,8 +58,6 @@ abstract final class ApiEndpoints {
   static const String receiveCollection = '$collections/receive';
 
   static String executeCollection(String id) => '$collections/$id/execute';
-  static String reverseCollection(String id) => '$collections/$id/reverse';
-
   // Treasury
   static const String treasury = '/treasury';
   static const String treasurySummary = '$treasury/summary';

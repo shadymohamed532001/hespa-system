@@ -644,20 +644,20 @@ describe('financial operations (e2e)', () => {
     expect(restored).toMatchObject({ stockQty: 2, soldQty: 0 });
   });
 
-  it('reverses a collection atomically and preserves its audit trail', async () => {
+  it('no longer exposes collection reversal and keeps collection ledger rows intact', async () => {
     const suffix = randomUUID();
     const account = await request(app.getHttpServer())
       .post('/api/accounts')
-      .set(mutation(`reverse-collection-account-${suffix}`))
+      .set(mutation(`collection-account-${suffix}`))
       .send({
-        name: `Reverse collection ${suffix}`,
+        name: `Collection account ${suffix}`,
         type: 'company',
         openingBalance: 1000,
       })
       .expect(201);
     const receipt = await request(app.getHttpServer())
       .post('/api/collections/receive')
-      .set(mutation(`reverse-collection-${suffix}`))
+      .set(mutation(`collection-${suffix}`))
       .send({
         agentName: 'مندوب اختبار',
         companyName: 'شركة اختبار',
@@ -669,25 +669,23 @@ describe('financial operations (e2e)', () => {
       .expect(201);
     await request(app.getHttpServer())
       .post(`/api/collections/${receipt.body.id}/reverse`)
-      .set(mutation(`reverse-collection-action-${suffix}`))
+      .set(mutation(`collection-reverse-${suffix}`))
       .send({ reason: 'تحصيل مسجل بالخطأ' })
-      .expect(201);
+      .expect(404);
 
-    const [reversed] = (await app
+    const [stored] = (await app
+      .get(DataSource)
+      .query(`SELECT status FROM collections WHERE id = $1`, [
+        receipt.body.id,
+      ])) as Array<{ status: string }>;
+    expect(stored.status).toBe('done');
+    const [{ reversals }] = (await app
       .get(DataSource)
       .query(
-        `SELECT status, reversed_at, reversal_reason FROM collections WHERE id = $1`,
-        [receipt.body.id],
-      )) as Array<{
-      status: string;
-      reversed_at: Date | null;
-      reversal_reason: string | null;
-    }>;
-    expect(reversed).toMatchObject({
-      status: 'reversed',
-      reversal_reason: 'تحصيل مسجل بالخطأ',
-    });
-    expect(reversed.reversed_at).toBeTruthy();
+        `SELECT count(*) AS reversals FROM ledger_entries WHERE reference = $1 AND category = 'reversal'`,
+        [receipt.body.reference],
+      )) as Array<{ reversals: string }>;
+    expect(reversals).toBe('0');
   });
 
   it('reconciles the treasury and closes a business day only once', async () => {
