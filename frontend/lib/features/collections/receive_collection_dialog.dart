@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'company_catalog.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
@@ -58,7 +59,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   List<String> get _companyNames {
-    final names = <String>[];
+    final names = <String>[...kCompanyCatalog];
     for (final item in _accounts) {
       if (item['type'] != 'company') continue;
       final name = '${item['name']}'.trim();

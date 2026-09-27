@@ -197,6 +197,70 @@ describe('financial operations (e2e)', () => {
     expect(account?.balance).toBe(1100);
   });
 
+  it('records a Fawry deposit from banknote counts and the selected depositor', async () => {
+    const depositors = await request(app.getHttpServer())
+      .get('/api/accounts/fawry-depositors')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(depositors.body.length).toBeGreaterThan(0);
+    const depositor = depositors.body[0] as {
+      id: string;
+      displayName: string;
+    };
+
+    const created = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`create-fawry-deposit-${randomUUID()}`))
+      .send({
+        name: `Fawry deposit ${randomUUID()}`,
+        type: 'fawry',
+        openingBalance: 1000,
+      })
+      .expect(201);
+
+    const reference = `DEP-${randomUUID()}`;
+    const recorded = await request(app.getHttpServer())
+      .post(`/api/accounts/${created.body.id}/fawry-deposit`)
+      .set(mutation(`record-fawry-deposit-${randomUUID()}`))
+      .send({
+        depositorUserId: depositor.id,
+        cashCounts: {
+          count200: 2,
+          count100: 1,
+          count50: 1,
+          count20: 0,
+          count10: 0,
+          count5: 0,
+        },
+        reference,
+      })
+      .expect(201);
+    expect(recorded.body.deposit).toMatchObject({
+      accountId: created.body.id,
+      depositorUserId: depositor.id,
+      depositorName: depositor.displayName,
+      amount: 550,
+      reference,
+    });
+    expect(recorded.body.account.balance).toBe(1550);
+
+    await request(app.getHttpServer())
+      .get('/api/accounts/fawry-deposits?limit=10')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200)
+      .expect(({ body }) => {
+        expect(body).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              id: recorded.body.deposit.id,
+              depositorName: depositor.displayName,
+              amount: 550,
+            }),
+          ]),
+        );
+      });
+  });
+
   it('finishes reverse concurrent transfers without deadlock or lost money', async () => {
     const suffix = randomUUID();
     const [left, right] = await Promise.all(

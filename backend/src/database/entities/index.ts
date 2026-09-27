@@ -3,6 +3,7 @@ export { AuditEvent } from './audit-event.entity.js';
 export { DailyClose } from './daily-close.entity.js';
 export { DevicePushToken } from './device-push-token.entity.js';
 export { FawryDailyDrop } from './fawry-daily-drop.entity.js';
+export { FawryDeposit } from './fawry-deposit.entity.js';
 export { FinancialAccount } from './financial-account.entity.js';
 export { InventoryProduct } from './inventory-product.entity.js';
 export { InventorySale } from './inventory-sale.entity.js';

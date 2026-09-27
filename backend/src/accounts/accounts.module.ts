@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { FawryDailyDrop } from '../database/entities/fawry-daily-drop.entity.js';
+import { FawryDeposit } from '../database/entities/fawry-deposit.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { AppNotification } from '../database/entities/notification.entity.js';
@@ -15,6 +16,7 @@ import { FawryDropReminderService } from './fawry-drop-reminder.service.js';
       FinancialAccount,
       LedgerEntry,
       FawryDailyDrop,
+      FawryDeposit,
       AppNotification,
     ]),
     NotificationsModule,

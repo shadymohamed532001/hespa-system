@@ -6,6 +6,7 @@ import {
   Collection,
   DevicePushToken,
   FawryDailyDrop,
+  FawryDeposit,
   FinancialAccount,
   IdempotencyRecord,
   InventoryProduct,
@@ -30,6 +31,7 @@ const AppDataSource = new DataSource({
   entities: [
     User,
     FawryDailyDrop,
+    FawryDeposit,
     FinancialAccount,
     Wallet,
     Machine,

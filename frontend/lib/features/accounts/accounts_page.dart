@@ -14,6 +14,7 @@ import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
 import '../../core/settings/tr.dart';
+import 'fawry_cash_input.dart';
 
 class AccountsPage extends StatefulWidget {
   const AccountsPage({super.key, required this.session});
@@ -26,6 +27,7 @@ class AccountsPage extends StatefulWidget {
 
 class _AccountsPageState extends State<AccountsPage> {
   List<dynamic> data = [];
+  List<dynamic> fawryDepositors = [];
   Map<String, num> todayDrops = {};
   bool loading = true;
   String? error;
@@ -43,6 +45,11 @@ class _AccountsPageState extends State<AccountsPage> {
           includeInactive: widget.session.can(AppPermissions.manageAssets),
         ),
       );
+      if (widget.session.can(AppPermissions.topUpAssets)) {
+        fawryDepositors = await widget.session.api.list(
+          ApiEndpoints.fawryDepositors,
+        );
+      }
       todayDrops = await _loadTodayDrops();
       error = null;
     } catch (e) {
@@ -405,73 +412,161 @@ class _AccountsPageState extends State<AccountsPage> {
     var id = '${active.first['id']}';
     final amount = TextEditingController();
     final reference = TextEditingController();
+    var depositorId = fawryDepositors.isEmpty
+        ? null
+        : '${fawryDepositors.first['id']}';
+    var cashCounts = emptyFawryCashCounts();
+    String? formError;
+    bool selectedIsFawry() =>
+        active.firstWhere((item) => '${item['id']}' == id)['type'] == 'fawry';
     final ok = await showHesbaModal<bool>(
       context: context,
-      maxWidth: 520,
+      maxWidth: 620,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'شحن الحساب',
-          subtitle: tr(
-            ar: 'أضف رصيدًا مباشرًا للحساب المحدد.',
-            en: 'Add balance directly to the selected account.',
-          ),
-          actions: HesbaModalActions(
-            primaryLabel: tr(ar: 'إضافة الرصيد', en: 'Add balance'),
-            onPrimary: () => Navigator.pop(ctx, true),
-            onCancel: () => Navigator.pop(ctx, false),
-          ),
-          child: Column(
-            children: [
-              HesbaModalField(
-                label: 'الحساب *',
-                child: DropdownButtonFormField<String>(
-                  initialValue: id,
-                  isExpanded: true,
-                  decoration: const InputDecoration(),
-                  items: [
-                    for (final e in active)
-                      DropdownMenuItem(
-                        value: '${e['id']}',
-                        child: Text('${e['name']} — ${money(e['balance'])}'),
-                      ),
-                  ],
-                  onChanged: (v) => setLocal(() => id = v!),
+        builder: (ctx, setLocal) {
+          final isFawry = selectedIsFawry();
+          return HesbaModalCard(
+            title: isFawry ? 'تسجيل إيداع فوري' : 'شحن الحساب',
+            subtitle: tr(
+              ar: isFawry
+                  ? 'اختار الشخص واكتب عدد الورقات، والإجمالي هيتحسب تلقائيًا.'
+                  : 'أضف رصيدًا مباشرًا للحساب المحدد.',
+              en: isFawry
+                  ? 'Choose the depositor and enter the banknote counts.'
+                  : 'Add balance directly to the selected account.',
+            ),
+            actions: HesbaModalActions(
+              primaryLabel: isFawry
+                  ? 'تسجيل الإيداع'
+                  : tr(ar: 'إضافة الرصيد', en: 'Add balance'),
+              onPrimary: () {
+                if (isFawry && depositorId == null) {
+                  setLocal(() => formError = 'لا يوجد موظف نشط لاختياره');
+                  return;
+                }
+                if (isFawry && fawryCashTotal(cashCounts) <= 0) {
+                  setLocal(() => formError = 'اكتب عدد ورقة واحدة على الأقل');
+                  return;
+                }
+                if (!isFawry && (parseNum(amount.text) ?? 0) <= 0) {
+                  setLocal(() => formError = 'أدخل مبلغًا صحيحًا');
+                  return;
+                }
+                Navigator.pop(ctx, true);
+              },
+              onCancel: () => Navigator.pop(ctx, false),
+            ),
+            child: Column(
+              children: [
+                HesbaModalField(
+                  label: 'الحساب *',
+                  child: DropdownButtonFormField<String>(
+                    initialValue: id,
+                    isExpanded: true,
+                    decoration: const InputDecoration(),
+                    items: [
+                      for (final e in active)
+                        DropdownMenuItem(
+                          value: '${e['id']}',
+                          child: Text('${e['name']} — ${money(e['balance'])}'),
+                        ),
+                    ],
+                    onChanged: (v) => setLocal(() {
+                      id = v!;
+                      cashCounts = emptyFawryCashCounts();
+                      formError = null;
+                    }),
+                  ),
                 ),
-              ),
-              SizedBox(height: 18),
-              HesbaModalField(
-                label: tr(ar: 'مبلغ الشحن *', en: 'Top-up amount *'),
-                child: TextField(
-                  controller: amount,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: const [ArabicDigitsFormatter()],
-                  decoration: const InputDecoration(),
+                const SizedBox(height: 18),
+                if (isFawry) ...[
+                  HesbaModalField(
+                    label: 'مين عمل الإيداع؟ *',
+                    child: DropdownButtonFormField<String>(
+                      initialValue: depositorId,
+                      isExpanded: true,
+                      decoration: const InputDecoration(),
+                      items: [
+                        for (final person in fawryDepositors)
+                          DropdownMenuItem(
+                            value: '${person['id']}',
+                            child: Text('${person['displayName']}'),
+                          ),
+                      ],
+                      onChanged: (value) => setLocal(() {
+                        depositorId = value;
+                        formError = null;
+                      }),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  FawryCashInput(
+                    key: ValueKey(id),
+                    onChanged: (value) {
+                      cashCounts = value;
+                      if (formError != null) {
+                        setLocal(() => formError = null);
+                      }
+                    },
+                  ),
+                ] else
+                  HesbaModalField(
+                    label: tr(ar: 'مبلغ الشحن *', en: 'Top-up amount *'),
+                    child: TextField(
+                      controller: amount,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: const [ArabicDigitsFormatter()],
+                      decoration: const InputDecoration(),
+                      onChanged: (_) => setLocal(() => formError = null),
+                    ),
+                  ),
+                const SizedBox(height: 18),
+                HesbaModalField(
+                  label: tr(
+                    ar: 'رقم المرجع (اختياري)',
+                    en: 'Reference number (optional)',
+                  ),
+                  child: TextField(
+                    controller: reference,
+                    decoration: const InputDecoration(),
+                  ),
                 ),
-              ),
-              SizedBox(height: 18),
-              HesbaModalField(
-                label: tr(
-                  ar: 'رقم المرجع (اختياري)',
-                  en: 'Reference number (optional)',
-                ),
-                child: TextField(
-                  controller: reference,
-                  decoration: const InputDecoration(),
-                ),
-              ),
-            ],
-          ),
-        ),
+                if (formError != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    formError!,
+                    style: const TextStyle(color: HesbaColors.red),
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
       ),
     );
     if (ok == true) {
+      final isFawry = selectedIsFawry();
+      final referenceText = reference.text.trim();
       await _action(
-        () => widget.session.api.post(ApiEndpoints.accountTopUp(id), {
-          'amount': parseNum(amount.text) ?? 0,
-          if (reference.text.isNotEmpty) 'reference': reference.text,
-        }),
+        () => widget.session.api.post(
+          isFawry
+              ? ApiEndpoints.fawryDeposit(id)
+              : ApiEndpoints.accountTopUp(id),
+          isFawry
+              ? {
+                  'depositorUserId': depositorId,
+                  'cashCounts': cashCounts,
+                  if (referenceText.isNotEmpty) 'reference': referenceText,
+                }
+              : {
+                  'amount': parseNum(amount.text) ?? 0,
+                  if (referenceText.isNotEmpty) 'reference': referenceText,
+                },
+        ),
       );
     }
+    amount.dispose();
+    reference.dispose();
   }
 
   Future<void> _openDailyCommission() async {
@@ -496,10 +591,9 @@ class _AccountsPageState extends State<AccountsPage> {
     if (amounts == null || amounts.isEmpty || !mounted) return;
     await _action(() async {
       for (final entry in amounts.entries) {
-        await widget.session.api.post(
-          ApiEndpoints.fawryDailyDrop(entry.key),
-          {'amount': entry.value},
-        );
+        await widget.session.api.post(ApiEndpoints.fawryDailyDrop(entry.key), {
+          'amount': entry.value,
+        });
       }
     });
   }

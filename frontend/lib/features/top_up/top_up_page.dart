@@ -12,6 +12,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
 import '../../core/settings/tr.dart';
+import '../accounts/fawry_cash_input.dart';
 
 class TopUpPage extends StatefulWidget {
   const TopUpPage({super.key, required this.session});
@@ -32,7 +33,11 @@ class _TopUpPageState extends State<TopUpPage> {
   );
 
   List<_TopUpTarget> _targets = [];
+  List<dynamic> _fawryDepositors = [];
   String? _selected;
+  String? _depositorId;
+  Map<String, int> _cashCounts = emptyFawryCashCounts();
+  int _cashInputRevision = 0;
   String _additionType = 'direct';
   bool _loading = true;
   bool _saving = false;
@@ -61,10 +66,12 @@ class _TopUpPageState extends State<TopUpPage> {
         widget.session.api.list(ApiEndpoints.accounts),
         widget.session.api.list(ApiEndpoints.wallets),
         widget.session.api.list(ApiEndpoints.ledgerList(limit: 200)),
+        widget.session.api.list(ApiEndpoints.fawryDepositors),
       ]);
       final accounts = values[0];
       final wallets = values[1];
       final ledger = values[2];
+      final depositors = values[3];
 
       final targets = <_TopUpTarget>[
         ...accounts
@@ -75,6 +82,7 @@ class _TopUpPageState extends State<TopUpPage> {
                 kind: 'account',
                 id: '${item['id']}',
                 name: '${item['name']}',
+                type: '${item['type']}',
                 opening: num.tryParse('${item['openingBalance']}') ?? 0,
                 balance: num.tryParse('${item['balance']}') ?? 0,
               ),
@@ -87,6 +95,7 @@ class _TopUpPageState extends State<TopUpPage> {
                 kind: 'wallet',
                 id: '${item['id']}',
                 name: '${item['name']}',
+                type: 'wallet',
                 opening: num.tryParse('${item['openingBalance']}') ?? 0,
                 balance: num.tryParse('${item['balance']}') ?? 0,
               ),
@@ -96,6 +105,12 @@ class _TopUpPageState extends State<TopUpPage> {
       _nextSequence =
           ledger.where((entry) => entry['category'] == 'top_up').length + 1;
       _targets = targets;
+      _fawryDepositors = depositors;
+      _depositorId ??= depositors.isEmpty ? null : '${depositors.first['id']}';
+      if (_depositorId != null &&
+          depositors.every((item) => '${item['id']}' != _depositorId)) {
+        _depositorId = depositors.isEmpty ? null : '${depositors.first['id']}';
+      }
       _selected ??= targets.isEmpty ? null : targets.first.value;
       if (_selected != null &&
           targets.every((item) => item.value != _selected)) {
@@ -158,9 +173,18 @@ class _TopUpPageState extends State<TopUpPage> {
                   date: _date,
                   reference: _reference,
                   note: _note,
+                  depositors: _fawryDepositors,
+                  depositorId: _depositorId,
+                  cashInputRevision: _cashInputRevision,
                   saving: _saving,
-                  onSelectedChanged: (value) =>
-                      setState(() => _selected = value),
+                  onSelectedChanged: (value) => setState(() {
+                    _selected = value;
+                    _cashCounts = emptyFawryCashCounts();
+                    _cashInputRevision += 1;
+                  }),
+                  onDepositorChanged: (value) =>
+                      setState(() => _depositorId = value),
+                  onCashCountsChanged: (value) => _cashCounts = value,
                   onAdditionTypeChanged: (value) =>
                       setState(() => _additionType = value ?? 'direct'),
                   onSubmit: _submit,
@@ -215,26 +239,49 @@ class _TopUpPageState extends State<TopUpPage> {
     }
 
     final target = _targets.firstWhere((item) => item.value == _selected);
+    if (target.isFawry && _depositorId == null) {
+      showAppSnack(context, 'اختر الشخص الذي قام بالإيداع', error: true);
+      return;
+    }
+    if (target.isFawry && fawryCashTotal(_cashCounts) <= 0) {
+      showAppSnack(context, 'اكتب عدد ورقة واحدة على الأقل', error: true);
+      return;
+    }
     setState(() => _saving = true);
     try {
-      final path = target.kind == 'account'
+      final path = target.isFawry
+          ? ApiEndpoints.fawryDeposit(target.id)
+          : target.kind == 'account'
           ? ApiEndpoints.accountTopUp(target.id)
           : ApiEndpoints.walletTopUp(target.id);
       final reference = _reference.text.trim();
       final note = _note.text.trim();
-      await widget.session.api.post(path, {
-        'amount': parseNum(_amount.text.trim())!,
-        if (reference.isNotEmpty || note.isNotEmpty)
-          'reference': note.isEmpty
-              ? reference
-              : reference.isEmpty
-              ? note
-              : '$reference — $note',
-      });
+      final combinedReference = note.isEmpty
+          ? reference
+          : reference.isEmpty
+          ? note
+          : '$reference — $note';
+      await widget.session.api.post(
+        path,
+        target.isFawry
+            ? {
+                'depositorUserId': _depositorId,
+                'cashCounts': _cashCounts,
+                if (combinedReference.isNotEmpty)
+                  'reference': combinedReference,
+              }
+            : {
+                'amount': parseNum(_amount.text.trim())!,
+                if (combinedReference.isNotEmpty)
+                  'reference': combinedReference,
+              },
+      );
       _nextSequence += 1;
       _amount.text = '10000';
       _note.clear();
       _reference.text = _newReference();
+      _cashCounts = emptyFawryCashCounts();
+      _cashInputRevision += 1;
       await _load();
       if (mounted) showAppSnack(context, 'تم إضافة الرصيد بنجاح');
     } catch (exception) {
@@ -252,6 +299,7 @@ class _TopUpTarget {
     required this.kind,
     required this.id,
     required this.name,
+    required this.type,
     required this.opening,
     required this.balance,
   });
@@ -260,8 +308,11 @@ class _TopUpTarget {
   final String kind;
   final String id;
   final String name;
+  final String type;
   final num opening;
   final num balance;
+
+  bool get isFawry => kind == 'account' && type == 'fawry';
 
   String get label => '$name — مرحل ${money(opening)} — حالي ${money(balance)}';
 }
@@ -307,8 +358,13 @@ class _TopUpFormCard extends StatelessWidget {
     required this.date,
     required this.reference,
     required this.note,
+    required this.depositors,
+    required this.depositorId,
+    required this.cashInputRevision,
     required this.saving,
     required this.onSelectedChanged,
+    required this.onDepositorChanged,
+    required this.onCashCountsChanged,
     required this.onAdditionTypeChanged,
     required this.onSubmit,
   });
@@ -321,13 +377,23 @@ class _TopUpFormCard extends StatelessWidget {
   final TextEditingController date;
   final TextEditingController reference;
   final TextEditingController note;
+  final List<dynamic> depositors;
+  final String? depositorId;
+  final int cashInputRevision;
   final bool saving;
   final ValueChanged<String?> onSelectedChanged;
+  final ValueChanged<String?> onDepositorChanged;
+  final ValueChanged<Map<String, int>> onCashCountsChanged;
   final ValueChanged<String?> onAdditionTypeChanged;
   final VoidCallback onSubmit;
 
   @override
   Widget build(BuildContext context) {
+    _TopUpTarget? selectedTarget;
+    for (final target in targets) {
+      if (target.value == selected) selectedTarget = target;
+    }
+    final isFawry = selectedTarget?.isFawry ?? false;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -394,62 +460,90 @@ class _TopUpFormCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _LabeledField(
-                              label: tr(
-                                ar: 'مبلغ الشحن *',
-                                en: 'Top-up amount *',
+                          if (isFawry)
+                            SizedBox(
+                              width: fieldWidth,
+                              child: _LabeledField(
+                                label: 'مين عمل الإيداع؟ *',
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: depositorId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(),
+                                  items: [
+                                    for (final person in depositors)
+                                      DropdownMenuItem(
+                                        value: '${person['id']}',
+                                        child: Text(
+                                          '${person['displayName']}',
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                  ],
+                                  onChanged: saving ? null : onDepositorChanged,
+                                  validator: (value) => value == null
+                                      ? 'اختر الشخص الذي قام بالإيداع'
+                                      : null,
+                                ),
                               ),
-                              child: TextFormField(
-                                controller: amount,
-                                enabled: !saving,
-                                keyboardType:
-                                    const TextInputType.numberWithOptions(
-                                      decimal: true,
-                                    ),
-                                inputFormatters: const [
-                                  ArabicDigitsFormatter(),
-                                ],
-                                decoration: const InputDecoration(),
-                                validator: (value) {
-                                  final parsed = parseNum(
-                                    value?.trim() ?? '',
-                                  );
-                                  if (parsed == null || parsed <= 0) {
-                                    return tr(
-                                      ar: 'أدخل مبلغًا صحيحًا',
-                                      en: 'Enter a valid amount',
+                            )
+                          else ...[
+                            SizedBox(
+                              width: fieldWidth,
+                              child: _LabeledField(
+                                label: tr(
+                                  ar: 'مبلغ الشحن *',
+                                  en: 'Top-up amount *',
+                                ),
+                                child: TextFormField(
+                                  controller: amount,
+                                  enabled: !saving,
+                                  keyboardType:
+                                      const TextInputType.numberWithOptions(
+                                        decimal: true,
+                                      ),
+                                  inputFormatters: const [
+                                    ArabicDigitsFormatter(),
+                                  ],
+                                  decoration: const InputDecoration(),
+                                  validator: (value) {
+                                    final parsed = parseNum(
+                                      value?.trim() ?? '',
                                     );
-                                  }
-                                  return null;
-                                },
+                                    if (parsed == null || parsed <= 0) {
+                                      return tr(
+                                        ar: 'أدخل مبلغًا صحيحًا',
+                                        en: 'Enter a valid amount',
+                                      );
+                                    }
+                                    return null;
+                                  },
+                                ),
                               ),
                             ),
-                          ),
-                          SizedBox(
-                            width: fieldWidth,
-                            child: _LabeledField(
-                              label: 'نوع الإضافة *',
-                              child: DropdownButtonFormField<String>(
-                                initialValue: additionType,
-                                decoration: const InputDecoration(),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'direct',
-                                    child: Text('شحن مباشر من خارج النظام'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'settlement',
-                                    child: Text('تسوية / توريد'),
-                                  ),
-                                ],
-                                onChanged: saving
-                                    ? null
-                                    : onAdditionTypeChanged,
+                            SizedBox(
+                              width: fieldWidth,
+                              child: _LabeledField(
+                                label: 'نوع الإضافة *',
+                                child: DropdownButtonFormField<String>(
+                                  initialValue: additionType,
+                                  decoration: const InputDecoration(),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'direct',
+                                      child: Text('شحن مباشر من خارج النظام'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'settlement',
+                                      child: Text('تسوية / توريد'),
+                                    ),
+                                  ],
+                                  onChanged: saving
+                                      ? null
+                                      : onAdditionTypeChanged,
+                                ),
                               ),
                             ),
-                          ),
+                          ],
                           SizedBox(
                             width: fieldWidth,
                             child: _LabeledField(
@@ -492,6 +586,14 @@ class _TopUpFormCard extends StatelessWidget {
                           ),
                         ],
                       ),
+                      if (isFawry) ...[
+                        const SizedBox(height: 22),
+                        FawryCashInput(
+                          key: ValueKey(cashInputRevision),
+                          enabled: !saving,
+                          onChanged: onCashCountsChanged,
+                        ),
+                      ],
                       const SizedBox(height: 24),
                       Align(
                         alignment: AlignmentDirectional.centerStart,

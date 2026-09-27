@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseBoolPipe,
+  ParseIntPipe,
   Patch,
   Post,
   Query,
@@ -15,9 +16,10 @@ import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { Roles } from '../common/decorators/roles.decorator.js';
 import { AppPermission, UserRole } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
-import { AccountsService } from './accounts.service.js';
+import { AccountsService, fawryCashTotal } from './accounts.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { RecordFawryDailyDropDto } from './dto/record-fawry-daily-drop.dto.js';
+import { RecordFawryDepositDto } from './dto/record-fawry-deposit.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -34,6 +36,20 @@ export class AccountsController {
   @Get('fawry-daily-drops')
   todayDrops() {
     return this.accounts.todayDrops();
+  }
+
+  @RequirePermissions(AppPermission.TOP_UP_ASSETS)
+  @Get('fawry-depositors')
+  fawryDepositors() {
+    return this.accounts.fawryDepositors();
+  }
+
+  @RequirePermissions(AppPermission.TOP_UP_ASSETS)
+  @Get('fawry-deposits')
+  fawryDeposits(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+  ) {
+    return this.accounts.findFawryDeposits(limit ?? 100);
   }
 
   @Get()
@@ -76,6 +92,23 @@ export class AccountsController {
       dto.amount,
     );
     return this.accounts.topUp(id, dto, request.user.username);
+  }
+
+  @RequirePermissions(AppPermission.TOP_UP_ASSETS)
+  @Idempotent()
+  @Post(':id/fawry-deposit')
+  async recordFawryDeposit(
+    @Param('id') id: string,
+    @Body() dto: RecordFawryDepositDto,
+    @Request() request: UserRequest,
+  ) {
+    const amount = fawryCashTotal(dto.cashCounts);
+    await this.users.assertAmountLimit(
+      request.user.userId,
+      'maxTopUpAmount',
+      amount,
+    );
+    return this.accounts.recordFawryDeposit(id, dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.MANAGE_ASSETS)

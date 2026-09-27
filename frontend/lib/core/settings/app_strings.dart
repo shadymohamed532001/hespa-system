@@ -40,7 +40,6 @@ class AppStrings {
   String get inventory =>
       _ar ? 'مخزن الموبايلات والإكسسوارات' : 'Mobiles & accessories store';
   String get transfer => _ar ? 'تحويل داخلي' : 'Internal transfer';
-  String get settlement => _ar ? 'توريد وتسوية شركة' : 'Company settlement';
   String get ledger => _ar ? 'سجل العمليات' : 'Ledger';
   String get reports => _ar ? 'التقارير الشاملة' : 'Reports';
   String get users => _ar ? 'المستخدمون والصلاحيات' : 'Users & permissions';

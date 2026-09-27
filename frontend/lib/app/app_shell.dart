@@ -67,8 +67,6 @@ class _AppShellState extends State<AppShell> {
     _NavItem(t.inventory, () => InventoryPage(session: widget.session)),
     if (widget.session.can(AppPermissions.internalTransfer))
       _NavItem(t.transfer, () => InternalTransferPage(session: widget.session)),
-    if (widget.session.can(AppPermissions.receiveCollections))
-      _NavItem(t.settlement, () => CollectionsPage(session: widget.session)),
     _NavItem(t.ledger, () => LedgerPage(session: widget.session)),
     if (widget.session.isAdmin)
       _NavItem(t.reports, () => ReportsPage(session: widget.session)),

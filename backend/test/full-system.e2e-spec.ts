@@ -160,6 +160,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'WalletCustomerCashFee1790087699424',
       'FawryDailyDrop1790087699425',
       'CollectionIncomingSplits1790087699426',
+      'FawryDeposits1790087699427',
     ]);
   });
 
