@@ -53,9 +53,12 @@ class _AppShellState extends State<AppShell> {
       ),
     ),
     _NavItem(
-      t.accounts,
-      () => AccountsPage(session: widget.session),
-      subtitle: t.accountsProfit,
+      t.fawryAccounts,
+      () => AccountsPage(session: widget.session, kind: 'fawry'),
+    ),
+    _NavItem(
+      t.profitAccounts,
+      () => AccountsPage(session: widget.session, kind: 'profit'),
     ),
     if (widget.session.can(AppPermissions.topUpAssets))
       _NavItem(t.topUp, () => TopUpPage(session: widget.session)),
@@ -132,7 +135,7 @@ class _AppShellState extends State<AppShell> {
                     settings: widget.settings,
                     strings: t,
                     compact: true,
-                    title: items[safeSelected].title,
+                    title: items[safeSelected].label,
                     onMenuPressed: () =>
                         _scaffoldKey.currentState?.openDrawer(),
                   ),
@@ -225,7 +228,6 @@ class _Sidebar extends StatelessWidget {
                   separatorBuilder: (_, _) => const SizedBox(height: 5),
                   itemBuilder: (context, index) => _NavigationItem(
                     label: items[index].label,
-                    subtitle: items[index].subtitle,
                     active: index == selected,
                     onTap: () => onSelected(index),
                   ),
@@ -246,17 +248,14 @@ class _NavigationItem extends StatelessWidget {
     required this.label,
     required this.active,
     required this.onTap,
-    this.subtitle,
   });
 
   final String label;
-  final String? subtitle;
   final bool active;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final style = active ? HesbaText.navActive : HesbaText.nav;
     return Material(
       color: active ? HesbaColors.teal : Colors.transparent,
       borderRadius: BorderRadius.circular(9),
@@ -264,28 +263,14 @@ class _NavigationItem extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(9),
         child: SizedBox(
-          height: subtitle == null ? 45 : 62,
+          height: 45,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 15),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label, style: style),
-                  if (subtitle != null)
-                    Text(
-                      subtitle!,
-                      style: style.copyWith(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: active
-                            ? Colors.white.withValues(alpha: 0.86)
-                            : const Color(0x96FFFFFF),
-                      ),
-                    ),
-                ],
+              child: Text(
+                label,
+                style: active ? HesbaText.navActive : HesbaText.nav,
               ),
             ),
           ),
@@ -509,11 +494,8 @@ class _ContextBar extends StatelessWidget {
 }
 
 class _NavItem {
-  const _NavItem(this.label, this.builder, {this.subtitle});
+  const _NavItem(this.label, this.builder);
 
   final String label;
-  final String? subtitle;
   final Widget Function() builder;
-
-  String get title => subtitle == null ? label : '$label · $subtitle';
 }

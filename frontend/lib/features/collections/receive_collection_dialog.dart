@@ -623,7 +623,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         }
         if (names.isEmpty) {
           return tr(
-            ar: 'لا توجد شركات. أضف حساب شركة من فوري والمكسب',
+            ar: 'لا توجد شركات في القائمة',
             en: 'No companies yet. Add a company account first',
           );
         }

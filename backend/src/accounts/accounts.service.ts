@@ -23,6 +23,10 @@ import { RecordFawryDepositDto } from './dto/record-fawry-deposit.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 import { UsersService } from '../users/users.service.js';
+import {
+  REGULAR_PROFIT_LIMIT,
+  regularProfitDepositCommission,
+} from './profit-commission.js';
 
 export const FAWRY_MAX_BALANCE = 5_000_000;
 
@@ -91,6 +95,17 @@ export class AccountsService implements OnModuleInit {
         }),
       );
     }
+    if (
+      dto.type === AccountType.PROFIT &&
+      dto.openingBalance > REGULAR_PROFIT_LIMIT
+    ) {
+      throw new BadRequestException(
+        msg({
+          ar: 'الرصيد الافتتاحي يتجاوز الحد الأقصى لحساب المكسب العادي',
+          en: 'Opening balance exceeds the regular profit account maximum',
+        }),
+      );
+    }
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(FinancialAccount);
       const account = await repo.save(
@@ -130,9 +145,12 @@ export class AccountsService implements OnModuleInit {
             en: 'Account not found or inactive',
           }),
         );
+      const nextBalance = Number(
+        (Number(account.balance) + dto.amount).toFixed(2),
+      );
       if (
         account.type === AccountType.FAWRY &&
-        account.balance + dto.amount > FAWRY_MAX_BALANCE
+        nextBalance > FAWRY_MAX_BALANCE
       ) {
         throw new BadRequestException({
           message: msg({
@@ -140,13 +158,41 @@ export class AccountsService implements OnModuleInit {
             en: 'This would exceed the Fawry account maximum',
           }),
           limit: FAWRY_MAX_BALANCE,
-          available: Math.max(0, FAWRY_MAX_BALANCE - account.balance),
+          available: Math.max(0, FAWRY_MAX_BALANCE - Number(account.balance)),
         });
       }
-      account.balance += dto.amount;
-      account.todayTopUp += dto.amount;
+      if (
+        account.type === AccountType.PROFIT &&
+        nextBalance > REGULAR_PROFIT_LIMIT
+      ) {
+        throw new BadRequestException({
+          message: msg({
+            ar: 'سيتم تجاوز الحد الأقصى لحساب المكسب العادي',
+            en: 'This would exceed the regular profit account maximum',
+          }),
+          limit: REGULAR_PROFIT_LIMIT,
+          available: Math.max(
+            0,
+            Number((REGULAR_PROFIT_LIMIT - Number(account.balance)).toFixed(2)),
+          ),
+        });
+      }
+      const depositCommission =
+        account.type === AccountType.PROFIT
+          ? regularProfitDepositCommission(dto.amount)
+          : 0;
+      account.balance = nextBalance;
+      account.todayTopUp = Number(
+        (Number(account.todayTopUp) + dto.amount).toFixed(2),
+      );
+      if (depositCommission > 0) {
+        account.commissionBalance = Number(
+          (Number(account.commissionBalance) + depositCommission).toFixed(2),
+        );
+      }
       await repo.save(account);
-      await manager.getRepository(LedgerEntry).save({
+      const ledger = manager.getRepository(LedgerEntry);
+      const topUpEntry = await ledger.save({
         category: LedgerCategory.TOP_UP,
         amount: dto.amount,
         entityType: 'account',
@@ -154,7 +200,26 @@ export class AccountsService implements OnModuleInit {
         reference: dto.reference ?? null,
         description: `شحن مباشر للحساب ${account.name}`,
         performedBy: username,
+        metadata:
+          depositCommission > 0
+            ? { profitDepositCommission: depositCommission }
+            : null,
       });
+      if (depositCommission > 0) {
+        await ledger.save({
+          category: LedgerCategory.COMMISSION,
+          amount: depositCommission,
+          entityType: 'account',
+          entityId: account.id,
+          reference: dto.reference ?? null,
+          description: `عمولة شحن حساب المكسب ${account.name}: ٥ جنيه لكل ألف`,
+          performedBy: username,
+          metadata: {
+            profitSourceEntryId: topUpEntry.id,
+            profitCommissionKind: 'deposit',
+          },
+        });
+      }
       return account;
     });
   }

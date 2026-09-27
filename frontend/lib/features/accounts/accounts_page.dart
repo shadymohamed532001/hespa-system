@@ -17,9 +17,12 @@ import '../../core/settings/tr.dart';
 import 'fawry_cash_input.dart';
 
 class AccountsPage extends StatefulWidget {
-  const AccountsPage({super.key, required this.session});
+  const AccountsPage({super.key, required this.session, required this.kind});
 
   final SessionController session;
+  final String kind;
+
+  bool get isFawry => kind == 'fawry';
 
   @override
   State<AccountsPage> createState() => _AccountsPageState();
@@ -58,6 +61,9 @@ class _AccountsPageState extends State<AccountsPage> {
     if (mounted) setState(() => loading = false);
   }
 
+  List<dynamic> get _rows =>
+      data.where((item) => item['type'] == widget.kind).toList();
+
   Future<Map<String, num>> _loadTodayDrops() async {
     if (!widget.session.isAdmin) return {};
     try {
@@ -76,11 +82,15 @@ class _AccountsPageState extends State<AccountsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final rows = _rows;
+    final isFawry = widget.isFawry;
     return PageFrame(
-      title: 'حسابات فوري والمكسب',
-      subtitle: widget.session.isAdmin
-          ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
-          : 'متابعة الرصيد والترحيل لكل حساب',
+      title: isFawry ? 'حسابات فوري' : 'حسابات مكسب',
+      subtitle: isFawry
+          ? widget.session.isAdmin
+                ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
+                : 'متابعة الرصيد والترحيل لكل حساب'
+          : 'حساب مكسب عادي. الشحن والتحويل زي أي حساب، والحد مليون جنيه. عمولة الشحن ٥ جنيه لكل ألف، وخصم ٤ جنيه لكل ألف عند التحويل من الحساب.',
       actions: [
         if (widget.session.can(AppPermissions.manageAssets))
           OutlinedButton.icon(
@@ -88,7 +98,7 @@ class _AccountsPageState extends State<AccountsPage> {
             icon: const Icon(Icons.add, size: 18),
             label: Text(tr(ar: 'إضافة حساب', en: 'Add account')),
           ),
-        if (widget.session.isAdmin)
+        if (isFawry && widget.session.isAdmin)
           OutlinedButton.icon(
             onPressed: loading ? null : _openDailyCommission,
             icon: const Icon(Icons.today_outlined, size: 18),
@@ -131,19 +141,21 @@ class _AccountsPageState extends State<AccountsPage> {
                         MetricCard(
                           label: tr(ar: 'إجمالي الأرصدة', en: 'Total balances'),
                           value: money(
-                            data.fold<num>(
+                            rows.fold<num>(
                               0,
                               (s, e) =>
                                   s + (num.tryParse('${e['balance']}') ?? 0),
                             ),
                           ),
-                          note: 'جميع حسابات فوري والمكسب',
+                          note: isFawry
+                              ? 'جميع حسابات فوري'
+                              : 'جميع حسابات المكسب',
                         ),
                         if (widget.session.isAdmin)
                           MetricCard(
                             label: tr(ar: 'العمولات', en: 'Commissions'),
                             value: money(
-                              data.fold<num>(
+                              rows.fold<num>(
                                 0,
                                 (s, e) =>
                                     s +
@@ -153,18 +165,22 @@ class _AccountsPageState extends State<AccountsPage> {
                                         0),
                               ),
                             ),
-                            note: 'نزلة فوري داخلة في رصيد الحساب',
+                            note: isFawry
+                                ? 'نزلة فوري داخلة في رصيد الحساب'
+                                : '٥ جنيه لكل ألف شحن، و٤ جنيه تخصم لكل ألف تحويل',
                             accent: true,
                           ),
                         MetricCard(
                           label: 'عدد الحسابات',
-                          value: '${data.length}',
+                          value: '${rows.length}',
                           note: 'يشمل الحسابات الموقوفة',
                         ),
-                        const MetricCard(
-                          label: 'الحد الأقصى لفوري',
-                          value: '5,000,000 ج.م',
-                          note: 'لكل حساب فوري',
+                        MetricCard(
+                          label: isFawry
+                              ? 'الحد الأقصى لفوري'
+                              : 'الحد الأقصى للمكسب',
+                          value: isFawry ? '5,000,000 ج.م' : '1,000,000 ج.م',
+                          note: isFawry ? 'لكل حساب فوري' : 'لكل حساب مكسب عادي',
                         ),
                       ],
                     );
@@ -172,9 +188,10 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
                 const SizedBox(height: 22),
                 _AccountsTable(
-                  rows: data,
+                  rows: rows,
                   canManage: widget.session.can(AppPermissions.manageAssets),
                   showProfits: widget.session.isAdmin,
+                  limit: isFawry ? _fawryLimit : _profitLimit,
                   onManage: _manageAccount,
                 ),
               ],
@@ -329,12 +346,11 @@ class _AccountsPageState extends State<AccountsPage> {
   Future<void> _accountDialog(BuildContext context) async {
     final name = TextEditingController();
     final opening = TextEditingController(text: '0');
-    var type = 'fawry';
+    final type = widget.kind;
     final ok = await showHesbaModal<bool>(
       context: context,
       maxWidth: 520,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => HesbaModalCard(
+      builder: (ctx) => HesbaModalCard(
           title: tr(ar: 'إضافة حساب جديد', en: 'Add new account'),
           subtitle: tr(
             ar: 'أدخل بيانات الحساب ثم احفظه في النظام.',
@@ -354,33 +370,6 @@ class _AccountsPageState extends State<AccountsPage> {
                   decoration: const InputDecoration(),
                 ),
               ),
-              SizedBox(height: 18),
-              HesbaModalField(
-                label: tr(ar: 'النوع *', en: 'Type *'),
-                child: DropdownButtonFormField<String>(
-                  initialValue: type,
-                  decoration: const InputDecoration(),
-                  items: [
-                    DropdownMenuItem(
-                      value: 'fawry',
-                      child: Text(tr(ar: 'فوري', en: 'Fawry')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'company',
-                      child: Text(tr(ar: 'شركة', en: 'Company')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'operating',
-                      child: Text(tr(ar: 'تشغيلي', en: 'Operating')),
-                    ),
-                    DropdownMenuItem(
-                      value: 'profit',
-                      child: Text(tr(ar: 'مكسب', en: 'Profit')),
-                    ),
-                  ],
-                  onChanged: (v) => setLocal(() => type = v!),
-                ),
-              ),
               const SizedBox(height: 18),
               HesbaModalField(
                 label: tr(ar: 'الرصيد الافتتاحي *', en: 'Opening balance *'),
@@ -394,7 +383,6 @@ class _AccountsPageState extends State<AccountsPage> {
             ],
           ),
         ),
-      ),
     );
     if (ok == true) {
       await _action(
@@ -408,7 +396,7 @@ class _AccountsPageState extends State<AccountsPage> {
   }
 
   Future<void> _chooseTopUp(BuildContext context) async {
-    final active = data.where((e) => e['active'] == true).toList();
+    final active = _rows.where((e) => e['active'] == true).toList();
     if (active.isEmpty) {
       showAppSnack(context, 'لا يوجد حساب نشط للشحن', error: true);
       return;
@@ -524,6 +512,13 @@ class _AccountsPageState extends State<AccountsPage> {
                       onChanged: (_) => setLocal(() => formError = null),
                     ),
                   ),
+                if (!widget.isFawry) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    'العمولة ٥ جنيه لكل ألف وتضاف لرصيد العمولات، من غير ما تتخصم من مبلغ الشحن.',
+                    style: HesbaText.caption,
+                  ),
+                ],
                 const SizedBox(height: 18),
                 HesbaModalField(
                   label: tr(
@@ -742,12 +737,14 @@ class _AccountsTable extends StatelessWidget {
     required this.rows,
     required this.canManage,
     required this.showProfits,
+    required this.limit,
     required this.onManage,
   });
 
   final List<dynamic> rows;
   final bool canManage;
   final bool showProfits;
+  final num limit;
   final Future<void> Function(Map<String, dynamic> account) onManage;
 
   @override
@@ -810,10 +807,7 @@ class _AccountsTable extends StatelessWidget {
                     DataRow(
                       cells: [
                         DataCell(
-                          Text(
-                            '${e['name']} · ${_accountType('${e['type']}')}',
-                            style: HesbaText.tableEmphasis,
-                          ),
+                          Text('${e['name']}', style: HesbaText.tableEmphasis),
                         ),
                         DataCell(
                           Text(
@@ -823,12 +817,9 @@ class _AccountsTable extends StatelessWidget {
                         ),
                         DataCell(
                           Text(
-                            e['type'] == 'fawry'
-                                ? money(
-                                    _fawryLimit -
-                                        (num.tryParse('${e['balance']}') ?? 0),
-                                  )
-                                : 'بدون حد محدد',
+                            money(
+                              limit - (num.tryParse('${e['balance']}') ?? 0),
+                            ),
                             style: HesbaText.tableCell,
                           ),
                         ),
@@ -878,6 +869,7 @@ class _AccountsTable extends StatelessWidget {
 }
 
 const _fawryLimit = 5000000;
+const _profitLimit = 1000000;
 
 const _headerStyle = HesbaText.tableHeader;
 

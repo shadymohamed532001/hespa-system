@@ -71,6 +71,7 @@ class _InternalTransferPageState extends State<InternalTransferPage> {
                 type: 'account',
                 id: '${item['id']}',
                 name: '${item['name']}',
+                accountType: '${item['type']}',
               ),
             ),
         ...wallets
@@ -348,6 +349,19 @@ class _TransferFormCard extends StatelessWidget {
                           ),
                         ),
                       ),
+                      if (assets
+                          .where((asset) => asset.value == fromValue)
+                          .any((asset) => asset.accountType == 'profit')) ...[
+                        const SizedBox(height: 14),
+                        const Text(
+                          'التحويل من حساب مكسب عادي يخصم ٤ جنيه عمولة لكل ألف من رصيد العمولات، وأصل المبلغ يتحول كامل.',
+                          style: TextStyle(
+                            color: Color(0xFF425C6B),
+                            fontSize: 13,
+                            height: 1.5,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 20),
                       Align(
                         alignment: Alignment.centerRight,
@@ -437,10 +451,12 @@ class _TransferAsset {
     required this.type,
     required this.name,
     this.id,
+    this.accountType,
   });
 
   final String value;
   final String type;
   final String name;
   final String? id;
+  final String? accountType;
 }

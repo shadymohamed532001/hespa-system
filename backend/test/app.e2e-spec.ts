@@ -809,4 +809,66 @@ describe('financial operations (e2e)', () => {
       ),
     ).toBe(true);
   });
+
+  it('credits 5 per thousand on a regular profit top-up and takes 4 per thousand on transfer out', async () => {
+    const suffix = randomUUID();
+    const profit = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`profit-rules-${suffix}`))
+      .send({
+        name: `مكسب عادي ${suffix}`,
+        type: 'profit',
+        openingBalance: 0,
+      })
+      .expect(201);
+    const other = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`profit-target-${suffix}`))
+      .send({
+        name: `وجهة ${suffix}`,
+        type: 'company',
+        openingBalance: 0,
+      })
+      .expect(201);
+
+    const topped = await request(app.getHttpServer())
+      .post(`/api/accounts/${profit.body.id}/top-up`)
+      .set(mutation(`profit-topup-${suffix}`))
+      .send({ amount: 1000 })
+      .expect(201);
+    expect(topped.body.balance).toBe(1000);
+    expect(topped.body.commissionBalance).toBe(5);
+
+    await request(app.getHttpServer())
+      .post(`/api/accounts/${profit.body.id}/top-up`)
+      .set(mutation(`profit-over-limit-${suffix}`))
+      .send({ amount: 1_000_000 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/treasury/transfer')
+      .set(mutation(`profit-transfer-${suffix}`))
+      .send({
+        fromType: 'account',
+        fromId: profit.body.id,
+        toType: 'account',
+        toId: other.body.id,
+        amount: 1000,
+      })
+      .expect(201);
+
+    const accounts = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const updated = (
+      accounts.body as Array<{
+        id: string;
+        balance: number;
+        commissionBalance: number;
+      }>
+    ).find((item) => item.id === profit.body.id);
+    expect(updated?.balance).toBe(0);
+    expect(updated?.commissionBalance).toBe(1);
+  });
 });

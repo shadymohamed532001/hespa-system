@@ -13,7 +13,11 @@ import { Machine } from '../database/entities/machine.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
 import { DailyClose } from '../database/entities/daily-close.entity.js';
-import { CollectionStatus, LedgerCategory } from '../database/enums.js';
+import { AccountType, CollectionStatus, LedgerCategory } from '../database/enums.js';
+import {
+  REGULAR_PROFIT_LIMIT,
+  regularProfitWithdrawCommission,
+} from '../accounts/profit-commission.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
 import { CloseDayDto, ReconcileDto } from './dto/reconcile.dto.js';
 
@@ -157,9 +161,32 @@ export class TreasuryService {
       const target = locked.get(targetKey)!;
       if (source.balance < dto.amount)
         throw new BadRequestException(msg({ ar: 'رصيد المصدر غير كافٍ', en: 'Insufficient source balance' }));
+      if (dto.toType === 'account' && dto.toId) {
+        const destination = await manager
+          .getRepository(FinancialAccount)
+          .findOne({ where: { id: dto.toId } });
+        if (
+          destination?.type === AccountType.PROFIT &&
+          Number(target.balance) + dto.amount > REGULAR_PROFIT_LIMIT
+        ) {
+          throw new BadRequestException({
+            message: msg({
+              ar: 'سيتم تجاوز الحد الأقصى لحساب المكسب العادي',
+              en: 'This would exceed the regular profit account maximum',
+            }),
+            limit: REGULAR_PROFIT_LIMIT,
+            available: Math.max(
+              0,
+              Number(
+                (REGULAR_PROFIT_LIMIT - Number(target.balance)).toFixed(2),
+              ),
+            ),
+          });
+        }
+      }
       await source.setBalance(source.balance - dto.amount);
       await target.setBalance(target.balance + dto.amount);
-      await manager.getRepository(LedgerEntry).save({
+      const transfer = await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.INTERNAL_TRANSFER,
         amount: dto.amount,
         entityType: 'internal_transfer',
@@ -172,6 +199,34 @@ export class TreasuryService {
         description: `تحويل داخلي من ${source.name} إلى ${target.name} — ليس مصروفًا`,
         performedBy: username,
       });
+      if (dto.fromType === 'account' && dto.fromId) {
+        const origin = await manager.getRepository(FinancialAccount).findOne({
+          where: { id: dto.fromId },
+        });
+        const withdrawCommission =
+          origin?.type === AccountType.PROFIT
+            ? regularProfitWithdrawCommission(dto.amount)
+            : 0;
+        if (origin && withdrawCommission > 0) {
+          origin.commissionBalance = Number(
+            (Number(origin.commissionBalance) - withdrawCommission).toFixed(2),
+          );
+          await manager.getRepository(FinancialAccount).save(origin);
+          await manager.getRepository(LedgerEntry).save({
+            category: LedgerCategory.COMMISSION,
+            amount: -withdrawCommission,
+            entityType: 'account',
+            entityId: origin.id,
+            reference: dto.reference ?? null,
+            description: `خصم عمولة تحويل من حساب المكسب ${origin.name}: ٤ جنيه لكل ألف`,
+            performedBy: username,
+            metadata: {
+              profitSourceEntryId: transfer.id,
+              profitCommissionKind: 'withdraw',
+            },
+          });
+        }
+      }
       return { from: source.name, to: target.name, amount: dto.amount };
     });
   }

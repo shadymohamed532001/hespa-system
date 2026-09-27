@@ -181,6 +181,60 @@ export class LedgerService {
     await source.save(source.balance + entry.amount);
   }
 
+  private async reverseProfitCommission(
+    manager: EntityManager,
+    entry: LedgerEntry,
+    reason: string,
+    username: string,
+  ) {
+    const repo = manager.getRepository(LedgerEntry);
+    const commission = await repo
+      .createQueryBuilder('entry')
+      .where('entry.category = :category', {
+        category: LedgerCategory.COMMISSION,
+      })
+      .andWhere('entry.metadata @> :metadata::jsonb', {
+        metadata: JSON.stringify({ profitSourceEntryId: entry.id }),
+      })
+      .getOne();
+    if (
+      !commission?.entityId ||
+      (await repo.exists({ where: { reversesEntryId: commission.id } }))
+    ) {
+      return;
+    }
+    const account = await manager.getRepository(FinancialAccount).findOne({
+      where: { id: commission.entityId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!account) {
+      throw new NotFoundException(
+        msg({ ar: 'الحساب غير موجود', en: 'Account not found' }),
+      );
+    }
+    account.commissionBalance = Number(
+      (Number(account.commissionBalance) - Number(commission.amount)).toFixed(
+        2,
+      ),
+    );
+    await manager.save(account);
+    await repo.save({
+      category: LedgerCategory.REVERSAL,
+      amount: -Number(commission.amount),
+      entityType: commission.entityType,
+      entityId: commission.entityId,
+      reference: commission.reference,
+      description: `عكس: ${commission.description} — السبب: ${reason}`,
+      performedBy: username,
+      reversesEntryId: commission.id,
+      metadata: {
+        originalCategory: commission.category,
+        profitSourceEntryId: entry.id,
+        reason,
+      },
+    });
+  }
+
   private async reverseCustomerWalletFees(
     manager: EntityManager,
     entry: LedgerEntry,
@@ -366,8 +420,20 @@ export class LedgerService {
           );
         }
         await this.reverseTopUp(manager, entry);
+        await this.reverseProfitCommission(
+          manager,
+          entry,
+          dto.reason,
+          username,
+        );
       } else if (entry.category === LedgerCategory.INTERNAL_TRANSFER) {
         await this.reverseTransfer(manager, entry);
+        await this.reverseProfitCommission(
+          manager,
+          entry,
+          dto.reason,
+          username,
+        );
         if (entry.metadata?.customerWalletOperation === true) {
           await this.reverseCustomerWalletFees(manager, entry, dto.reason, username);
         }
