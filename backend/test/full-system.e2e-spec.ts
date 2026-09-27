@@ -161,6 +161,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'FawryDailyDrop1790087699425',
       'CollectionIncomingSplits1790087699426',
       'FawryDeposits1790087699427',
+      'ProfitAccountType1790087699428',
     ]);
   });
 

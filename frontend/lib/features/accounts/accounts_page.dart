@@ -180,7 +180,9 @@ class _AccountsPageState extends State<AccountsPage> {
                               ? 'الحد الأقصى لفوري'
                               : 'الحد الأقصى للمكسب',
                           value: isFawry ? '5,000,000 ج.م' : '1,000,000 ج.م',
-                          note: isFawry ? 'لكل حساب فوري' : 'لكل حساب مكسب عادي',
+                          note: isFawry
+                              ? 'لكل حساب فوري'
+                              : 'لكل حساب مكسب عادي',
                         ),
                       ],
                     );
@@ -351,38 +353,38 @@ class _AccountsPageState extends State<AccountsPage> {
       context: context,
       maxWidth: 520,
       builder: (ctx) => HesbaModalCard(
-          title: tr(ar: 'إضافة حساب جديد', en: 'Add new account'),
-          subtitle: tr(
-            ar: 'أدخل بيانات الحساب ثم احفظه في النظام.',
-            en: 'Enter account details then save it to the system.',
-          ),
-          actions: HesbaModalActions(
-            primaryLabel: tr(ar: 'إضافة', en: 'Add'),
-            onPrimary: () => Navigator.pop(ctx, true),
-            onCancel: () => Navigator.pop(ctx, false),
-          ),
-          child: Column(
-            children: [
-              HesbaModalField(
-                label: 'اسم الحساب *',
-                child: TextField(
-                  controller: name,
-                  decoration: const InputDecoration(),
-                ),
-              ),
-              const SizedBox(height: 18),
-              HesbaModalField(
-                label: tr(ar: 'الرصيد الافتتاحي *', en: 'Opening balance *'),
-                child: TextField(
-                  controller: opening,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: const [ArabicDigitsFormatter()],
-                  decoration: const InputDecoration(),
-                ),
-              ),
-            ],
-          ),
+        title: tr(ar: 'إضافة حساب جديد', en: 'Add new account'),
+        subtitle: tr(
+          ar: 'أدخل بيانات الحساب ثم احفظه في النظام.',
+          en: 'Enter account details then save it to the system.',
         ),
+        actions: HesbaModalActions(
+          primaryLabel: tr(ar: 'إضافة', en: 'Add'),
+          onPrimary: () => Navigator.pop(ctx, true),
+          onCancel: () => Navigator.pop(ctx, false),
+        ),
+        child: Column(
+          children: [
+            HesbaModalField(
+              label: 'اسم الحساب *',
+              child: TextField(
+                controller: name,
+                decoration: const InputDecoration(),
+              ),
+            ),
+            const SizedBox(height: 18),
+            HesbaModalField(
+              label: tr(ar: 'الرصيد الافتتاحي *', en: 'Opening balance *'),
+              child: TextField(
+                controller: opening,
+                keyboardType: TextInputType.number,
+                inputFormatters: const [ArabicDigitsFormatter()],
+                decoration: const InputDecoration(),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
     if (ok == true) {
       await _action(
