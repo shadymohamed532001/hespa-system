@@ -871,4 +871,44 @@ describe('financial operations (e2e)', () => {
     expect(updated?.balance).toBe(0);
     expect(updated?.commissionBalance).toBe(1);
   });
+
+  it('records 4 EGP per thousand when a collection uses a profit account', async () => {
+    const suffix = randomUUID();
+    const account = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`profit-collection-account-${suffix}`))
+      .send({
+        name: `مكسب تحصيل ${suffix}`,
+        type: 'profit',
+        openingBalance: 2500,
+      })
+      .expect(201);
+    const receipt = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(`profit-collection-${suffix}`))
+      .send({
+        agentName: 'مندوب مكسب',
+        companyName: 'شركة اختبار',
+        amount: 2500,
+        executionMode: 'immediate',
+        accountId: account.body.id,
+        commission: 0,
+      })
+      .expect(201);
+    expect(receipt.body.commission).toBe(10);
+
+    const accounts = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const updated = (
+      accounts.body as Array<{
+        id: string;
+        balance: number;
+        commissionBalance: number;
+      }>
+    ).find((item) => item.id === account.body.id);
+    expect(updated?.balance).toBe(0);
+    expect(updated?.commissionBalance).toBe(10);
+  });
 });

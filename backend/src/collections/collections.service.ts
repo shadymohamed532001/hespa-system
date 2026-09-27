@@ -24,6 +24,7 @@ import {
 } from '../database/enums.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
+import { regularProfitCollectionCommission } from '../accounts/profit-commission.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 import { recordWalletIncoming } from '../wallets/wallets.service.js';
 
@@ -111,6 +112,9 @@ export class CollectionsService implements OnModuleInit {
           throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
         if (Number(account.balance) < Number(dto.amount))
           throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
+        if (account.type === AccountType.PROFIT) {
+          dto.commission = regularProfitCollectionCommission(Number(dto.amount));
+        }
         assertNoFawryOperationCommission(account, dto.commission);
       }
 
@@ -262,6 +266,11 @@ export class CollectionsService implements OnModuleInit {
         throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
       if (account.balance < collection.amount)
         throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
+      if (account.type === AccountType.PROFIT) {
+        dto.commission = regularProfitCollectionCommission(
+          Number(collection.amount),
+        );
+      }
       assertNoFawryOperationCommission(account, dto.commission);
       account.balance -= collection.amount;
       account.commissionBalance += dto.commission;

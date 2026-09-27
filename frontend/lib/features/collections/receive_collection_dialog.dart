@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'company_catalog.dart';
+import 'profit_collection_commission.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
@@ -51,11 +52,15 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   bool get _isImmediate => _mode == 'immediate';
 
-  bool get _selectedIsFawry {
+  bool get _selectedIsFawry => _selectedAccountType == 'fawry';
+
+  bool get _selectedIsProfit => _selectedAccountType == 'profit';
+
+  String? get _selectedAccountType {
     for (final item in _accounts) {
-      if ('${item['id']}' == _accountId) return item['type'] == 'fawry';
+      if ('${item['id']}' == _accountId) return '${item['type']}';
     }
-    return false;
+    return null;
   }
 
   List<String> get _companyNames {
@@ -92,7 +97,19 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   void _onMoneyChanged() {
-    if (mounted && _splitIncoming) setState(() {});
+    _syncProfitCommission();
+    if (mounted && (_splitIncoming || _selectedIsProfit)) setState(() {});
+  }
+
+  void _syncProfitCommission() {
+    if (!_selectedIsProfit) return;
+    final amount = parseNum(_amount.text.trim()) ?? 0;
+    final text = formatProfitCollectionCommission(amount);
+    if (_commission.text == text) return;
+    _commission.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 
   void _syncCompanySelection() {
@@ -116,6 +133,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         _wallets = results[1].where((item) => item['active'] != false).toList();
         _accountId = _accounts.isEmpty ? null : '${_accounts.first['id']}';
         _loadingAccounts = false;
+        _syncProfitCommission();
       });
     } catch (exception) {
       if (!mounted) return;
@@ -333,6 +351,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     if (_selectedIsFawry) {
       return 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.';
     }
+    if (_selectedIsProfit) {
+      return 'يدخل الكاش الخزنة وينخفض رصيد حساب المكسب. العمولة بتتحسب أوتوماتيك: ٤ جنيه لكل ألف.';
+    }
     return 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.';
   }
 
@@ -390,23 +411,37 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     if (_isImmediate && !_selectedIsFawry)
                       SizedBox(
                         width: width,
-                        child: _textField(
-                          label: tr(ar: 'العمولة', en: 'Commission'),
-                          controller: _commission,
-                          numeric: true,
-                          validator: (value) {
-                            final number = parseNum(
-                              value?.trim().isEmpty ?? true
-                                  ? '0'
-                                  : value!.trim(),
-                            );
-                            return number == null || number < 0
-                                ? tr(
-                                    ar: 'أدخل عمولة صحيحة',
-                                    en: 'Enter a valid commission',
-                                  )
-                                : null;
-                          },
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _textField(
+                              label: tr(ar: 'العمولة', en: 'Commission'),
+                              controller: _commission,
+                              numeric: true,
+                              readOnly: _selectedIsProfit,
+                              validator: (value) {
+                                final number = parseNum(
+                                  value?.trim().isEmpty ?? true
+                                      ? '0'
+                                      : value!.trim(),
+                                );
+                                return number == null || number < 0
+                                    ? tr(
+                                        ar: 'أدخل عمولة صحيحة',
+                                        en: 'Enter a valid commission',
+                                      )
+                                    : null;
+                              },
+                            ),
+                            if (_selectedIsProfit)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 6),
+                                child: Text(
+                                  '٤ جنيه لكل ألف من المبلغ',
+                                  style: HesbaText.caption,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     if (_isImmediate && _selectedIsFawry)
@@ -704,7 +739,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             .toList(),
         onChanged: _saving || _loadingAccounts
             ? null
-            : (value) => setState(() => _accountId = value),
+            : (value) => setState(() {
+                _accountId = value;
+                _syncProfitCommission();
+              }),
         validator: (_) =>
             _isImmediate && _accountId == null ? 'اختر الحساب المستخدم' : null,
       ),
@@ -715,6 +753,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     required String label,
     required TextEditingController controller,
     bool numeric = false,
+    bool readOnly = false,
     String? Function(String?)? validator,
   }) {
     return HesbaModalField(
@@ -722,6 +761,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       child: TextFormField(
         controller: controller,
         enabled: !_saving,
+        readOnly: readOnly,
         keyboardType: numeric
             ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,

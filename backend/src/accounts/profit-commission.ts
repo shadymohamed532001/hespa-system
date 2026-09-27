@@ -9,6 +9,11 @@ export function regularProfitWithdrawCommission(amount: number): number {
   return commissionPerThousand(amount, 4);
 }
 
+/** Collection execution on a regular profit account records 4 EGP per 1,000. */
+export function regularProfitCollectionCommission(amount: number): number {
+  return commissionPerThousand(amount, 4);
+}
+
 function commissionPerThousand(amount: number, poundsPerThousand: number): number {
   const cents = Math.round(Number(amount) * 100);
   const feeCents = Math.round((cents * poundsPerThousand) / 1000);

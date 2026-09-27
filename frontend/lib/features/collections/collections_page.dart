@@ -12,6 +12,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
+import 'profit_collection_commission.dart';
 import 'receive_collection_dialog.dart';
 import '../../core/settings/tr.dart';
 
@@ -96,12 +97,22 @@ class _CollectionsPageState extends State<CollectionsPage> {
     if (accounts.isEmpty) return;
     var accountId = '${accounts.first['id']}';
     final commission = TextEditingController(text: '0');
-    bool isFawry(String id) {
+    final amount = num.tryParse('${collection['amount']}') ?? 0;
+    String? accountType(String id) {
       for (final account in accounts) {
-        if ('${account['id']}' == id) return account['type'] == 'fawry';
+        if ('${account['id']}' == id) return '${account['type']}';
       }
-      return false;
+      return null;
     }
+
+    bool isFawry(String id) => accountType(id) == 'fawry';
+    bool isProfit(String id) => accountType(id) == 'profit';
+    void syncCommission() {
+      if (!isProfit(accountId)) return;
+      commission.text = formatProfitCollectionCommission(amount);
+    }
+
+    syncCommission();
 
     final ok = await showHesbaModal<bool>(
       context: context,
@@ -109,6 +120,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) {
           final fawry = isFawry(accountId);
+          final profit = isProfit(accountId);
           return HesbaModalCard(
             title: 'تنفيذ المعلّق ${collection['reference']}',
             subtitle:
@@ -133,18 +145,35 @@ class _CollectionsPageState extends State<CollectionsPage> {
                           child: Text('${e['name']} — ${money(e['balance'])}'),
                         ),
                     ],
-                    onChanged: (v) => setLocal(() => accountId = v!),
+                    onChanged: (v) => setLocal(() {
+                      accountId = v!;
+                      syncCommission();
+                    }),
                   ),
                 ),
                 const SizedBox(height: 18),
                 if (!fawry)
                   HesbaModalField(
                     label: tr(ar: 'العمولة', en: 'Commission'),
-                    child: TextField(
-                      controller: commission,
-                      keyboardType: TextInputType.number,
-                      inputFormatters: const [ArabicDigitsFormatter()],
-                      decoration: const InputDecoration(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: commission,
+                          readOnly: profit,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: const [ArabicDigitsFormatter()],
+                          decoration: const InputDecoration(),
+                        ),
+                        if (profit)
+                          const Padding(
+                            padding: EdgeInsets.only(top: 6),
+                            child: Text(
+                              '٤ جنيه لكل ألف من المبلغ',
+                              style: HesbaText.caption,
+                            ),
+                          ),
+                      ],
                     ),
                   )
                 else
