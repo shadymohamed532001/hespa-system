@@ -319,9 +319,7 @@ class _TransferFormCard extends StatelessWidget {
                                 textDirection: TextDirection.ltr,
                                 textAlign: TextAlign.left,
                                 validator: (value) {
-                                  final number = parseNum(
-                                    value?.trim() ?? '',
-                                  );
+                                  final number = parseNum(value?.trim() ?? '');
                                   return number == null || number <= 0
                                       ? tr(
                                           ar: 'أدخل مبلغًا صحيحًا',

@@ -113,9 +113,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       final accounts = results[0];
       setState(() {
         _accounts = accounts.where((item) => item['active'] != false).toList();
-        _wallets = results[1]
-            .where((item) => item['active'] != false)
-            .toList();
+        _wallets = results[1].where((item) => item['active'] != false).toList();
         _accountId = _accounts.isEmpty ? null : '${_accounts.first['id']}';
         _loadingAccounts = false;
       });
@@ -320,11 +318,13 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     if (_splitIncoming && _splitError() == null) {
       final total = parseNum(_amount.text.trim())!;
       final cash = _treasuryCash()!;
-      final wallets = _parts.map((part) {
-        final wallet = _walletById(part.walletId);
-        final name = wallet == null ? 'المحفظة' : '${wallet['name']}';
-        return '$name ${money(part.amount.text.trim())}';
-      }).join('، ');
+      final wallets = _parts
+          .map((part) {
+            final wallet = _walletById(part.walletId);
+            final name = wallet == null ? 'المحفظة' : '${wallet['name']}';
+            return '$name ${money(part.amount.text.trim())}';
+          })
+          .join('، ');
       final treasury = cash == 0
           ? 'مفيش كاش يدخل الخزنة.'
           : 'يدخل الخزنة ${money(cash)}.';
@@ -422,10 +422,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                 );
               },
             ),
-            if (_isImmediate) ...[
-              const SizedBox(height: 16),
-              _splitSection(),
-            ],
+            if (_isImmediate) ...[const SizedBox(height: 16), _splitSection()],
             const SizedBox(height: 18),
             HesbaModalCallout(
               child: Text.rich(
@@ -435,9 +432,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                       text: _isImmediate ? 'تنفيذ فوري: ' : 'معلّق: ',
                       style: const TextStyle(fontWeight: FontWeight.w400),
                     ),
-                    TextSpan(
-                      text: _flowText(),
-                    ),
+                    TextSpan(text: _flowText()),
                   ],
                 ),
               ),
@@ -668,9 +663,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
               final query = _searchKey(filter);
               if (query.isEmpty) return entries;
               return entries
-                  .where(
-                    (entry) => _searchKey(entry.label).contains(query),
-                  )
+                  .where((entry) => _searchKey(entry.label).contains(query))
                   .toList();
             },
             dropdownMenuEntries: [

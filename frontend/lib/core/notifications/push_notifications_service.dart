@@ -45,8 +45,7 @@ class PushNotificationsService {
     return switch (defaultTargetPlatform) {
       TargetPlatform.macOS ||
       TargetPlatform.iOS ||
-      TargetPlatform.android =>
-        true,
+      TargetPlatform.android => true,
       _ => false,
     };
   }
@@ -140,7 +139,9 @@ class PushNotificationsService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const androidSettings = AndroidInitializationSettings(
+      '@mipmap/ic_launcher',
+    );
     await _local.initialize(
       settings: const InitializationSettings(
         android: androidSettings,

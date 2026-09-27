@@ -161,15 +161,13 @@ class _CollectionsPageState extends State<CollectionsPage> {
     );
     if (ok == true) {
       try {
-        await widget.session.api.post(
-          ApiEndpoints.executeCollection('${collection['id']}'),
-          {
-            'accountId': accountId,
-            'commission': isFawry(accountId)
-                ? 0
-                : parseNum(commission.text) ?? 0,
-          },
-        );
+        await widget.session.api
+            .post(ApiEndpoints.executeCollection('${collection['id']}'), {
+              'accountId': accountId,
+              'commission': isFawry(accountId)
+                  ? 0
+                  : parseNum(commission.text) ?? 0,
+            });
         await load();
         if (mounted) showAppSnack(context, 'تم تنفيذ المعلّق');
       } catch (e) {
@@ -179,7 +177,6 @@ class _CollectionsPageState extends State<CollectionsPage> {
       }
     }
   }
-
 }
 
 class _CollectionsTable extends StatelessWidget {
@@ -279,7 +276,9 @@ class _CollectionsTable extends StatelessWidget {
                             style: HesbaText.tableCell,
                           ),
                         ),
-                        DataCell(_CollectionAmount(row: e as Map<String, dynamic>)),
+                        DataCell(
+                          _CollectionAmount(row: e as Map<String, dynamic>),
+                        ),
                         DataCell(
                           Text(
                             formatDateTime(e['receivedAt'] ?? e['createdAt']),

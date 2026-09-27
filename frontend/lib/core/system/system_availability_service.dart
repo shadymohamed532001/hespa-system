@@ -31,8 +31,7 @@ class SystemAvailabilityService {
       TargetPlatform.macOS ||
       TargetPlatform.windows ||
       TargetPlatform.android ||
-      TargetPlatform.iOS =>
-        true,
+      TargetPlatform.iOS => true,
       _ => false,
     };
   }

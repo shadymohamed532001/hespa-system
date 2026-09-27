@@ -22,14 +22,18 @@ String normalizeDigits(String input) {
 
 num? parseNum(String? raw) {
   if (raw == null) return null;
-  final text = normalizeDigits(raw).trim().replaceAll(',', '').replaceAll(' ', '');
+  final text = normalizeDigits(
+    raw,
+  ).trim().replaceAll(',', '').replaceAll(' ', '');
   if (text.isEmpty) return null;
   return num.tryParse(text);
 }
 
 int? parseInt(String? raw) {
   if (raw == null) return null;
-  final text = normalizeDigits(raw).trim().replaceAll(',', '').replaceAll(' ', '');
+  final text = normalizeDigits(
+    raw,
+  ).trim().replaceAll(',', '').replaceAll(' ', '');
   if (text.isEmpty) return null;
   return int.tryParse(text);
 }
