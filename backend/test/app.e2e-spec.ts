@@ -911,4 +911,56 @@ describe('financial operations (e2e)', () => {
     expect(updated?.balance).toBe(0);
     expect(updated?.commissionBalance).toBe(10);
   });
+
+  it('lets a QR profit account exceed one million and receive a wallet top-up', async () => {
+    const suffix = randomUUID();
+    const account = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`profit-qr-${suffix}`))
+      .send({
+        name: `مكسب QR ${suffix}`,
+        type: 'profit_qr',
+        openingBalance: 1_500_000,
+      })
+      .expect(201);
+    expect(account.body.type).toBe('profit_qr');
+
+    const topped = await request(app.getHttpServer())
+      .post(`/api/accounts/${account.body.id}/top-up`)
+      .set(mutation(`profit-qr-topup-${suffix}`))
+      .send({ amount: 250_000 })
+      .expect(201);
+    expect(topped.body.balance).toBe(1_750_000);
+    expect(topped.body.commissionBalance).toBe(0);
+
+    const wallet = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .set(mutation(`profit-qr-wallet-${suffix}`))
+      .send({
+        name: `فودافون ${suffix}`,
+        type: 'vodafone_cash',
+        openingBalance: 400,
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/treasury/transfer')
+      .set(mutation(`profit-qr-from-wallet-${suffix}`))
+      .send({
+        fromType: 'wallet',
+        fromId: wallet.body.id,
+        toType: 'account',
+        toId: account.body.id,
+        amount: 400,
+      })
+      .expect(201);
+
+    const accounts = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const updated = (
+      accounts.body as Array<{ id: string; balance: number }>
+    ).find((item) => item.id === account.body.id);
+    expect(updated?.balance).toBe(1_750_400);
+  });
 });

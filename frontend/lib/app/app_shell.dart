@@ -60,6 +60,10 @@ class _AppShellState extends State<AppShell> {
       t.profitAccounts,
       () => AccountsPage(session: widget.session, kind: 'profit'),
     ),
+    _NavItem(
+      t.profitQrAccounts,
+      () => AccountsPage(session: widget.session, kind: 'profit_qr'),
+    ),
     if (widget.session.can(AppPermissions.topUpAssets))
       _NavItem(t.topUp, () => TopUpPage(session: widget.session)),
     _NavItem(

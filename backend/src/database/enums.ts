@@ -54,6 +54,7 @@ export enum AccountType {
   COMPANY = 'company',
   OPERATING = 'operating',
   PROFIT = 'profit',
+  PROFIT_QR = 'profit_qr',
 }
 
 export enum CollectionStatus {

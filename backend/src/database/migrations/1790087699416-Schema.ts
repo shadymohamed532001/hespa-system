@@ -66,7 +66,7 @@ export class Schema1790087699416 implements MigrationInterface {
     }
 
     await queryRunner.query(
-      `CREATE TYPE "public"."financial_accounts_type_enum" AS ENUM('fawry', 'company', 'operating', 'profit')`,
+      `CREATE TYPE "public"."financial_accounts_type_enum" AS ENUM('fawry', 'company', 'operating', 'profit', 'profit_qr')`,
     );
     await queryRunner.query(
       `CREATE TABLE "financial_accounts" ("id" uuid NOT NULL DEFAULT uuid_generate_v4(), "name" character varying(150) NOT NULL, "type" "public"."financial_accounts_type_enum" NOT NULL, "active" boolean NOT NULL DEFAULT true, "opening_balance" numeric(16,2) NOT NULL DEFAULT '0', "today_top_up" numeric(16,2) NOT NULL DEFAULT '0', "balance" numeric(16,2) NOT NULL DEFAULT '0', "commission_balance" numeric(16,2) NOT NULL DEFAULT '0', "created_at" TIMESTAMP NOT NULL DEFAULT now(), "updated_at" TIMESTAMP NOT NULL DEFAULT now(), CONSTRAINT "UQ_1c049fd216017ee8afd92ece66d" UNIQUE ("name"), CONSTRAINT "PK_e684ee5a80dfa62dfe64dd959d9" PRIMARY KEY ("id"))`,

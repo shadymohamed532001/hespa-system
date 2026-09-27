@@ -32,7 +32,8 @@ class AppStrings {
   String get dashboard => _ar ? 'لوحة المتابعة' : 'Dashboard';
   String get treasury => _ar ? 'الخزنة المركزية' : 'Central treasury';
   String get fawryAccounts => _ar ? 'حسابات فوري' : 'Fawry accounts';
-  String get profitAccounts => _ar ? 'حسابات مكسب' : 'Profit accounts';
+  String get profitAccounts => _ar ? 'حسابات مكسب عادي' : 'Regular profit';
+  String get profitQrAccounts => _ar ? 'حسابات مكسب QR' : 'QR profit';
   String get topUp => _ar ? 'شحن حساب / محفظة' : 'Top up account / wallet';
   String get wallets => _ar ? 'المحافظ وInstaPay' : 'Wallets & InstaPay';
   String get machines => _ar ? 'ماكينات شحن الرصيد' : 'Balance machines';

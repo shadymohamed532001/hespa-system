@@ -700,7 +700,8 @@ String _accountType(String value) {
         'fawry': tr(ar: 'فوري', en: 'Fawry'),
         'company': tr(ar: 'شركة', en: 'Company'),
         'operating': tr(ar: 'تشغيلي', en: 'Operating'),
-        'profit': tr(ar: 'مكسب', en: 'Profit'),
+        'profit': tr(ar: 'مكسب عادي', en: 'Regular profit'),
+        'profit_qr': tr(ar: 'مكسب QR', en: 'QR profit'),
       }[value] ??
       value;
 }

@@ -12,7 +12,7 @@ export class LegacySchemaRepair1790087699417 implements MigrationInterface {
     await queryRunner.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
 
     const enumTypes: Array<[string, string[]]> = [
-      ['financial_accounts_type_enum', ['fawry', 'company', 'operating', 'profit']],
+      ['financial_accounts_type_enum', ['fawry', 'company', 'operating', 'profit', 'profit_qr']],
       ['collections_executionmode_enum', ['immediate', 'hold']],
       ['collections_status_enum', ['pending', 'done']],
       [
