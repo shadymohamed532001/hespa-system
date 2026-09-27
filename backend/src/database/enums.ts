@@ -53,6 +53,7 @@ export enum AccountType {
   FAWRY = 'fawry',
   COMPANY = 'company',
   OPERATING = 'operating',
+  PROFIT = 'profit',
 }
 
 export enum CollectionStatus {

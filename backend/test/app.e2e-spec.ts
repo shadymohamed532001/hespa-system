@@ -784,4 +784,29 @@ describe('financial operations (e2e)', () => {
       .expect(201);
     expect(second.body).toMatchObject({ closed: false, alreadyClosed: true });
   });
+
+  it('creates a profit account', async () => {
+    const name = `مكسب ${randomUUID()}`;
+    const created = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`create-profit-${randomUUID()}`))
+      .send({
+        name,
+        type: 'profit',
+        openingBalance: 250,
+      })
+      .expect(201);
+    expect(created.body.type).toBe('profit');
+    expect(created.body.balance).toBe(250);
+
+    const accounts = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      (accounts.body as Array<{ name: string; type: string }>).some(
+        (item) => item.name === name && item.type === 'profit',
+      ),
+    ).toBe(true);
+  });
 });

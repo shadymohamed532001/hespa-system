@@ -14,6 +14,7 @@ import { WalletCustomerCashFee1790087699424 } from './database/migrations/179008
 import { FawryDailyDrop1790087699425 } from './database/migrations/1790087699425-FawryDailyDrop.js';
 import { CollectionIncomingSplits1790087699426 } from './database/migrations/1790087699426-CollectionIncomingSplits.js';
 import { FawryDeposits1790087699427 } from './database/migrations/1790087699427-FawryDeposits.js';
+import { ProfitAccountType1790087699428 } from './database/migrations/1790087699428-ProfitAccountType.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -112,6 +113,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           FawryDailyDrop1790087699425,
           CollectionIncomingSplits1790087699426,
           FawryDeposits1790087699427,
+          ProfitAccountType1790087699428,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

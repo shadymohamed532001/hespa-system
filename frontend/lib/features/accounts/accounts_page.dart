@@ -77,7 +77,7 @@ class _AccountsPageState extends State<AccountsPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
-      title: 'حسابات فوري والشركات',
+      title: 'حسابات فوري والمكسب',
       subtitle: widget.session.isAdmin
           ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
           : 'متابعة الرصيد والترحيل لكل حساب',
@@ -137,7 +137,7 @@ class _AccountsPageState extends State<AccountsPage> {
                                   s + (num.tryParse('${e['balance']}') ?? 0),
                             ),
                           ),
-                          note: 'جميع حسابات فوري والشركات',
+                          note: 'جميع حسابات فوري والمكسب',
                         ),
                         if (widget.session.isAdmin)
                           MetricCard(
@@ -372,6 +372,10 @@ class _AccountsPageState extends State<AccountsPage> {
                     DropdownMenuItem(
                       value: 'operating',
                       child: Text(tr(ar: 'تشغيلي', en: 'Operating')),
+                    ),
+                    DropdownMenuItem(
+                      value: 'profit',
+                      child: Text(tr(ar: 'مكسب', en: 'Profit')),
                     ),
                   ],
                   onChanged: (v) => setLocal(() => type = v!),
@@ -882,5 +886,6 @@ String _accountType(String type) =>
       'fawry': tr(ar: 'فوري', en: 'Fawry'),
       'company': tr(ar: 'شركة', en: 'Company'),
       'operating': tr(ar: 'تشغيلي', en: 'Operating'),
+      'profit': tr(ar: 'مكسب', en: 'Profit'),
     }[type] ??
     type;

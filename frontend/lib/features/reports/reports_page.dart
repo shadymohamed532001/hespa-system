@@ -494,6 +494,7 @@ String _channelKind(String value) =>
       'fawry': tr(ar: 'فوري', en: 'Fawry'),
       'company': tr(ar: 'شركة', en: 'Company'),
       'operating': tr(ar: 'تشغيل', en: 'Operations'),
+      'profit': tr(ar: 'مكسب', en: 'Profit'),
       'wallet': 'محفظة',
       'vodafone_cash': 'Vodafone Cash',
       'orange_cash': 'Orange Cash',
