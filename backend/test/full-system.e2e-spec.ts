@@ -162,6 +162,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'CollectionIncomingSplits1790087699426',
       'FawryDeposits1790087699427',
       'ProfitAccountType1790087699428',
+      'ProfitQrAccountType1790087699429',
     ]);
   });
 
