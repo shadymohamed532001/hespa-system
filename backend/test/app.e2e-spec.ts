@@ -497,7 +497,12 @@ describe('financial operations (e2e)', () => {
         request(app.getHttpServer())
           .post(`/api/machines/${machine.body.id}/use`)
           .set(mutation(`machine-use-${number}-${suffix}`))
-          .send({ serviceType: 'other', customerNumber: `TEST-${number}`, amount: 80, commission: 2 }),
+          .send({
+            serviceType: 'other',
+            customerNumber: `TEST-${number}`,
+            amount: 80,
+            commission: 2,
+          }),
       ),
     );
     expect(
@@ -553,7 +558,13 @@ describe('financial operations (e2e)', () => {
     await request(app.getHttpServer())
       .post(`/api/machines/${funded.body.id}/use`)
       .set(mutation(`deplete-machine-${suffix}`))
-      .send({ serviceType: 'other', customerNumber: 'TEST-DEPLETED', amount: 75, commission: 3.5, reference: `EMPTY-${suffix}` })
+      .send({
+        serviceType: 'other',
+        customerNumber: 'TEST-DEPLETED',
+        amount: 75,
+        commission: 3.5,
+        reference: `EMPTY-${suffix}`,
+      })
       .expect(201)
       .expect(({ body }) => expect(body.remainingBalance).toBe(0));
 
@@ -912,7 +923,7 @@ describe('financial operations (e2e)', () => {
     expect(updated?.commissionBalance).toBe(10);
   });
 
-  it('lets a QR profit account exceed one million and receive a wallet top-up', async () => {
+  it('runs the full QR cash-out and settlement fee cycle', async () => {
     const suffix = randomUUID();
     const account = await request(app.getHttpServer())
       .post('/api/accounts')
@@ -920,18 +931,16 @@ describe('financial operations (e2e)', () => {
       .send({
         name: `مكسب QR ${suffix}`,
         type: 'profit_qr',
-        openingBalance: 1_500_000,
+        openingBalance: 0,
       })
       .expect(201);
     expect(account.body.type).toBe('profit_qr');
 
-    const topped = await request(app.getHttpServer())
+    await request(app.getHttpServer())
       .post(`/api/accounts/${account.body.id}/top-up`)
       .set(mutation(`profit-qr-topup-${suffix}`))
-      .send({ amount: 250_000 })
-      .expect(201);
-    expect(topped.body.balance).toBe(1_750_000);
-    expect(topped.body.commissionBalance).toBe(0);
+      .send({ amount: 1000 })
+      .expect(400);
 
     const wallet = await request(app.getHttpServer())
       .post('/api/wallets')
@@ -939,28 +948,82 @@ describe('financial operations (e2e)', () => {
       .send({
         name: `فودافون ${suffix}`,
         type: 'vodafone_cash',
-        openingBalance: 400,
+        openingBalance: 1000,
       })
       .expect(201);
+
     await request(app.getHttpServer())
       .post('/api/treasury/transfer')
-      .set(mutation(`profit-qr-from-wallet-${suffix}`))
+      .set(mutation(`profit-qr-reject-internal-${suffix}`))
       .send({
         fromType: 'wallet',
         fromId: wallet.body.id,
         toType: 'account',
         toId: account.body.id,
-        amount: 400,
+        amount: 1000,
+      })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/treasury/transfer')
+      .set(mutation(`profit-qr-fund-treasury-${suffix}`))
+      .send({
+        fromType: 'wallet',
+        fromId: wallet.body.id,
+        toType: 'treasury',
+        amount: 1000,
       })
       .expect(201);
+
+    const cashOut = await request(app.getHttpServer())
+      .post(`/api/accounts/${account.body.id}/profit-qr-cash-out`)
+      .set(mutation(`profit-qr-cash-out-${suffix}`))
+      .send({ cashAmount: 1000 })
+      .expect(201);
+    expect(cashOut.body.customerTransferAmount).toBe(1010);
+    expect(cashOut.body.customerCommission).toBe(10);
+    expect(cashOut.body.providerFee).toBe(2);
+    expect(cashOut.body.creditedAmount).toBe(1008);
+    expect(cashOut.body.netCommission).toBe(8);
+
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${cashOut.body.operationEntryId}/reverse`)
+      .set(mutation(`profit-qr-cash-out-reverse-${suffix}`))
+      .send({ reason: 'اختبار عكس عملية مكسب QR' })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post(`/api/accounts/${account.body.id}/profit-qr-cash-out`)
+      .set(mutation(`profit-qr-cash-out-again-${suffix}`))
+      .send({ cashAmount: 1000 })
+      .expect(201);
+
+    const settlement = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(`profit-qr-settlement-${suffix}`))
+      .send({
+        agentName: 'مندوب مكسب QR',
+        companyName: 'شركة اختبار QR',
+        amount: 1000,
+        executionMode: 'immediate',
+        accountId: account.body.id,
+        commission: 0,
+      })
+      .expect(201);
+    expect(settlement.body.commission).toBe(-4);
 
     const accounts = await request(app.getHttpServer())
       .get('/api/accounts')
       .set('Authorization', `Bearer ${token}`)
       .expect(200);
     const updated = (
-      accounts.body as Array<{ id: string; balance: number }>
+      accounts.body as Array<{
+        id: string;
+        balance: number;
+        commissionBalance: number;
+      }>
     ).find((item) => item.id === account.body.id);
-    expect(updated?.balance).toBe(1_750_400);
+    expect(updated?.balance).toBe(4);
+    expect(updated?.commissionBalance).toBe(4);
   });
 });

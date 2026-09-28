@@ -31,10 +31,11 @@ describe('customer wallet commissions', () => {
   it.each([['send' as const], ['receive' as const]])(
     'charges InstaPay for %s',
     (direction) => {
-      expect(walletCommission('instapay', direction, 99.99)).toBe(10);
-      expect(walletCommission('instapay', direction, 100)).toBe(5);
-      expect(walletCommission('instapay', direction, 200)).toBe(5);
-      expect(walletCommission('instapay', direction, 200.01)).toBe(10);
+      expect(walletCommission('instapay', direction, 999.99)).toBe(5);
+      expect(walletCommission('instapay', direction, 1000)).toBe(10);
+      expect(walletCommission('instapay', direction, 1500)).toBe(15);
+      expect(walletCommission('instapay', direction, 1234.56)).toBe(12.35);
+      expect(walletCommission('instapay', direction, 5000)).toBe(50);
     },
   );
 });

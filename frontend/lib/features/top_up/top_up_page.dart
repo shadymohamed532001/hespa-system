@@ -75,7 +75,9 @@ class _TopUpPageState extends State<TopUpPage> {
 
       final targets = <_TopUpTarget>[
         ...accounts
-            .where((item) => item['active'] != false)
+            .where(
+              (item) => item['active'] != false && item['type'] != 'profit_qr',
+            )
             .map(
               (item) => _TopUpTarget(
                 value: 'account:${item['id']}',
@@ -313,8 +315,6 @@ class _TopUpTarget {
   final num balance;
 
   bool get isFawry => kind == 'account' && type == 'fawry';
-  bool get isProfitQr => kind == 'account' && type == 'profit_qr';
-
   String get label => '$name — مرحل ${money(opening)} — حالي ${money(balance)}';
 }
 
@@ -395,7 +395,6 @@ class _TopUpFormCard extends StatelessWidget {
       if (target.value == selected) selectedTarget = target;
     }
     final isFawry = selectedTarget?.isFawry ?? false;
-    final isProfitQr = selectedTarget?.isProfitQr ?? false;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -462,19 +461,6 @@ class _TopUpFormCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (isProfitQr)
-                            SizedBox(
-                              width: fieldWidth * (columns == 3 ? 2 : 1) +
-                                  (columns == 3 ? 24 : 0),
-                              child: const Text(
-                                'الحساب ده من غير حد. الشحن المباشر من هنا، والشحن من فودافون كاش وأورنج كاش وباقي المحافظ من صفحة حسابات مكسب QR.',
-                                style: TextStyle(
-                                  color: Color(0xFF425C6B),
-                                  fontSize: 13,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
                           if (isFawry)
                             SizedBox(
                               width: fieldWidth,

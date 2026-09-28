@@ -42,21 +42,13 @@ void main() {
     );
   });
 
-  test('InstaPay charges five from 100 through 200, otherwise ten', () {
+  test('InstaPay charges five below 1000 then one percent', () {
     for (final direction in ['send', 'receive']) {
       expect(
         customerWalletCommission(
           type: 'instapay',
           direction: direction,
-          amount: 99,
-        ),
-        10,
-      );
-      expect(
-        customerWalletCommission(
-          type: 'instapay',
-          direction: direction,
-          amount: 100,
+          amount: 999.99,
         ),
         5,
       );
@@ -64,17 +56,33 @@ void main() {
         customerWalletCommission(
           type: 'instapay',
           direction: direction,
-          amount: 200,
+          amount: 1000,
         ),
-        5,
+        10,
       );
       expect(
         customerWalletCommission(
           type: 'instapay',
           direction: direction,
-          amount: 201,
+          amount: 1500,
         ),
-        10,
+        15,
+      );
+      expect(
+        customerWalletCommission(
+          type: 'instapay',
+          direction: direction,
+          amount: 1234.56,
+        ),
+        12.35,
+      );
+      expect(
+        customerWalletCommission(
+          type: 'instapay',
+          direction: direction,
+          amount: 5000,
+        ),
+        50,
       );
     }
   });

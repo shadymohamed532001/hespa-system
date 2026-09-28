@@ -20,6 +20,7 @@ import { AccountsService, fawryCashTotal } from './accounts.service.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { RecordFawryDailyDropDto } from './dto/record-fawry-daily-drop.dto.js';
 import { RecordFawryDepositDto } from './dto/record-fawry-deposit.dto.js';
+import { ProfitQrCashOutDto } from './dto/profit-qr-cash-out.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -92,6 +93,17 @@ export class AccountsController {
       dto.amount,
     );
     return this.accounts.topUp(id, dto, request.user.username);
+  }
+
+  @RequirePermissions(AppPermission.USE_WALLETS)
+  @Idempotent()
+  @Post(':id/profit-qr-cash-out')
+  profitQrCashOut(
+    @Param('id') id: string,
+    @Body() dto: ProfitQrCashOutDto,
+    @Request() request: UserRequest,
+  ) {
+    return this.accounts.profitQrCashOut(id, dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.TOP_UP_ASSETS)

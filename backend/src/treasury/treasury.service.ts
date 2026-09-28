@@ -13,9 +13,14 @@ import { Machine } from '../database/entities/machine.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
 import { DailyClose } from '../database/entities/daily-close.entity.js';
-import { AccountType, CollectionStatus, LedgerCategory } from '../database/enums.js';
+import {
+  AccountType,
+  CollectionStatus,
+  LedgerCategory,
+} from '../database/enums.js';
 import {
   REGULAR_PROFIT_LIMIT,
+  profitQrOutgoingFee,
   regularProfitWithdrawCommission,
 } from '../accounts/profit-commission.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
@@ -41,7 +46,10 @@ export class TreasuryService {
 
   async summary() {
     const treasury = await this.treasury.findOne({ where: { id: 'main' } });
-    if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
+    if (!treasury)
+      throw new NotFoundException(
+        msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+      );
     const result = await this.collections
       .createQueryBuilder('collection')
       .select('COALESCE(SUM(collection.amount), 0)', 'total')
@@ -60,9 +68,14 @@ export class TreasuryService {
   private assetKey(type: string, id?: string) {
     if (type === 'treasury') return 'treasury:main';
     if (!['account', 'wallet', 'machine'].includes(type)) {
-      throw new BadRequestException(msg({ ar: 'نوع الأصل غير مدعوم', en: 'Unsupported asset type' }));
+      throw new BadRequestException(
+        msg({ ar: 'نوع الأصل غير مدعوم', en: 'Unsupported asset type' }),
+      );
     }
-    if (!id) throw new BadRequestException(msg({ ar: 'معرّف الأصل مطلوب', en: 'Asset id is required' }));
+    if (!id)
+      throw new BadRequestException(
+        msg({ ar: 'معرّف الأصل مطلوب', en: 'Asset id is required' }),
+      );
     return `${type}:${id}`;
   }
 
@@ -76,7 +89,10 @@ export class TreasuryService {
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException(msg({ ar: 'الخزنة غير موجودة', en: 'Treasury not found' }));
+      if (!item)
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير موجودة', en: 'Treasury not found' }),
+        );
       return {
         key: 'treasury:main',
         name: 'الخزنة المركزية',
@@ -87,13 +103,22 @@ export class TreasuryService {
         },
       };
     }
-    if (!id) throw new BadRequestException(msg({ ar: 'معرّف الأصل مطلوب', en: 'Asset id is required' }));
+    if (!id)
+      throw new BadRequestException(
+        msg({ ar: 'معرّف الأصل مطلوب', en: 'Asset id is required' }),
+      );
     if (type === 'account') {
       const item = await manager.getRepository(FinancialAccount).findOne({
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException(msg({ ar: 'الحساب غير موجود أو موقوف', en: 'Account not found or inactive' }));
+      if (!item)
+        throw new NotFoundException(
+          msg({
+            ar: 'الحساب غير موجود أو موقوف',
+            en: 'Account not found or inactive',
+          }),
+        );
       return {
         key: `account:${id}`,
         name: item.name,
@@ -109,7 +134,13 @@ export class TreasuryService {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
+      if (!item)
+        throw new NotFoundException(
+          msg({
+            ar: 'المحفظة غير موجودة أو موقوفة',
+            en: 'Wallet not found or inactive',
+          }),
+        );
       return {
         key: `wallet:${id}`,
         name: item.name,
@@ -125,7 +156,13 @@ export class TreasuryService {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!item) throw new NotFoundException(msg({ ar: 'الماكينة غير موجودة أو موقوفة', en: 'Machine not found or inactive' }));
+      if (!item)
+        throw new NotFoundException(
+          msg({
+            ar: 'الماكينة غير موجودة أو موقوفة',
+            en: 'Machine not found or inactive',
+          }),
+        );
       const balance = item.loadedBalance - item.usedBalance;
       return {
         key: `machine:${id}`,
@@ -137,7 +174,9 @@ export class TreasuryService {
         },
       };
     }
-    throw new BadRequestException(msg({ ar: 'نوع الأصل غير مدعوم', en: 'Unsupported asset type' }));
+    throw new BadRequestException(
+      msg({ ar: 'نوع الأصل غير مدعوم', en: 'Unsupported asset type' }),
+    );
   }
 
   async transfer(dto: InternalTransferDto, username: string) {
@@ -145,7 +184,12 @@ export class TreasuryService {
       const sourceKey = this.assetKey(dto.fromType, dto.fromId);
       const targetKey = this.assetKey(dto.toType, dto.toId);
       if (sourceKey === targetKey)
-        throw new BadRequestException(msg({ ar: 'المصدر والوجهة يجب أن يكونا مختلفين', en: 'Source and destination must be different' }));
+        throw new BadRequestException(
+          msg({
+            ar: 'المصدر والوجهة يجب أن يكونا مختلفين',
+            en: 'Source and destination must be different',
+          }),
+        );
 
       // Always acquire row locks in the same order. Without this, two reverse
       // transfers (A -> B and B -> A) can deadlock by each holding one row.
@@ -159,12 +203,37 @@ export class TreasuryService {
       }
       const source = locked.get(sourceKey)!;
       const target = locked.get(targetKey)!;
-      if (source.balance < dto.amount)
-        throw new BadRequestException(msg({ ar: 'رصيد المصدر غير كافٍ', en: 'Insufficient source balance' }));
+      let sourceAccountType: AccountType | null = null;
+      if (dto.fromType === 'account' && dto.fromId) {
+        const origin = await manager
+          .getRepository(FinancialAccount)
+          .findOne({ where: { id: dto.fromId } });
+        sourceAccountType = origin?.type ?? null;
+      }
+      const profitQrFee =
+        sourceAccountType === AccountType.PROFIT_QR
+          ? profitQrOutgoingFee(dto.amount)
+          : 0;
+      const sourceDebit = Number((dto.amount + profitQrFee).toFixed(2));
+      if (source.balance < sourceDebit)
+        throw new BadRequestException(
+          msg({
+            ar: 'رصيد المصدر غير كافٍ',
+            en: 'Insufficient source balance',
+          }),
+        );
       if (dto.toType === 'account' && dto.toId) {
         const destination = await manager
           .getRepository(FinancialAccount)
           .findOne({ where: { id: dto.toId } });
+        if (destination?.type === AccountType.PROFIT_QR) {
+          throw new BadRequestException(
+            msg({
+              ar: 'حساب مكسب QR يستقبل تحويلات العملاء من خلال عملية سحب الكاش فقط',
+              en: 'QR profit accounts receive customer transfers through cash-out operations only',
+            }),
+          );
+        }
         if (
           destination?.type === AccountType.PROFIT &&
           Number(target.balance) + dto.amount > REGULAR_PROFIT_LIMIT
@@ -184,7 +253,7 @@ export class TreasuryService {
           });
         }
       }
-      await source.setBalance(source.balance - dto.amount);
+      await source.setBalance(source.balance - sourceDebit);
       await target.setBalance(target.balance + dto.amount);
       const transfer = await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.INTERNAL_TRANSFER,
@@ -198,6 +267,10 @@ export class TreasuryService {
         reference: dto.reference ?? null,
         description: `تحويل داخلي من ${source.name} إلى ${target.name} — ليس مصروفًا`,
         performedBy: username,
+        metadata:
+          profitQrFee > 0
+            ? { profitQrProviderFee: profitQrFee, sourceDebit }
+            : null,
       });
       if (dto.fromType === 'account' && dto.fromId) {
         const origin = await manager.getRepository(FinancialAccount).findOne({
@@ -206,7 +279,9 @@ export class TreasuryService {
         const withdrawCommission =
           origin?.type === AccountType.PROFIT
             ? regularProfitWithdrawCommission(dto.amount)
-            : 0;
+            : origin?.type === AccountType.PROFIT_QR
+              ? -profitQrFee
+              : 0;
         if (origin && withdrawCommission > 0) {
           origin.commissionBalance = Number(
             (Number(origin.commissionBalance) - withdrawCommission).toFixed(2),
@@ -223,6 +298,24 @@ export class TreasuryService {
             metadata: {
               profitSourceEntryId: transfer.id,
               profitCommissionKind: 'withdraw',
+            },
+          });
+        } else if (origin && withdrawCommission < 0) {
+          origin.commissionBalance = Number(
+            (Number(origin.commissionBalance) + withdrawCommission).toFixed(2),
+          );
+          await manager.getRepository(FinancialAccount).save(origin);
+          await manager.getRepository(LedgerEntry).save({
+            category: LedgerCategory.COMMISSION,
+            amount: withdrawCommission,
+            entityType: 'account',
+            entityId: origin.id,
+            reference: dto.reference ?? null,
+            description: `خصم تحويل من حساب مكسب QR ${origin.name}: ٤ جنيه لكل ألف`,
+            performedBy: username,
+            metadata: {
+              profitSourceEntryId: transfer.id,
+              profitCommissionKind: 'qr_outgoing',
             },
           });
         }
@@ -298,7 +391,10 @@ export class TreasuryService {
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
+      if (!treasury)
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+        );
       const accounts = await manager
         .getRepository(FinancialAccount)
         .createQueryBuilder('account')
@@ -383,8 +479,10 @@ export class TreasuryService {
         entityType: 'system',
         entityId: null,
         reference,
-        description:
-          msg({ ar: 'ترحيل أرصدة نهاية اليوم إلى اليوم التالي وتصفير العدادات اليومية', en: 'Roll end-of-day balances to the next day and reset daily counters' }),
+        description: msg({
+          ar: 'ترحيل أرصدة نهاية اليوم إلى اليوم التالي وتصفير العدادات اليومية',
+          en: 'Roll end-of-day balances to the next day and reset daily counters',
+        }),
         performedBy: username,
         metadata: { dailyCloseId: close.id, totalAssets, pendingCollections },
       });

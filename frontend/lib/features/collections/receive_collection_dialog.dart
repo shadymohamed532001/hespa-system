@@ -56,6 +56,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   bool get _selectedIsProfit => _selectedAccountType == 'profit';
 
+  bool get _selectedIsProfitQr => _selectedAccountType == 'profit_qr';
+
   String? get _selectedAccountType {
     for (final item in _accounts) {
       if ('${item['id']}' == _accountId) return '${item['type']}';
@@ -98,10 +100,17 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   void _onMoneyChanged() {
     _syncProfitCommission();
-    if (mounted && (_splitIncoming || _selectedIsProfit)) setState(() {});
+    if (mounted &&
+        (_splitIncoming || _selectedIsProfit || _selectedIsProfitQr)) {
+      setState(() {});
+    }
   }
 
   void _syncProfitCommission() {
+    if (_selectedIsProfitQr) {
+      _commission.text = '0';
+      return;
+    }
     if (!_selectedIsProfit) return;
     final amount = parseNum(_amount.text.trim()) ?? 0;
     final text = formatProfitCollectionCommission(amount);
@@ -190,7 +199,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       'executionMode': _mode,
       'receivedAt': receivedAt.toIso8601String(),
       'commission': _isImmediate && !_selectedIsFawry
-          ? parseNum(_commission.text.trim()) ?? 0
+          ? _selectedIsProfitQr
+                ? 0
+                : parseNum(_commission.text.trim()) ?? 0
           : 0,
       if (_isImmediate) 'accountId': _accountId,
       if (_splitIncoming) ..._splitPayload(),
@@ -354,6 +365,11 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     if (_selectedIsProfit) {
       return 'يدخل الكاش الخزنة وينخفض رصيد حساب المكسب. العمولة بتتحسب أوتوماتيك: ٤ جنيه لكل ألف.';
     }
+    if (_selectedIsProfitQr) {
+      final amount = parseNum(_amount.text.trim()) ?? 0;
+      final fee = profitCollectionCommission(amount);
+      return 'يدخل الكاش الخزنة، ويُخصم من حساب مكسب QR المبلغ وخصم مكسب ${money(fee)} (٤ جنيه لكل ألف).';
+    }
     return 'يدخل الكاش الخزنة، وينخفض رصيد الحساب المستخدم، وتُسجل العمولة في نفس اللحظة.';
   }
 
@@ -408,7 +424,16 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     SizedBox(width: width, child: _timeField()),
                     if (_isImmediate)
                       SizedBox(width: width, child: _accountField()),
-                    if (_isImmediate && !_selectedIsFawry)
+                    if (_isImmediate && _selectedIsProfitQr)
+                      SizedBox(
+                        width: width,
+                        child: HesbaModalCallout(
+                          child: Text(
+                            'خصم مكسب عند التوريد: ${money(profitCollectionCommission(parseNum(_amount.text.trim()) ?? 0))} — ٤ جنيه لكل ألف، ويُخصم فوق مبلغ العملية.',
+                          ),
+                        ),
+                      )
+                    else if (_isImmediate && !_selectedIsFawry)
                       SizedBox(
                         width: width,
                         child: Column(

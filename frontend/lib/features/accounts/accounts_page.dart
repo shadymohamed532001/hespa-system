@@ -15,6 +15,7 @@ import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
 import '../../core/settings/tr.dart';
 import 'fawry_cash_input.dart';
+import 'profit_qr_commission.dart';
 
 class AccountsPage extends StatefulWidget {
   const AccountsPage({super.key, required this.session, required this.kind});
@@ -32,7 +33,6 @@ class AccountsPage extends StatefulWidget {
 class _AccountsPageState extends State<AccountsPage> {
   List<dynamic> data = [];
   List<dynamic> fawryDepositors = [];
-  List<dynamic> wallets = [];
   Map<String, num> todayDrops = {};
   bool loading = true;
   String? error;
@@ -54,9 +54,6 @@ class _AccountsPageState extends State<AccountsPage> {
         fawryDepositors = await widget.session.api.list(
           ApiEndpoints.fawryDepositors,
         );
-      }
-      if (widget.isProfitQr) {
-        wallets = await widget.session.api.list(ApiEndpoints.wallets);
       }
       todayDrops = await _loadTodayDrops();
       error = null;
@@ -101,7 +98,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
                 : 'متابعة الرصيد والترحيل لكل حساب'
           : isProfitQr
-          ? 'QR في المحل من غير حد. يتشحن مباشرة أو من فودافون كاش وأورنج كاش وباقي المحافظ، ويتحول عليه ومنه أي مبلغ.'
+          ? 'العميل يحوّل على QR ثم يستلم كاش: ١٠ جنيه لكل ألف للعميل، وخصم مكسب ٢ جنيه لكل ألف. التوريد من الحساب عليه خصم ٤ جنيه لكل ألف.'
           : 'حساب مكسب عادي. الشحن والتحويل زي أي حساب، والحد مليون جنيه. عمولة الشحن ٥ جنيه لكل ألف، وخصم ٤ جنيه لكل ألف عند التحويل من الحساب.',
       actions: [
         if (widget.session.can(AppPermissions.manageAssets))
@@ -116,7 +113,13 @@ class _AccountsPageState extends State<AccountsPage> {
             icon: const Icon(Icons.today_outlined, size: 18),
             label: const Text('عمولة فوري اليومية'),
           ),
-        if (widget.session.can(AppPermissions.topUpAssets))
+        if (isProfitQr && widget.session.can(AppPermissions.useWallets))
+          FilledButton.icon(
+            onPressed: loading ? null : _profitQrCashOut,
+            icon: const Icon(Icons.payments_outlined, size: 18),
+            label: const Text('سحب كاش لعميل'),
+          )
+        else if (widget.session.can(AppPermissions.topUpAssets))
           FilledButton.icon(
             onPressed: () => _chooseTopUp(context),
             icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
@@ -182,7 +185,7 @@ class _AccountsPageState extends State<AccountsPage> {
                             note: isFawry
                                 ? 'نزلة فوري داخلة في رصيد الحساب'
                                 : isProfitQr
-                                ? 'من غير حد أو عمولة تلقائية'
+                                ? '١٠ للعميل ناقص ٢ استقبال و٤ توريد لكل ألف'
                                 : '٥ جنيه لكل ألف شحن، و٤ جنيه تخصم لكل ألف تحويل',
                             accent: true,
                           ),
@@ -431,10 +434,6 @@ class _AccountsPageState extends State<AccountsPage> {
         ? null
         : '${fawryDepositors.first['id']}';
     var cashCounts = emptyFawryCashCounts();
-    var source = 'direct';
-    final activeWallets = wallets
-        .where((item) => item['active'] != false)
-        .toList();
     String? formError;
     bool selectedIsFawry() =>
         active.firstWhere((item) => '${item['id']}' == id)['type'] == 'fawry';
@@ -449,13 +448,9 @@ class _AccountsPageState extends State<AccountsPage> {
             subtitle: tr(
               ar: isFawry
                   ? 'اختار الشخص واكتب عدد الورقات، والإجمالي هيتحسب تلقائيًا.'
-                  : widget.isProfitQr
-                  ? 'شحن مباشر أو من فودافون كاش وأورنج كاش وباقي المحافظ. مفيش حد للمبلغ.'
                   : 'أضف رصيدًا مباشرًا للحساب المحدد.',
               en: isFawry
                   ? 'Choose the depositor and enter the banknote counts.'
-                  : widget.isProfitQr
-                  ? 'Top up directly or from Vodafone Cash, Orange Cash, and other wallets. No limit.'
                   : 'Add balance directly to the selected account.',
             ),
             actions: HesbaModalActions(
@@ -501,35 +496,6 @@ class _AccountsPageState extends State<AccountsPage> {
                     }),
                   ),
                 ),
-                if (widget.isProfitQr) ...[
-                  const SizedBox(height: 18),
-                  HesbaModalField(
-                    label: 'مصدر الشحن *',
-                    child: DropdownButtonFormField<String>(
-                      initialValue: source,
-                      isExpanded: true,
-                      decoration: const InputDecoration(),
-                      items: [
-                        const DropdownMenuItem(
-                          value: 'direct',
-                          child: Text('شحن مباشر'),
-                        ),
-                        for (final wallet in activeWallets)
-                          DropdownMenuItem(
-                            value: 'wallet:${wallet['id']}',
-                            child: Text(
-                              '${wallet['name']} — ${_walletSourceLabel('${wallet['type']}')} — ${money(wallet['balance'])}',
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                      ],
-                      onChanged: (value) => setLocal(() {
-                        source = value ?? 'direct';
-                        formError = null;
-                      }),
-                    ),
-                  ),
-                ],
                 const SizedBox(height: 18),
                 if (isFawry) ...[
                   HesbaModalField(
@@ -572,7 +538,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       onChanged: (_) => setLocal(() => formError = null),
                     ),
                   ),
-                if (!widget.isFawry && !widget.isProfitQr) ...[
+                if (!widget.isFawry) ...[
                   const SizedBox(height: 10),
                   Text(
                     'العمولة ٥ جنيه لكل ألف وتضاف لرصيد العمولات، من غير ما تتخصم من مبلغ الشحن.',
@@ -607,39 +573,133 @@ class _AccountsPageState extends State<AccountsPage> {
       final isFawry = selectedIsFawry();
       final referenceText = reference.text.trim();
       final parsedAmount = parseNum(amount.text) ?? 0;
-      final fromWallet = source.startsWith('wallet:')
-          ? source.substring('wallet:'.length)
-          : null;
       await _action(
-        () => fromWallet != null
-            ? widget.session.api.post(ApiEndpoints.treasuryTransfer, {
-                'fromType': 'wallet',
-                'fromId': fromWallet,
-                'toType': 'account',
-                'toId': id,
-                'amount': parsedAmount,
-                if (referenceText.isNotEmpty) 'reference': referenceText,
-              })
-            : widget.session.api.post(
-                isFawry
-                    ? ApiEndpoints.fawryDeposit(id)
-                    : ApiEndpoints.accountTopUp(id),
-                isFawry
-                    ? {
-                        'depositorUserId': depositorId,
-                        'cashCounts': cashCounts,
-                        if (referenceText.isNotEmpty)
-                          'reference': referenceText,
-                      }
-                    : {
-                        'amount': parsedAmount,
-                        if (referenceText.isNotEmpty)
-                          'reference': referenceText,
-                      },
-              ),
+        () => widget.session.api.post(
+          isFawry
+              ? ApiEndpoints.fawryDeposit(id)
+              : ApiEndpoints.accountTopUp(id),
+          isFawry
+              ? {
+                  'depositorUserId': depositorId,
+                  'cashCounts': cashCounts,
+                  if (referenceText.isNotEmpty) 'reference': referenceText,
+                }
+              : {
+                  'amount': parsedAmount,
+                  if (referenceText.isNotEmpty) 'reference': referenceText,
+                },
+        ),
       );
     }
     amount.dispose();
+    reference.dispose();
+  }
+
+  Future<void> _profitQrCashOut() async {
+    final active = _rows.where((item) => item['active'] == true).toList();
+    if (active.isEmpty) {
+      showAppSnack(context, 'لا يوجد حساب مكسب QR نشط', error: true);
+      return;
+    }
+    var id = '${active.first['id']}';
+    final cashAmount = TextEditingController();
+    final reference = TextEditingController();
+    final ok = await showHesbaModal<bool>(
+      context: context,
+      maxWidth: 560,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) {
+          final breakdown = profitQrCashOutBreakdown(
+            parseNum(cashAmount.text.trim()),
+          );
+          return HesbaModalCard(
+            title: 'سحب كاش لعميل من مكسب QR',
+            subtitle:
+                'اكتب الكاش اللي العميل هياخده، والنظام يحسب المبلغ المطلوب تحويله وكل الخصومات.',
+            actions: HesbaModalActions(
+              primaryLabel: 'تنفيذ العملية',
+              primaryEnabled: breakdown != null,
+              onPrimary: () => Navigator.pop(ctx, true),
+              onCancel: () => Navigator.pop(ctx, false),
+            ),
+            child: Column(
+              children: [
+                HesbaModalField(
+                  label: 'حساب مكسب QR *',
+                  child: DropdownButtonFormField<String>(
+                    initialValue: id,
+                    isExpanded: true,
+                    decoration: const InputDecoration(),
+                    items: [
+                      for (final account in active)
+                        DropdownMenuItem(
+                          value: '${account['id']}',
+                          child: Text(
+                            '${account['name']} — ${money(account['balance'])}',
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) => setLocal(() => id = value!),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                HesbaModalField(
+                  label: 'الكاش المطلوب للعميل *',
+                  child: TextField(
+                    controller: cashAmount,
+                    keyboardType: TextInputType.number,
+                    inputFormatters: const [ArabicDigitsFormatter()],
+                    decoration: const InputDecoration(hintText: 'مثال: 1000'),
+                    onChanged: (_) => setLocal(() {}),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                HesbaModalField(
+                  label: tr(
+                    ar: 'رقم المرجع (اختياري)',
+                    en: 'Reference number (optional)',
+                  ),
+                  child: TextField(
+                    controller: reference,
+                    decoration: const InputDecoration(),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                HesbaModalCallout(
+                  backgroundColor: breakdown == null
+                      ? const Color(0xFFEEF4F7)
+                      : HesbaColors.tealLight,
+                  borderColor: breakdown == null
+                      ? HesbaColors.border
+                      : HesbaColors.teal,
+                  child: Text(
+                    breakdown == null
+                        ? 'اكتب مبلغ الكاش لعرض حساب العملية.'
+                        : 'العميل يحوّل ${money(breakdown.customerTransferAmount)}\n'
+                              'تسلّم العميل ${money(breakdown.cashAmount)} كاش\n'
+                              'عمولة العميل ${money(breakdown.customerCommission)}\n'
+                              'خصم مكسب عند الدخول ${money(breakdown.providerIncomingFee)}\n'
+                              'يدخل رصيد QR ${money(breakdown.creditedAmount)}\n'
+                              'صافي العمولة قبل التوريد ${money(breakdown.netCommissionBeforeSettlement)}\n'
+                              'بعد خصم التوريد المتوقع ${money(breakdown.providerOutgoingFee)} يبقى صافي المكسب ${money(breakdown.finalNetCommission)}',
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    if (ok == true) {
+      final referenceText = reference.text.trim();
+      await _action(
+        () => widget.session.api.post(ApiEndpoints.profitQrCashOut(id), {
+          'cashAmount': parseNum(cashAmount.text.trim()),
+          if (referenceText.isNotEmpty) 'reference': referenceText,
+        }),
+      );
+    }
+    cashAmount.dispose();
     reference.dispose();
   }
 
@@ -895,8 +955,7 @@ class _AccountsTable extends StatelessWidget {
                           DataCell(
                             Text(
                               money(
-                                limit! -
-                                    (num.tryParse('${e['balance']}') ?? 0),
+                                limit! - (num.tryParse('${e['balance']}') ?? 0),
                               ),
                               style: HesbaText.tableCell,
                             ),
@@ -950,18 +1009,6 @@ const _fawryLimit = 5000000;
 const _profitLimit = 1000000;
 
 const _headerStyle = HesbaText.tableHeader;
-
-String _walletSourceLabel(String type) =>
-    {
-      'vodafone_cash': 'Vodafone Cash',
-      'orange_cash': 'Orange Cash',
-      'etisalat_cash': 'e& cash',
-      'we_pay': 'WE Pay',
-      'instapay': 'InstaPay',
-      'other_wallet': 'محفظة أخرى',
-      'wallet': 'محفظة',
-    }[type] ??
-    type;
 
 String _accountType(String type) =>
     {

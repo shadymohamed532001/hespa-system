@@ -15,16 +15,20 @@ import {
 } from '../database/entities/fawry-deposit.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
+import { Treasury } from '../database/entities/treasury.entity.js';
 import { User } from '../database/entities/user.entity.js';
 import { AccountType, LedgerCategory } from '../database/enums.js';
 import { cairoParts } from './cairo-time.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { RecordFawryDepositDto } from './dto/record-fawry-deposit.dto.js';
+import { ProfitQrCashOutDto } from './dto/profit-qr-cash-out.dto.js';
 import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 import { UsersService } from '../users/users.service.js';
 import {
   REGULAR_PROFIT_LIMIT,
+  profitQrCustomerCommission,
+  profitQrIncomingFee,
   regularProfitDepositCommission,
 } from './profit-commission.js';
 
@@ -145,6 +149,14 @@ export class AccountsService implements OnModuleInit {
             en: 'Account not found or inactive',
           }),
         );
+      if (account.type === AccountType.PROFIT_QR) {
+        throw new BadRequestException(
+          msg({
+            ar: 'حساب مكسب QR لا يُشحن مباشرة؛ استخدم عملية سحب كاش لعميل',
+            en: 'QR profit accounts cannot be topped up directly; use a customer cash-out operation',
+          }),
+        );
+      }
       const nextBalance = Number(
         (Number(account.balance) + dto.amount).toFixed(2),
       );
@@ -221,6 +233,129 @@ export class AccountsService implements OnModuleInit {
         });
       }
       return account;
+    });
+  }
+
+  async profitQrCashOut(id: string, dto: ProfitQrCashOutDto, username: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const treasury = await manager.getRepository(Treasury).findOne({
+        where: { id: 'main' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!treasury) {
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+        );
+      }
+      const accountRepo = manager.getRepository(FinancialAccount);
+      const account = await accountRepo.findOne({
+        where: { id, active: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!account) {
+        throw new NotFoundException(
+          msg({
+            ar: 'الحساب غير موجود أو موقوف',
+            en: 'Account not found or inactive',
+          }),
+        );
+      }
+      if (account.type !== AccountType.PROFIT_QR) {
+        throw new BadRequestException(
+          msg({
+            ar: 'عملية سحب الكاش دي متاحة لحسابات مكسب QR فقط',
+            en: 'This cash-out operation is only available for QR profit accounts',
+          }),
+        );
+      }
+
+      const cashAmount = Number(dto.cashAmount);
+      const customerCommission = profitQrCustomerCommission(cashAmount);
+      const providerFee = profitQrIncomingFee(cashAmount);
+      const customerTransferAmount = Number(
+        (cashAmount + customerCommission).toFixed(2),
+      );
+      const creditedAmount = Number(
+        (customerTransferAmount - providerFee).toFixed(2),
+      );
+      const netCommission = Number(
+        (customerCommission - providerFee).toFixed(2),
+      );
+      if (Number(treasury.balance) < cashAmount) {
+        throw new BadRequestException(
+          msg({
+            ar: 'رصيد الخزنة لا يكفي لتسليم الكاش للعميل',
+            en: 'Insufficient treasury cash for the customer payout',
+          }),
+        );
+      }
+
+      treasury.balance = Number(
+        (Number(treasury.balance) - cashAmount).toFixed(2),
+      );
+      account.balance = Number(
+        (Number(account.balance) + creditedAmount).toFixed(2),
+      );
+      account.commissionBalance = Number(
+        (Number(account.commissionBalance) + netCommission).toFixed(2),
+      );
+      await manager.getRepository(Treasury).save(treasury);
+      await accountRepo.save(account);
+
+      const ledger = manager.getRepository(LedgerEntry);
+      const operation = await ledger.save({
+        category: LedgerCategory.INTERNAL_TRANSFER,
+        amount: cashAmount,
+        entityType: 'internal_transfer',
+        entityId: null,
+        sourceType: 'treasury',
+        sourceId: 'main',
+        targetType: 'account',
+        targetId: account.id,
+        reference: dto.reference ?? null,
+        description: `سحب كاش لعميل من حساب مكسب QR ${account.name}`,
+        performedBy: username,
+        metadata: {
+          profitQrCashOut: true,
+          customerTransferAmount,
+          customerCommission,
+          providerIncomingFee: providerFee,
+          creditedAmount,
+          netCommission,
+        },
+      });
+      await ledger.save({
+        category: LedgerCategory.COMMISSION,
+        amount: customerCommission,
+        entityType: 'account',
+        entityId: account.id,
+        reference: dto.reference ?? null,
+        description: `عمولة عميل سحب كاش من مكسب QR ${account.name}: ١٠ جنيه لكل ألف`,
+        performedBy: username,
+        metadata: { profitQrCashOutEntryId: operation.id },
+      });
+      await ledger.save({
+        category: LedgerCategory.COMMISSION,
+        amount: -providerFee,
+        entityType: 'account',
+        entityId: account.id,
+        reference: dto.reference ?? null,
+        description: `خصم استقبال مكسب QR ${account.name}: ٢ جنيه لكل ألف`,
+        performedBy: username,
+        metadata: { profitQrCashOutEntryId: operation.id },
+      });
+
+      return {
+        account,
+        treasuryBalance: treasury.balance,
+        cashAmount,
+        customerTransferAmount,
+        customerCommission,
+        providerFee,
+        creditedAmount,
+        netCommission,
+        operationEntryId: operation.id,
+      };
     });
   }
 

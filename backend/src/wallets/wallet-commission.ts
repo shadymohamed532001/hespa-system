@@ -18,7 +18,9 @@ export function walletCommission(
   }
 
   if (type === 'instapay') {
-    return cents >= 10_000 && cents <= 20_000 ? 5 : 10;
+    if (cents < 100_000) return 5;
+    const commissionCents = Math.round(cents / 100);
+    return commissionCents / 100;
   }
 
   if (direction === 'receive') {

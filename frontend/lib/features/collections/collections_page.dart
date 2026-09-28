@@ -107,9 +107,13 @@ class _CollectionsPageState extends State<CollectionsPage> {
 
     bool isFawry(String id) => accountType(id) == 'fawry';
     bool isProfit(String id) => accountType(id) == 'profit';
+    bool isProfitQr(String id) => accountType(id) == 'profit_qr';
     void syncCommission() {
-      if (!isProfit(accountId)) return;
-      commission.text = formatProfitCollectionCommission(amount);
+      if (isProfit(accountId)) {
+        commission.text = formatProfitCollectionCommission(amount);
+      } else if (isProfitQr(accountId)) {
+        commission.text = '0';
+      }
     }
 
     syncCommission();
@@ -121,6 +125,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
         builder: (ctx, setLocal) {
           final fawry = isFawry(accountId);
           final profit = isProfit(accountId);
+          final profitQr = isProfitQr(accountId);
           return HesbaModalCard(
             title: 'تنفيذ المعلّق ${collection['reference']}',
             subtitle:
@@ -152,7 +157,13 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                if (!fawry)
+                if (profitQr)
+                  HesbaModalCallout(
+                    child: Text(
+                      'خصم مكسب عند التوريد ${money(profitCollectionCommission(amount))} — ٤ جنيه لكل ألف، ويُخصم فوق مبلغ العملية.',
+                    ),
+                  )
+                else if (!fawry)
                   HesbaModalField(
                     label: tr(ar: 'العمولة', en: 'Commission'),
                     child: Column(
@@ -193,7 +204,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
         await widget.session.api
             .post(ApiEndpoints.executeCollection('${collection['id']}'), {
               'accountId': accountId,
-              'commission': isFawry(accountId)
+              'commission': isFawry(accountId) || isProfitQr(accountId)
                   ? 0
                   : parseNum(commission.text) ?? 0,
             });

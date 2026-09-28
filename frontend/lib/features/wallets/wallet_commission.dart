@@ -1,4 +1,4 @@
-int? customerWalletCommission({
+num? customerWalletCommission({
   required String type,
   required String direction,
   required num? amount,
@@ -8,7 +8,9 @@ int? customerWalletCommission({
   if ((amount * 100 - cents).abs() > 0.000001) return null;
 
   if (type == 'instapay') {
-    return cents >= 10000 && cents <= 20000 ? 5 : 10;
+    if (cents < 100000) return 5;
+    final commissionCents = (cents / 100).round();
+    return commissionCents / 100;
   }
   if (direction == 'receive') return cents <= 20000 ? 5 : 10;
 

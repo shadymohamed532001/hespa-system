@@ -24,7 +24,10 @@ import {
 } from '../database/enums.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
-import { regularProfitCollectionCommission } from '../accounts/profit-commission.js';
+import {
+  profitQrOutgoingFee,
+  regularProfitCollectionCommission,
+} from '../accounts/profit-commission.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 import { recordWalletIncoming } from '../wallets/wallets.service.js';
 
@@ -75,13 +78,21 @@ export class CollectionsService implements OnModuleInit {
       where: { id },
       relations: { account: true },
     });
-    if (!collection) throw new NotFoundException(msg({ ar: 'التحصيل غير موجود', en: 'Collection not found' }));
+    if (!collection)
+      throw new NotFoundException(
+        msg({ ar: 'التحصيل غير موجود', en: 'Collection not found' }),
+      );
     return collection;
   }
 
   async receive(dto: ReceiveCollectionDto, username: string) {
     if (dto.executionMode === ExecutionMode.IMMEDIATE && !dto.accountId) {
-      throw new BadRequestException(msg({ ar: 'الحساب المستخدم مطلوب للتنفيذ الفوري', en: 'An account is required for immediate execution' }));
+      throw new BadRequestException(
+        msg({
+          ar: 'الحساب المستخدم مطلوب للتنفيذ الفوري',
+          en: 'An account is required for immediate execution',
+        }),
+      );
     }
     const incoming = resolveIncoming(dto);
     return this.dataSource.transaction(async (manager) => {
@@ -100,7 +111,10 @@ export class CollectionsService implements OnModuleInit {
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!treasury) throw new NotFoundException(msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }));
+      if (!treasury)
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+        );
 
       let account: FinancialAccount | null = null;
       if (dto.executionMode === ExecutionMode.IMMEDIATE) {
@@ -109,12 +123,34 @@ export class CollectionsService implements OnModuleInit {
           lock: { mode: 'pessimistic_write' },
         });
         if (!account)
-          throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
-        if (Number(account.balance) < Number(dto.amount))
-          throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
+          throw new NotFoundException(
+            msg({
+              ar: 'الحساب المستخدم غير موجود أو موقوف',
+              en: 'Selected account not found or inactive',
+            }),
+          );
         if (account.type === AccountType.PROFIT) {
-          dto.commission = regularProfitCollectionCommission(Number(dto.amount));
+          dto.commission = regularProfitCollectionCommission(
+            Number(dto.amount),
+          );
+        } else if (account.type === AccountType.PROFIT_QR) {
+          dto.commission = -profitQrOutgoingFee(Number(dto.amount));
         }
+        const requiredBalance = Number(
+          (
+            Number(dto.amount) +
+            (account.type === AccountType.PROFIT_QR
+              ? Math.abs(dto.commission)
+              : 0)
+          ).toFixed(2),
+        );
+        if (Number(account.balance) < requiredBalance)
+          throw new BadRequestException(
+            msg({
+              ar: 'رصيد الحساب غير كافٍ لتغطية المبلغ وخصم مكسب',
+              en: 'Insufficient account balance for the amount and provider fee',
+            }),
+          );
         assertNoFawryOperationCommission(account, dto.commission);
       }
 
@@ -153,8 +189,13 @@ export class CollectionsService implements OnModuleInit {
       }
 
       if (account) {
+        const accountDebit =
+          Number(dto.amount) +
+          (account.type === AccountType.PROFIT_QR
+            ? Math.abs(Number(dto.commission))
+            : 0);
         account.balance = Number(
-          (Number(account.balance) - Number(dto.amount)).toFixed(2),
+          (Number(account.balance) - accountDebit).toFixed(2),
         );
         account.commissionBalance = Number(
           (Number(account.commissionBalance) + Number(dto.commission)).toFixed(
@@ -232,14 +273,17 @@ export class CollectionsService implements OnModuleInit {
               }
             : null,
         });
-        if (dto.commission > 0) {
+        if (dto.commission !== 0) {
           await ledger.save({
             category: LedgerCategory.COMMISSION,
             amount: dto.commission,
             entityType: 'account',
             entityId: account.id,
             reference,
-            description: `عمولة تنفيذ لصالح ${dto.companyName}`,
+            description:
+              dto.commission < 0
+                ? `خصم مكسب QR عند التوريد لصالح ${dto.companyName}: ٤ جنيه لكل ألف`
+                : `عمولة تنفيذ لصالح ${dto.companyName}`,
             performedBy: username,
           });
         }
@@ -255,24 +299,48 @@ export class CollectionsService implements OnModuleInit {
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!collection) throw new NotFoundException(msg({ ar: 'المعلّق غير موجود', en: 'Pending item not found' }));
+      if (!collection)
+        throw new NotFoundException(
+          msg({ ar: 'المعلّق غير موجود', en: 'Pending item not found' }),
+        );
       if (collection.status !== CollectionStatus.PENDING)
-        throw new BadRequestException(msg({ ar: 'العملية منفذة بالفعل', en: 'Operation already executed' }));
+        throw new BadRequestException(
+          msg({ ar: 'العملية منفذة بالفعل', en: 'Operation already executed' }),
+        );
       const account = await manager.getRepository(FinancialAccount).findOne({
         where: { id: dto.accountId, active: true },
         lock: { mode: 'pessimistic_write' },
       });
       if (!account)
-        throw new NotFoundException(msg({ ar: 'الحساب المستخدم غير موجود أو موقوف', en: 'Selected account not found or inactive' }));
-      if (account.balance < collection.amount)
-        throw new BadRequestException(msg({ ar: 'رصيد الحساب غير كافٍ', en: 'Insufficient account balance' }));
+        throw new NotFoundException(
+          msg({
+            ar: 'الحساب المستخدم غير موجود أو موقوف',
+            en: 'Selected account not found or inactive',
+          }),
+        );
       if (account.type === AccountType.PROFIT) {
         dto.commission = regularProfitCollectionCommission(
           Number(collection.amount),
         );
+      } else if (account.type === AccountType.PROFIT_QR) {
+        dto.commission = -profitQrOutgoingFee(Number(collection.amount));
       }
+      const accountDebit =
+        Number(collection.amount) +
+        (account.type === AccountType.PROFIT_QR
+          ? Math.abs(Number(dto.commission))
+          : 0);
+      if (Number(account.balance) < accountDebit)
+        throw new BadRequestException(
+          msg({
+            ar: 'رصيد الحساب غير كافٍ لتغطية المبلغ وخصم مكسب',
+            en: 'Insufficient account balance for the amount and provider fee',
+          }),
+        );
       assertNoFawryOperationCommission(account, dto.commission);
-      account.balance -= collection.amount;
+      account.balance = Number(
+        (Number(account.balance) - accountDebit).toFixed(2),
+      );
       account.commissionBalance += dto.commission;
       await manager.getRepository(FinancialAccount).save(account);
       collection.status = CollectionStatus.DONE;
@@ -289,14 +357,17 @@ export class CollectionsService implements OnModuleInit {
         description: `تنفيذ المعلّق لصالح ${collection.companyName}`,
         performedBy: username,
       });
-      if (dto.commission > 0) {
+      if (dto.commission !== 0) {
         await manager.getRepository(LedgerEntry).save({
           category: LedgerCategory.COMMISSION,
           amount: dto.commission,
           entityType: 'account',
           entityId: account.id,
           reference: collection.reference,
-          description: `عمولة تنفيذ المعلّق لصالح ${collection.companyName}`,
+          description:
+            dto.commission < 0
+              ? `خصم مكسب QR عند تنفيذ المعلّق لصالح ${collection.companyName}: ٤ جنيه لكل ألف`
+              : `عمولة تنفيذ المعلّق لصالح ${collection.companyName}`,
           performedBy: username,
         });
       }
