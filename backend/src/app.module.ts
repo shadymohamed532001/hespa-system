@@ -18,6 +18,7 @@ import { ProfitAccountType1790087699428 } from './database/migrations/1790087699
 import { ProfitQrAccountType1790087699429 } from './database/migrations/1790087699429-ProfitQrAccountType.js';
 import { AgentCredit1790087699430 } from './database/migrations/1790087699430-AgentCredit.js';
 import { AgentCreditPayments1790087699431 } from './database/migrations/1790087699431-AgentCreditPayments.js';
+import { OwnerWithdrawal1790087699432 } from './database/migrations/1790087699432-OwnerWithdrawal.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -122,6 +123,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           ProfitQrAccountType1790087699429,
           AgentCredit1790087699430,
           AgentCreditPayments1790087699431,
+          OwnerWithdrawal1790087699432,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

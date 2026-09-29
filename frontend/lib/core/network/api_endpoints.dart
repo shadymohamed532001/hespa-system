@@ -74,6 +74,7 @@ abstract final class ApiEndpoints {
   static const String treasuryRollover = '$treasury/rollover';
   static const String treasuryCloseDay = '$treasury/close-day';
   static const String treasuryReconcile = '$treasury/reconcile';
+  static const String treasuryWithdraw = '$treasury/withdraw';
   static const String treasuryDailyCloses = '$treasury/daily-closes';
 
   // Ledger

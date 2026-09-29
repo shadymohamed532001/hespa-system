@@ -388,7 +388,14 @@ class _LedgerPanel extends StatelessWidget {
             ),
           ),
         ),
-        DataCell(Text(entry['reference'] ?? entry['entityType'] ?? '—')),
+        DataCell(
+          Text(
+            entry['reference'] ??
+                entry['description'] ??
+                entry['entityType'] ??
+                '—',
+          ),
+        ),
         DataCell(
           Directionality(
             textDirection: TextDirection.ltr,
@@ -647,13 +654,18 @@ class _CategoryBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final hold = category == 'cash_receipt';
     final internal = category == 'internal_transfer' || category == 'top_up';
+    final withdrawal = category == 'owner_withdrawal';
 
-    final background = hold
+    final background = withdrawal
+        ? HesbaColors.redLight
+        : hold
         ? HesbaColors.warningLight
         : internal
         ? const Color(0xFFE9EEF6)
         : HesbaColors.tealLight;
-    final foreground = hold
+    final foreground = withdrawal
+        ? HesbaColors.red
+        : hold
         ? HesbaColors.warning
         : internal
         ? const Color(0xFF50657D)
@@ -667,7 +679,9 @@ class _CategoryBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        hold
+        withdrawal
+            ? tr(ar: 'سحب نقدي', en: 'Cash withdrawal')
+            : hold
             ? tr(ar: 'معلّق', en: 'Pending')
             : internal
             ? category == 'top_up'
@@ -724,6 +738,7 @@ bool _isNegative(String category) {
     'company_execution',
     'machine_usage',
     'wallet_usage',
+    'owner_withdrawal',
   }.contains(category);
 }
 
@@ -748,6 +763,8 @@ String _categoryName(String category) {
         ),
         'wallet_usage': tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
         'daily_rollover': tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
+        'owner_withdrawal': tr(ar: 'سحب من الخزنة', en: 'Treasury withdrawal'),
+        'reconciliation': tr(ar: 'تسوية رصيد', en: 'Balance reconciliation'),
       }[category] ??
       category;
 }
@@ -784,6 +801,14 @@ String _categoryEffect(String category) {
         'daily_rollover': tr(
           ar: 'ترحيل أرصدة اليوم',
           en: 'Roll over today balances',
+        ),
+        'owner_withdrawal': tr(
+          ar: 'خروج نقد من الخزنة',
+          en: 'Cash left the treasury',
+        ),
+        'reconciliation': tr(
+          ar: 'مطابقة الرصيد المعدود',
+          en: 'Match the counted balance',
         ),
       }[category] ??
       'حركة مالية';

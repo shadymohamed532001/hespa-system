@@ -25,6 +25,7 @@ abstract final class AppPermissions {
   static const useWallets = 'use_wallets';
   static const reverseOperations = 'reverse_operations';
   static const reconcileBalances = 'reconcile_balances';
+  static const withdrawTreasury = 'withdraw_treasury';
 }
 
 class SessionController extends ChangeNotifier {

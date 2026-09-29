@@ -544,6 +544,11 @@ final _fallbackCatalog = [
     'label': 'تسوية الأرصدة الفعلية',
     'note': 'مطابقة الجرد الفعلي مع النظام',
   },
+  {
+    'key': AppPermissions.withdrawTreasury,
+    'label': 'سحب نقدي من الخزنة المركزية',
+    'note': 'سحب الخزنة كلها أو ترك مبلغ محدد',
+  },
 ];
 
 class _UsersCard extends StatelessWidget {

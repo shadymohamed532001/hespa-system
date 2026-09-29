@@ -462,6 +462,9 @@ export class ReportsService {
     if (entry.category === LedgerCategory.RECONCILIATION) {
       return Number(entry.amount) >= 0 ? 'deposit' : 'withdrawal';
     }
+    if (entry.category === LedgerCategory.OWNER_WITHDRAWAL) {
+      return 'withdrawal';
+    }
     return 'neutral';
   }
 

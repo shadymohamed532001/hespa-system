@@ -796,6 +796,67 @@ describe('financial operations (e2e)', () => {
     expect(second.body).toMatchObject({ closed: false, alreadyClosed: true });
   });
 
+  it('withdraws treasury cash and can leave a remaining amount', async () => {
+    const current = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const starting = Number(current.body.actualBalance);
+    const funded = Number((starting + 80_000).toFixed(2));
+    await request(app.getHttpServer())
+      .post('/api/treasury/reconcile')
+      .set(mutation(`fund-withdraw-${randomUUID()}`))
+      .send({ assetType: 'treasury', countedBalance: funded })
+      .expect(201);
+
+    const partial = await request(app.getHttpServer())
+      .post('/api/treasury/withdraw')
+      .set(mutation(`withdraw-leave-${randomUUID()}`))
+      .send({ mode: 'leave', leaveAmount: 30_000, note: 'سيب ٣٠ ألف' })
+      .expect(201);
+    expect(partial.body.withdrawnAmount).toBe(
+      Number((funded - 30_000).toFixed(2)),
+    );
+    expect(partial.body.remainingBalance).toBe(30_000);
+
+    const afterPartial = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(afterPartial.body.actualBalance).toBe(30_000);
+
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${partial.body.id}/reverse`)
+      .set(mutation(`withdraw-reverse-${randomUUID()}`))
+      .send({ reason: 'السحب اتعمل بالغلط' })
+      .expect(201);
+    const restored = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(restored.body.actualBalance).toBe(funded);
+
+    const emptied = await request(app.getHttpServer())
+      .post('/api/treasury/withdraw')
+      .set(mutation(`withdraw-all-${randomUUID()}`))
+      .send({ mode: 'all' })
+      .expect(201);
+    expect(emptied.body.withdrawnAmount).toBe(funded);
+    expect(emptied.body.remainingBalance).toBe(0);
+
+    const afterAll = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(afterAll.body.actualBalance).toBe(0);
+
+    await request(app.getHttpServer())
+      .post('/api/treasury/withdraw')
+      .set(mutation(`withdraw-empty-${randomUUID()}`))
+      .send({ mode: 'all' })
+      .expect(400);
+  });
+
   it('creates a profit account', async () => {
     const name = `مكسب ${randomUUID()}`;
     const created = await request(app.getHttpServer())

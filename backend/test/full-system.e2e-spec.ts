@@ -165,6 +165,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'ProfitQrAccountType1790087699429',
       'AgentCredit1790087699430',
       'AgentCreditPayments1790087699431',
+      'OwnerWithdrawal1790087699432',
     ]);
   });
 

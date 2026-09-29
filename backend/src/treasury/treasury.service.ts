@@ -26,6 +26,7 @@ import {
 } from '../accounts/profit-commission.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
 import { CloseDayDto, ReconcileDto } from './dto/reconcile.dto.js';
+import { WithdrawTreasuryDto } from './dto/withdraw-treasury.dto.js';
 
 type TransferAsset = {
   key: string;
@@ -341,6 +342,96 @@ export class TreasuryService {
         }
       }
       return { from: source.name, to: target.name, amount: dto.amount };
+    });
+  }
+
+  async withdraw(dto: WithdrawTreasuryDto, username: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const treasury = await manager.getRepository(Treasury).findOne({
+        where: { id: 'main' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!treasury) {
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+        );
+      }
+      const pendingResult = await manager
+        .getRepository(Collection)
+        .createQueryBuilder('collection')
+        .select('COALESCE(SUM(collection.amount), 0)', 'total')
+        .where('collection.status = :status', {
+          status: CollectionStatus.PENDING,
+        })
+        .getRawOne<{ total: string }>();
+      const pendingAmount = Number(pendingResult?.total ?? 0);
+      const previousBalance = Number(treasury.balance);
+      const remainingBalance =
+        dto.mode === 'all' ? 0 : Number(Number(dto.leaveAmount).toFixed(2));
+      if (!Number.isFinite(remainingBalance) || remainingBalance < 0) {
+        throw new BadRequestException(
+          msg({
+            ar: 'المبلغ المتبقي غير صالح',
+            en: 'The amount to leave is invalid',
+          }),
+        );
+      }
+      if (remainingBalance > previousBalance) {
+        throw new BadRequestException(
+          msg({
+            ar: 'المبلغ المتبقي أكبر من رصيد الخزنة',
+            en: 'The amount to leave is larger than the treasury balance',
+          }),
+        );
+      }
+      const withdrawnAmount = Number(
+        (previousBalance - remainingBalance).toFixed(2),
+      );
+      if (withdrawnAmount <= 0) {
+        throw new BadRequestException(
+          msg({
+            ar: 'لا يوجد مبلغ للسحب',
+            en: 'There is no amount to withdraw',
+          }),
+        );
+      }
+
+      treasury.balance = remainingBalance;
+      await manager.save(treasury);
+      const note = dto.note?.trim();
+      const description =
+        dto.mode === 'all'
+          ? `سحب صاحب المحل لكامل الخزنة: ${withdrawnAmount.toFixed(2)} ج.م`
+          : `سحب صاحب المحل من الخزنة: ${withdrawnAmount.toFixed(2)} ج.م، والمتبقي ${remainingBalance.toFixed(2)} ج.م`;
+      const entry = await manager.getRepository(LedgerEntry).save({
+        category: LedgerCategory.OWNER_WITHDRAWAL,
+        amount: -withdrawnAmount,
+        entityType: 'treasury',
+        entityId: 'main',
+        sourceType: 'treasury',
+        sourceId: 'main',
+        targetType: 'owner',
+        targetId: null,
+        reference: null,
+        description: note ? `${description} — ${note}` : description,
+        performedBy: username,
+        metadata: {
+          mode: dto.mode,
+          previousBalance,
+          withdrawnAmount,
+          remainingBalance,
+          pendingAmount,
+          note: note || null,
+        },
+      });
+      return {
+        id: entry.id,
+        withdrawnAmount,
+        remainingBalance,
+        previousBalance,
+        pendingAmount,
+        belowPending: remainingBalance < pendingAmount,
+      };
     });
   }
 

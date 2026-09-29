@@ -558,6 +558,17 @@ export class LedgerService {
     await manager.save(wallet);
   }
 
+  private async reverseOwnerWithdrawal(
+    manager: EntityManager,
+    entry: LedgerEntry,
+  ) {
+    const item = await this.asset(manager, 'treasury', 'main');
+    const restored = Number(
+      (item.balance + Math.abs(Number(entry.amount))).toFixed(2),
+    );
+    await item.save(restored);
+  }
+
   private async reverseReconciliation(
     manager: EntityManager,
     entry: LedgerEntry,
@@ -656,6 +667,8 @@ export class LedgerService {
         await this.reverseWalletUsage(manager, entry);
       } else if (entry.category === LedgerCategory.RECONCILIATION) {
         await this.reverseReconciliation(manager, entry);
+      } else if (entry.category === LedgerCategory.OWNER_WITHDRAWAL) {
+        await this.reverseOwnerWithdrawal(manager, entry);
       } else {
         throw new BadRequestException(
           msg({

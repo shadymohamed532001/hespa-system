@@ -18,6 +18,7 @@ export enum AppPermission {
   USE_WALLETS = 'use_wallets',
   REVERSE_OPERATIONS = 'reverse_operations',
   RECONCILE_BALANCES = 'reconcile_balances',
+  WITHDRAW_TREASURY = 'withdraw_treasury',
 }
 
 export const ALL_PERMISSIONS = Object.values(AppPermission);
@@ -81,6 +82,7 @@ export enum LedgerCategory {
   DAILY_ROLLOVER = 'daily_rollover',
   REVERSAL = 'reversal',
   RECONCILIATION = 'reconciliation',
+  OWNER_WITHDRAWAL = 'owner_withdrawal',
 }
 
 export enum InventoryMovementType {

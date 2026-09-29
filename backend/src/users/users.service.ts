@@ -388,6 +388,11 @@ export class UsersService implements OnModuleInit {
         label: 'تسوية الأرصدة الفعلية',
         note: 'مطابقة الرصيد المسجل مع الجرد الفعلي',
       },
+      {
+        key: AppPermission.WITHDRAW_TREASURY,
+        label: 'سحب نقدي من الخزنة المركزية',
+        note: 'سحب الخزنة كلها أو ترك مبلغ محدد',
+      },
     ];
   }
 

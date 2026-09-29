@@ -224,7 +224,10 @@ export function mapLedgerCategory(category: LedgerCategory): {
     case LedgerCategory.WALLET_CASH_FEE:
       return {
         kind: NotificationKind.DEPOSIT,
-        title: msg({ ar: 'دخول عمولة المحفظة للخزنة', en: 'Wallet fee added to treasury' }),
+        title: msg({
+          ar: 'دخول عمولة المحفظة للخزنة',
+          en: 'Wallet fee added to treasury',
+        }),
       };
     case LedgerCategory.COMMISSION:
       return {
@@ -280,6 +283,14 @@ export function mapLedgerCategory(category: LedgerCategory): {
       return {
         kind: NotificationKind.INFO,
         title: msg({ ar: 'ترحيل يومي', en: 'Daily rollover' }),
+      };
+    case LedgerCategory.OWNER_WITHDRAWAL:
+      return {
+        kind: NotificationKind.WITHDRAWAL,
+        title: msg({
+          ar: 'سحب نقدي من الخزنة',
+          en: 'Cash withdrawal from treasury',
+        }),
       };
     default:
       return {

@@ -5,6 +5,7 @@ import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { InternalTransferDto } from './dto/internal-transfer.dto.js';
 import { CloseDayDto, ReconcileDto } from './dto/reconcile.dto.js';
+import { WithdrawTreasuryDto } from './dto/withdraw-treasury.dto.js';
 import { TreasuryService } from './treasury.service.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -54,6 +55,13 @@ export class TreasuryController {
   @Get('daily-closes')
   dailyCloses() {
     return this.treasury.dailyCloses();
+  }
+
+  @RequirePermissions(AppPermission.WITHDRAW_TREASURY)
+  @Idempotent()
+  @Post('withdraw')
+  withdraw(@Body() dto: WithdrawTreasuryDto, @Request() request: UserRequest) {
+    return this.treasury.withdraw(dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.RECONCILE_BALANCES)

@@ -61,6 +61,43 @@ class _TreasuryPageState extends State<TreasuryPage> {
     if (mounted) setState(() => loading = false);
   }
 
+  Future<void> _withdraw() async {
+    final actual = parseNum('${summary['actualBalance']}') ?? 0;
+    final pending = parseNum('${summary['pendingAmount']}') ?? 0;
+    if (actual <= 0) {
+      if (mounted) {
+        showAppSnack(context, 'الخزنة فاضية، مفيش مبلغ يتسحب', error: true);
+      }
+      return;
+    }
+
+    final request = await showDialog<_WithdrawRequest>(
+      context: context,
+      builder: (context) => _WithdrawDialog(actual: actual, pending: pending),
+    );
+    if (request == null || !mounted) return;
+
+    try {
+      final response = await widget.session.api
+          .post(ApiEndpoints.treasuryWithdraw, {
+            'mode': request.mode,
+            if (request.mode == 'leave') 'leaveAmount': request.leaveAmount,
+            if (request.note.isNotEmpty) 'note': request.note,
+          });
+      await load();
+      if (!mounted) return;
+      final body = response as Map<String, dynamic>;
+      showAppSnack(
+        context,
+        'تم سحب ${money(body['withdrawnAmount'])}، والمتبقي في الخزنة ${money(body['remainingBalance'])}',
+      );
+    } catch (exception) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(exception), error: true);
+      }
+    }
+  }
+
   Future<void> _reconcile() async {
     final balance = TextEditingController(
       text: '${summary['actualBalance'] ?? ''}',
@@ -131,6 +168,15 @@ class _TreasuryPageState extends State<TreasuryPage> {
       title: 'الخزنة المركزية',
       subtitle: 'الرصيد الفعلي والمتاح والالتزامات',
       actions: [
+        if (widget.session.can(AppPermissions.withdrawTreasury))
+          OutlinedButton(
+            onPressed: loading ? null : _withdraw,
+            style: OutlinedButton.styleFrom(
+              foregroundColor: HesbaColors.red,
+              side: const BorderSide(color: HesbaColors.red),
+            ),
+            child: const Text('سحب من الخزنة'),
+          ),
         if (widget.session.can(AppPermissions.reconcileBalances))
           OutlinedButton(
             onPressed: loading ? null : _reconcile,
@@ -406,7 +452,8 @@ class _TreasuryMovements extends StatelessWidget {
     }
     return category == 'company_execution' ||
         category == 'machine_usage' ||
-        category == 'top_up';
+        category == 'top_up' ||
+        category == 'owner_withdrawal';
   }
 
   String _categoryName(String category) => switch (category) {
@@ -429,6 +476,8 @@ class _TreasuryMovements extends StatelessWidget {
     'daily_rollover' => tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
     'opening_balance' => tr(ar: 'رصيد افتتاحي', en: 'Opening balance'),
     'reversal' => 'عكس حركة',
+    'owner_withdrawal' => tr(ar: 'سحب من الخزنة', en: 'Treasury withdrawal'),
+    'reconciliation' => tr(ar: 'تسوية رصيد', en: 'Balance reconciliation'),
     _ => category,
   };
 
@@ -469,6 +518,14 @@ class _TreasuryMovements extends StatelessWidget {
         en: 'Record opening balance',
       ),
       'reversal' => 'عكس أثر حركة سابقة',
+      'owner_withdrawal' => tr(
+        ar: 'خرج النقد من الخزنة',
+        en: 'Cash left the treasury',
+      ),
+      'reconciliation' => tr(
+        ar: 'مطابقة الرصيد المعدود',
+        en: 'Match the counted balance',
+      ),
       _ => '${entry['description'] ?? '—'}',
     };
   }
@@ -486,17 +543,24 @@ class _MovementBadge extends StatelessWidget {
         category == 'cash_receipt' &&
         '${entry['reference']}'.startsWith('HLD-');
     final internal = category == 'internal_transfer';
-    final background = hold
+    final withdrawal = category == 'owner_withdrawal';
+    final background = withdrawal
+        ? HesbaColors.redLight
+        : hold
         ? HesbaColors.warningLight
         : internal
         ? const Color(0xFFE9EEF6)
         : HesbaColors.tealLight;
-    final foreground = hold
+    final foreground = withdrawal
+        ? HesbaColors.red
+        : hold
         ? HesbaColors.warning
         : internal
         ? const Color(0xFF50657D)
         : HesbaColors.tealSoft;
-    final label = hold
+    final label = withdrawal
+        ? tr(ar: 'سحب نقدي', en: 'Cash withdrawal')
+        : hold
         ? tr(ar: 'معلّق', en: 'Pending')
         : internal
         ? tr(ar: 'تحويل داخلي', en: 'Internal transfer')
@@ -516,6 +580,245 @@ class _MovementBadge extends StatelessWidget {
           color: foreground,
           fontSize: 11,
           fontWeight: FontWeight.w400,
+        ),
+      ),
+    );
+  }
+}
+
+class _WithdrawRequest {
+  const _WithdrawRequest({
+    required this.mode,
+    required this.leaveAmount,
+    required this.note,
+  });
+
+  final String mode;
+  final num leaveAmount;
+  final String note;
+}
+
+class _WithdrawDialog extends StatefulWidget {
+  const _WithdrawDialog({required this.actual, required this.pending});
+
+  final num actual;
+  final num pending;
+
+  @override
+  State<_WithdrawDialog> createState() => _WithdrawDialogState();
+}
+
+class _WithdrawDialogState extends State<_WithdrawDialog> {
+  final leave = TextEditingController();
+  final note = TextEditingController();
+  String mode = 'leave';
+
+  @override
+  void dispose() {
+    leave.dispose();
+    note.dispose();
+    super.dispose();
+  }
+
+  num? get _leaveAmount => mode == 'all' ? 0 : parseNum(leave.text.trim());
+
+  num? get _withdrawn {
+    final remaining = _leaveAmount;
+    if (remaining == null || remaining < 0 || remaining > widget.actual) {
+      return null;
+    }
+    final value = widget.actual - remaining;
+    if (value <= 0) return null;
+    return value;
+  }
+
+  String? get _problem {
+    if (mode == 'all') return null;
+    final text = leave.text.trim();
+    if (text.isEmpty) return 'اكتب المبلغ اللي هيفضل في الخزنة';
+    final remaining = parseNum(text);
+    if (remaining == null || remaining < 0) return 'المبلغ المتبقي غير صالح';
+    if (remaining > widget.actual) return 'المبلغ المتبقي أكبر من رصيد الخزنة';
+    if (remaining == widget.actual) return 'المبلغ ده يسيب الخزنة زي ما هي';
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final remaining = _leaveAmount;
+    final withdrawn = _withdrawn;
+    final belowPending =
+        remaining != null && widget.pending > 0 && remaining < widget.pending;
+
+    return AlertDialog(
+      title: const Text('سحب من الخزنة'),
+      content: SingleChildScrollView(
+        child: SizedBox(
+          width: 460,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                'الرصيد الفعلي ${money(widget.actual)}. السحب بيخرج الفلوس من المحل وينقص الخزنة، ومش تحويل داخلي.',
+                style: const TextStyle(
+                  color: HesbaColors.callout,
+                  fontSize: 13,
+                  height: 1.55,
+                ),
+              ),
+              const SizedBox(height: 16),
+              _ModeCard(
+                title: 'سحب الخزنة كلها',
+                subtitle: 'الخزنة هتبقى صفر',
+                selected: mode == 'all',
+                onTap: () => setState(() => mode = 'all'),
+              ),
+              const SizedBox(height: 10),
+              _ModeCard(
+                title: 'سيب مبلغ في الخزنة',
+                subtitle: 'مثلاً سيب ٣٠٬٠٠٠ وخد الباقي',
+                selected: mode == 'leave',
+                onTap: () => setState(() => mode = 'leave'),
+              ),
+              if (mode == 'leave') ...[
+                const SizedBox(height: 14),
+                TextField(
+                  controller: leave,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: const [ArabicDigitsFormatter()],
+                  onChanged: (_) => setState(() {}),
+                  decoration: const InputDecoration(
+                    labelText: 'المبلغ اللي هيفضل في الخزنة',
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              TextField(
+                controller: note,
+                maxLength: 300,
+                decoration: const InputDecoration(labelText: 'ملاحظة'),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  color: HesbaColors.soft,
+                  borderRadius: BorderRadius.circular(11),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      withdrawn == null
+                          ? 'هيتسحب: —'
+                          : 'هيتسحب: ${money(withdrawn)}',
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      remaining == null
+                          ? 'هيفضل في الخزنة: —'
+                          : 'هيفضل في الخزنة: ${money(remaining)}',
+                    ),
+                    if (_problem != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _problem!,
+                        style: const TextStyle(
+                          color: HesbaColors.red,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ] else if (belowPending) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'الالتزامات المعلقة ${money(widget.pending)}، والمتبقي أقل منها. السحب هيتم والالتزامات هتفضل مسجلة.',
+                        style: const TextStyle(
+                          color: HesbaColors.warning,
+                          fontSize: 13,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(tr(ar: 'إلغاء', en: 'Cancel')),
+        ),
+        FilledButton(
+          onPressed: withdrawn == null
+              ? null
+              : () => Navigator.pop(
+                  context,
+                  _WithdrawRequest(
+                    mode: mode,
+                    leaveAmount: remaining ?? 0,
+                    note: note.text.trim(),
+                  ),
+                ),
+          style: FilledButton.styleFrom(
+            backgroundColor: HesbaColors.red,
+            disabledBackgroundColor: HesbaColors.red.withValues(alpha: 0.35),
+            disabledForegroundColor: Colors.white,
+          ),
+          child: const Text('تأكيد السحب'),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeCard extends StatelessWidget {
+  const _ModeCard({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? HesbaColors.redLight : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? HesbaColors.red : HesbaColors.border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: HesbaText.bodyMuted),
+            ],
+          ),
         ),
       ),
     );

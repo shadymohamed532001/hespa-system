@@ -91,6 +91,7 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
       'machine_usage',
       'wallet_usage',
       'reconciliation',
+      'owner_withdrawal',
     };
     return widget.allowReversal &&
         supported.contains(entry['category']) &&
@@ -200,5 +201,6 @@ String _category(String value) =>
       'daily_rollover': tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
       'reversal': 'عكس عملية',
       'reconciliation': 'تسوية رصيد',
+      'owner_withdrawal': tr(ar: 'سحب من الخزنة', en: 'Treasury withdrawal'),
     }[value] ??
     value;
