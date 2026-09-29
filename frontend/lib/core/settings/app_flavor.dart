@@ -5,8 +5,10 @@ import 'package:flutter/services.dart';
 /// `prod` talks to the live shop API.
 enum AppFlavor { dev, prod }
 
+const configuredAppFlavor = String.fromEnvironment('HESBA_APP_FLAVOR');
+
 AppFlavor get appEnvironment {
-  switch (appFlavor) {
+  switch (configuredAppFlavor.isNotEmpty ? configuredAppFlavor : appFlavor) {
     case 'prod':
     case 'production':
       return AppFlavor.prod;

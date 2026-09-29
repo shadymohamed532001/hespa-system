@@ -43,7 +43,7 @@ flutter run --flavor dev
 flutter run --flavor prod
 ```
 
-فلافور التطوير يتصل بـ`http://127.0.0.1:3000/api` وقاعدة `hesba_dev`. فلافور البرودكشن يتصل بـ`https://hesba.alien-fit.com/api` وقاعدة `hesba`. شارة أعلى الشاشة بتوضح أنت على أنهي بيئة.
+وضع التطوير يتصل بـ`http://127.0.0.1:3000/api` وقاعدة `hesba_dev`. وضع البرودكشن يتصل بـ`https://hesba.alien-fit.com/api` وقاعدة `hesba`. شارة أعلى الشاشة بتوضح أنت على أنهي بيئة. على macOS شغّل إعدادات VS Code أو استخدم `flutter run -d macos --dart-define=HESBA_APP_FLAVOR=dev` (أو `prod`)؛ خيار `--flavor` يحتاج إعدادات Xcode إضافية غير موجودة في مشروع macOS.
 
 لـWindows استخدم `flutter run -d windows`، ولـLinux استخدم `flutter run -d linux`، ولـAndroid/iOS استخدم `flutter run -d android` أو `flutter run -d ios`. تفاصيل البناء للموبايل في `frontend/README.md`.
 

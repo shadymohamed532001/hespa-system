@@ -1,0 +1,23 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "حسبة — تطوير",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "program": "lib/main.dart",
+      "deviceId": "macos",
+      "toolArgs": ["--dart-define=HESBA_APP_FLAVOR=dev"]
+    },
+    {
+      "name": "حسبة — برودكشن",
+      "type": "dart",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend",
+      "program": "lib/main.dart",
+      "deviceId": "macos",
+      "toolArgs": ["--dart-define=HESBA_APP_FLAVOR=prod"]
+    }
+  ]
+}

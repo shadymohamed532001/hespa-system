@@ -51,9 +51,18 @@ flutter run -d android
 flutter run -d ios
 ```
 
+على Android، فلافور `dev` أو `prod` متاح في إعدادات Gradle:
+
 ```bash
-flutter run --flavor dev
-flutter run --flavor prod
+flutter run -d android --flavor dev
+flutter run -d android --flavor prod
+```
+
+على macOS وiOS استخدم Dart define لتحديد البيئة؛ إعدادات Xcode الحالية لا تحتوي على build configurations خاصة بالفلافور:
+
+```bash
+flutter run -d macos --dart-define=HESBA_APP_FLAVOR=dev
+flutter run -d macos --dart-define=HESBA_APP_FLAVOR=prod
 ```
 
 `dev` يتصل بالسيرفر المحلي. `prod` يتصل بسيرفر المحل. بناء الـrelease يقدر يمرّر `API_BASE_URL` لو العنوان مختلف.

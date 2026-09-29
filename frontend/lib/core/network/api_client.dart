@@ -531,9 +531,9 @@ class ApiClient {
 const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
 
 String _resolveBaseUrl(String? override) {
-  // `--flavor dev` uses the local API. `--flavor prod` uses the live API.
-  // An explicit API_BASE_URL still wins. With no flavor, debug stays local
-  // and release stays on production.
+  // The selected app environment uses its matching API. An explicit
+  // API_BASE_URL still wins. With no environment, debug stays local and
+  // release stays on production.
   final value =
       override ??
       (_configuredBaseUrl.isNotEmpty ? _configuredBaseUrl : flavorApiBaseUrl);
