@@ -70,38 +70,9 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
     }
   }
 
-  Future<void> _withdraw(Map<String, dynamic> visa) async {
-    final result = await showHesbaModal<_WithdrawInput>(
-      context: context,
-      builder: (context) => _WithdrawDialog(visa: visa),
-    );
-    if (result == null || !mounted) return;
-    try {
-      await widget.session.api
-          .post(ApiEndpoints.purchaseVisaWithdraw('${visa['id']}'), {
-            'amount': result.amount,
-            'agentName': result.agentName,
-            'withService': result.withService,
-            if (result.note.isNotEmpty) 'note': result.note,
-          });
-      await load();
-      if (!mounted) return;
-      final quote = _quotePurchaseVisa(result.amount, result.withService);
-      showAppSnack(
-        context,
-        'اتسحب ${money(quote.principal)}، والمكسب ${money(quote.netProfit)}، ودخل الخزنة ${money(quote.treasuryCredit)}',
-      );
-    } catch (exception) {
-      if (mounted) {
-        showAppSnack(context, ApiClient.errorMessage(exception), error: true);
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final canCreate = widget.session.can(AppPermissions.manageAssets);
-    final canWithdraw = widget.session.can(AppPermissions.usePurchaseVisas);
     return PageFrame(
       title: 'فيزا المشتريات',
       subtitle:
@@ -123,7 +94,7 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
           ? const Padding(
               padding: EdgeInsets.all(40),
               child: Text(
-                'لسه مفيش فيزا متسجلة. سجّل الفيزا الأول وبعدين اسحب منها.',
+                'لسه مفيش فيزا متسجلة. سجّل الفيزا، والسحب بيتم من استلام المندوب.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: HesbaColors.muted),
               ),
@@ -142,9 +113,7 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
                             : constraints.maxWidth,
                         child: _VisaCard(
                           visa: raw as Map<String, dynamic>,
-                          canWithdraw: canWithdraw,
                           showProfit: widget.session.isAdmin,
-                          onWithdraw: () => _withdraw(raw),
                         ),
                       ),
                   ],
@@ -156,17 +125,10 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
 }
 
 class _VisaCard extends StatelessWidget {
-  const _VisaCard({
-    required this.visa,
-    required this.canWithdraw,
-    required this.showProfit,
-    required this.onWithdraw,
-  });
+  const _VisaCard({required this.visa, required this.showProfit});
 
   final Map<String, dynamic> visa;
-  final bool canWithdraw;
   final bool showProfit;
-  final VoidCallback onWithdraw;
 
   @override
   Widget build(BuildContext context) {
@@ -205,16 +167,6 @@ class _VisaCard extends StatelessWidget {
             Text(
               'إجمالي المكسب ${money(visa['commissionBalance'])}',
               style: const TextStyle(color: HesbaColors.tealDark),
-            ),
-          ],
-          if (canWithdraw) ...[
-            const SizedBox(height: 16),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: FilledButton(
-                onPressed: onWithdraw,
-                child: const Text('سحب من الفيزا'),
-              ),
             ),
           ],
         ],
@@ -426,235 +378,6 @@ class _ExpiryFormatter extends TextInputFormatter {
   }
 }
 
-class _WithdrawInput {
-  const _WithdrawInput({
-    required this.amount,
-    required this.agentName,
-    required this.withService,
-    required this.note,
-  });
-
-  final num amount;
-  final String agentName;
-  final bool withService;
-  final String note;
-}
-
-class _WithdrawDialog extends StatefulWidget {
-  const _WithdrawDialog({required this.visa});
-
-  final Map<String, dynamic> visa;
-
-  @override
-  State<_WithdrawDialog> createState() => _WithdrawDialogState();
-}
-
-class _WithdrawDialogState extends State<_WithdrawDialog> {
-  final amount = TextEditingController();
-  final agent = TextEditingController();
-  final note = TextEditingController();
-  bool withService = false;
-
-  @override
-  void dispose() {
-    amount.dispose();
-    agent.dispose();
-    note.dispose();
-    super.dispose();
-  }
-
-  num? get _amount {
-    final value = parseNum(amount.text.trim());
-    if (value == null || value <= 0) return null;
-    return value;
-  }
-
-  _VisaQuote? get _quote {
-    final value = _amount;
-    if (value == null) return null;
-    return _quotePurchaseVisa(value, withService);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final balance = parseNum('${widget.visa['balance']}') ?? 0;
-    final quote = _quote;
-    final agentName = agent.text.trim();
-    final tooMuch = quote != null && quote.principal > balance;
-    final canSave = quote != null && agentName.isNotEmpty && !tooMuch;
-
-    return HesbaModalCard(
-      title: 'سحب من ${widget.visa['name']}',
-      subtitle:
-          'الرصيد ${money(balance)}. من غير خدمة المكسب ٢٠ جنيه لكل ألف، وبخدمة الماكينة بتاخد ٧ ويفضل لك ١٣.',
-      actions: HesbaModalActions(
-        primaryLabel: 'تأكيد السحب',
-        primaryEnabled: canSave,
-        onPrimary: () => Navigator.pop(
-          context,
-          _WithdrawInput(
-            amount: quote!.principal,
-            agentName: agentName,
-            withService: withService,
-            note: note.text.trim(),
-          ),
-        ),
-        onCancel: () => Navigator.pop(context),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ServiceChoice(
-            title: 'من غير خدمة',
-            subtitle: 'المكسب ٢٠ جنيه على كل ألف',
-            selected: !withService,
-            onTap: () => setState(() => withService = false),
-          ),
-          const SizedBox(height: 10),
-          _ServiceChoice(
-            title: 'بخدمة ماكينة',
-            subtitle: 'الماكينة بتاخد ٧، والمكسب ١٣ جنيه على كل ألف',
-            selected: withService,
-            onTap: () => setState(() => withService = true),
-          ),
-          const SizedBox(height: 18),
-          HesbaModalField(
-            label: 'المبلغ المسحوب من الفيزا',
-            child: TextField(
-              controller: amount,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(
-                decimal: true,
-              ),
-              inputFormatters: const [ArabicDigitsFormatter()],
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          const SizedBox(height: 16),
-          HesbaModalField(
-            label: 'اسم المندوب',
-            child: TextField(
-              controller: agent,
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          const SizedBox(height: 16),
-          HesbaModalField(
-            label: 'ملاحظة',
-            child: TextField(controller: note, maxLength: 300),
-          ),
-          const SizedBox(height: 8),
-          HesbaModalCallout(
-            backgroundColor: tooMuch
-                ? HesbaColors.warningLight
-                : const Color(0xFFEEF4F7),
-            borderColor: tooMuch ? HesbaColors.warning : HesbaColors.border,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  quote == null
-                      ? 'هيتسحب من الفيزا: —'
-                      : 'هيتسحب من الفيزا: ${money(quote.principal)}',
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  quote == null
-                      ? 'خدمة الماكينة: —'
-                      : 'خدمة الماكينة: ${money(quote.serviceFee)}',
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  quote == null
-                      ? 'المكسب: —'
-                      : 'المكسب: ${money(quote.netProfit)}',
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  quote == null
-                      ? 'هيدخل الخزنة: —'
-                      : 'هيدخل الخزنة: ${money(quote.treasuryCredit)}',
-                ),
-                if (tooMuch) ...[
-                  const SizedBox(height: 8),
-                  const Text(
-                    'المبلغ أكبر من رصيد الفيزا',
-                    style: TextStyle(color: HesbaColors.warning),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ServiceChoice extends StatelessWidget {
-  const _ServiceChoice({
-    required this.title,
-    required this.subtitle,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: selected ? HesbaColors.tealLight : Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: selected ? HesbaColors.teal : HesbaColors.border,
-            ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(subtitle, style: HesbaText.bodyMuted),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _VisaQuote {
-  const _VisaQuote({
-    required this.principal,
-    required this.serviceFee,
-    required this.netProfit,
-    required this.treasuryCredit,
-  });
-
-  final num principal;
-  final num serviceFee;
-  final num netProfit;
-  final num treasuryCredit;
-}
-
-num _perThousand(num amount, int rate) {
-  final cents = (amount * 100).round();
-  final feeCents = ((cents * rate) / 1000).round();
-  return feeCents / 100;
-}
-
 String _cardDigits(String raw) =>
     normalizeDigits(raw).replaceAll(RegExp(r'\D'), '');
 
@@ -726,16 +449,4 @@ Color _expiryTone(dynamic value) {
   if (expiry.isBefore(start)) return HesbaColors.warning;
   if (expiry.difference(start).inDays <= 30) return HesbaColors.warning;
   return HesbaColors.muted;
-}
-
-_VisaQuote _quotePurchaseVisa(num amount, bool withService) {
-  final gross = _perThousand(amount, 20);
-  final service = withService ? _perThousand(amount, 7) : 0;
-  final net = ((gross - service) * 100).round() / 100;
-  return _VisaQuote(
-    principal: amount,
-    serviceFee: service,
-    netProfit: net,
-    treasuryCredit: ((amount + net) * 100).round() / 100,
-  );
 }

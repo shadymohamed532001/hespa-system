@@ -62,8 +62,6 @@ abstract final class ApiEndpoints {
 
   // Purchase visas
   static const String purchaseVisas = '/purchase-visas';
-  static String purchaseVisaWithdraw(String id) =>
-      '$purchaseVisas/$id/withdraw';
 
   // Collections
   static const String collections = '/collections';
