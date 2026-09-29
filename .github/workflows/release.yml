@@ -4,12 +4,28 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to attach the installer to
+        required: true
+        type: string
+      platform:
+        description: Installer to build
+        required: true
+        default: windows
+        type: choice
+        options:
+          - windows
+          - macos
+          - linux
+          - all
 
 permissions:
   contents: write
 
 jobs:
   macos:
+    if: github.event_name == 'push' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos'
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,11 +36,15 @@ jobs:
       - run: ./packaging/build-macos-dmg.sh
         env:
           API_BASE_URL: ${{ vars.API_BASE_URL }}
-          HESBA_VERSION: ${{ github.ref_name }}
+          HESBA_VERSION: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: softprops/action-gh-release@v2
-        with: { files: "artifacts/*.dmg" }
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: artifacts/*.dmg
+          overwrite_files: true
 
   windows:
+    if: github.event_name == 'push' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -37,12 +57,16 @@ jobs:
       - run: choco install innosetup --yes --no-progress
       - shell: pwsh
         run: |
-          $version = "${{ github.ref_name }}" -replace '^v', ''
+          $version = "${{ github.event.inputs.tag || github.ref_name }}" -replace '^v', ''
           iscc "/DMyAppVersion=$version" packaging/windows/hesba.iss
       - uses: softprops/action-gh-release@v2
-        with: { files: "artifacts/*.exe" }
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: artifacts/*.exe
+          overwrite_files: true
 
   linux:
+    if: github.event_name == 'push' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -54,6 +78,9 @@ jobs:
       - run: ./packaging/build-linux-deb.sh
         env:
           API_BASE_URL: ${{ vars.API_BASE_URL }}
-          HESBA_VERSION: ${{ github.ref_name }}
+          HESBA_VERSION: ${{ github.event.inputs.tag || github.ref_name }}
       - uses: softprops/action-gh-release@v2
-        with: { files: "artifacts/*.deb" }
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          files: artifacts/*.deb
+          overwrite_files: true
