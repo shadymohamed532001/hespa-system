@@ -16,6 +16,7 @@ import { CollectionIncomingSplits1790087699426 } from './database/migrations/179
 import { FawryDeposits1790087699427 } from './database/migrations/1790087699427-FawryDeposits.js';
 import { ProfitAccountType1790087699428 } from './database/migrations/1790087699428-ProfitAccountType.js';
 import { ProfitQrAccountType1790087699429 } from './database/migrations/1790087699429-ProfitQrAccountType.js';
+import { AgentCredit1790087699430 } from './database/migrations/1790087699430-AgentCredit.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -116,6 +117,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           FawryDeposits1790087699427,
           ProfitAccountType1790087699428,
           ProfitQrAccountType1790087699429,
+          AgentCredit1790087699430,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

@@ -22,6 +22,11 @@ export class CollectionsController {
     return this.collections.findAll();
   }
 
+  @Get('agent-credits')
+  findAgentCredits() {
+    return this.collections.findAgentCredits();
+  }
+
   @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)
   @Idempotent()
   @Post('receive')

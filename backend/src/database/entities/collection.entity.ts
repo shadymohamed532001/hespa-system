@@ -54,6 +54,16 @@ export class Collection {
   @Column({ name: 'incoming_splits', type: 'jsonb', nullable: true })
   incomingSplits: CollectionIncomingSplit[] | null;
 
+  @Column({
+    name: 'agent_credit_change',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  agentCreditChange: number;
+
   @Column({ type: 'enum', enum: ExecutionMode })
   executionMode: ExecutionMode;
 

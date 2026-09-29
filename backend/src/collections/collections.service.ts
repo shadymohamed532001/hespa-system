@@ -57,6 +57,7 @@ export class CollectionsService implements OnModuleInit {
       amount: 50000,
       cashAmount: 50000,
       incomingSplits: null,
+      agentCreditChange: 0,
       executionMode: ExecutionMode.HOLD,
       status: CollectionStatus.PENDING,
       receivedAt: new Date(),
@@ -71,6 +72,39 @@ export class CollectionsService implements OnModuleInit {
       relations: { account: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async findAgentCredits() {
+    const rows = await this.collections
+      .createQueryBuilder('collection')
+      .select('MIN(collection.agentName)', 'agentName')
+      .addSelect('SUM(collection.agentCreditChange)', 'balance')
+      .addSelect(
+        'MAX(collection.receivedAt) FILTER (WHERE collection.agentCreditChange <> 0)',
+        'lastActivityAt',
+      )
+      .addSelect(
+        'COUNT(*) FILTER (WHERE collection.agentCreditChange <> 0)',
+        'movementsCount',
+      )
+      .where('collection.status <> :reversed', {
+        reversed: CollectionStatus.REVERSED,
+      })
+      .groupBy('LOWER(TRIM(collection.agentName))')
+      .having('SUM(collection.agentCreditChange) > 0')
+      .orderBy('SUM(collection.agentCreditChange)', 'DESC')
+      .getRawMany<{
+        agentName: string;
+        balance: string;
+        lastActivityAt: Date;
+        movementsCount: string;
+      }>();
+    return rows.map((row) => ({
+      agentName: row.agentName,
+      balance: Number(row.balance),
+      lastActivityAt: row.lastActivityAt,
+      movementsCount: Number(row.movementsCount),
+    }));
   }
 
   async findOne(id: string) {
@@ -105,6 +139,20 @@ export class CollectionsService implements OnModuleInit {
       const referenceNumber =
         (await manager.getRepository(Collection).count()) + 1;
       const reference = `${dto.executionMode === ExecutionMode.HOLD ? 'HLD' : 'COL'}-${String(referenceNumber).padStart(3, '0')}`;
+
+      const agentCreditChange =
+        (moneyCents(dto.amount) - moneyCents(incoming.totalReceived)) / 100;
+      if (agentCreditChange < 0) {
+        const currentCredit = await agentCreditBalance(manager, dto.agentName);
+        if (-agentCreditChange > currentCredit) {
+          throw new BadRequestException(
+            msg({
+              ar: `المبلغ الزيادة ${-agentCreditChange} أكبر من آجل المندوب الحالي ${currentCredit}`,
+              en: `The extra payment ${-agentCreditChange} exceeds the agent's current credit ${currentCredit}`,
+            }),
+          );
+        }
+      }
 
       const treasuryRepo = manager.getRepository(Treasury);
       const treasury = await treasuryRepo.findOne({
@@ -212,6 +260,7 @@ export class CollectionsService implements OnModuleInit {
         amount: dto.amount,
         cashAmount: incoming.cashAmount,
         incomingSplits: splits.length ? splits : null,
+        agentCreditChange,
         executionMode: dto.executionMode,
         status:
           dto.executionMode === ExecutionMode.IMMEDIATE
@@ -237,8 +286,14 @@ export class CollectionsService implements OnModuleInit {
             : `استلام كاش من ${dto.agentName} لصالح ${dto.companyName}`,
           performedBy: username,
           metadata: splits.length
-            ? { collectionSplit: true, totalAmount: dto.amount }
-            : null,
+            ? {
+                collectionSplit: true,
+                totalAmount: dto.amount,
+                agentCreditChange,
+              }
+            : agentCreditChange !== 0
+              ? { totalAmount: dto.amount, agentCreditChange }
+              : null,
         });
       }
       for (const split of splits) {
@@ -383,21 +438,31 @@ function moneyCents(value: number): number {
 function resolveIncoming(dto: ReceiveCollectionDto): {
   cashAmount: number;
   parts: Array<{ walletId: string; amount: number }>;
+  totalReceived: number;
 } {
   const parts = dto.incomingParts ?? [];
   const cashSpecified = dto.cashAmount !== undefined && dto.cashAmount !== null;
   if (parts.length === 0 && !cashSpecified) {
-    return { cashAmount: moneyCents(dto.amount) / 100, parts: [] };
+    if (dto.useAgentCredit) {
+      throw new BadRequestException(
+        msg({
+          ar: 'اكتب المبلغ المستلم فعليًا لحساب آجل المندوب',
+          en: 'Enter the amount actually received to calculate agent credit',
+        }),
+      );
+    }
+    const amount = moneyCents(dto.amount) / 100;
+    return { cashAmount: amount, parts: [], totalReceived: amount };
   }
   if (dto.executionMode !== ExecutionMode.IMMEDIATE) {
     throw new BadRequestException(
       msg({
-        ar: 'تقسيم الداخل متاح مع التنفيذ الفوري فقط',
-        en: 'Splitting the incoming amount is only available for immediate execution',
+        ar: 'تقسيم الداخل وآجل المندوب متاحان مع التنفيذ الفوري فقط',
+        en: 'Incoming splits and agent credit are only available for immediate execution',
       }),
     );
   }
-  if (parts.length === 0 || !cashSpecified) {
+  if (parts.length > 0 && !cashSpecified) {
     throw new BadRequestException(
       msg({
         ar: 'حدد مبلغ الكاش اللي يدخل الخزنة ومبلغ كل محفظة',
@@ -418,11 +483,11 @@ function resolveIncoming(dto: ReceiveCollectionDto): {
     walletId: part.walletId,
     amount: moneyCents(part.amount) / 100,
   }));
-  const cashAmount = moneyCents(dto.cashAmount!) / 100;
+  const cashAmount = cashSpecified ? moneyCents(dto.cashAmount!) / 100 : 0;
   const combined =
     moneyCents(cashAmount) +
     normalized.reduce((sum, part) => sum + moneyCents(part.amount), 0);
-  if (combined !== moneyCents(dto.amount)) {
+  if (!dto.useAgentCredit && combined !== moneyCents(dto.amount)) {
     throw new BadRequestException(
       msg({
         ar: 'مجموع الكاش وأجزاء المحافظ لازم يساوي المبلغ الكلي',
@@ -430,7 +495,29 @@ function resolveIncoming(dto: ReceiveCollectionDto): {
       }),
     );
   }
-  return { cashAmount, parts: normalized };
+  return {
+    cashAmount,
+    parts: normalized,
+    totalReceived: combined / 100,
+  };
+}
+
+async function agentCreditBalance(
+  manager: DataSource['manager'],
+  agentName: string,
+): Promise<number> {
+  const result = await manager
+    .getRepository(Collection)
+    .createQueryBuilder('collection')
+    .select('COALESCE(SUM(collection.agentCreditChange), 0)', 'balance')
+    .where('LOWER(TRIM(collection.agentName)) = LOWER(TRIM(:agentName))', {
+      agentName,
+    })
+    .andWhere('collection.status <> :reversed', {
+      reversed: CollectionStatus.REVERSED,
+    })
+    .getRawOne<{ balance: string }>();
+  return Number(result?.balance ?? 0);
 }
 
 function assertNoFawryOperationCommission(

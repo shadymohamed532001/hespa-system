@@ -58,10 +58,19 @@ export class TreasuryService {
       })
       .getRawOne<{ total: string }>();
     const pending = Number(result?.total ?? 0);
+    const creditResult = await this.collections
+      .createQueryBuilder('collection')
+      .select('COALESCE(SUM(collection.agentCreditChange), 0)', 'total')
+      .where('collection.status <> :reversed', {
+        reversed: CollectionStatus.REVERSED,
+      })
+      .getRawOne<{ total: string }>();
+    const agentCreditBalance = Number(creditResult?.total ?? 0);
     return {
       actualBalance: treasury.balance,
       pendingAmount: pending,
       availableBalance: treasury.balance - pending,
+      agentCreditBalance,
     };
   }
 
@@ -419,6 +428,15 @@ export class TreasuryService {
         })
         .getRawOne<{ total: string }>();
       const pendingCollections = Number(pendingResult?.total ?? 0);
+      const agentCreditResult = await manager
+        .getRepository(Collection)
+        .createQueryBuilder('collection')
+        .select('COALESCE(SUM(collection.agentCreditChange), 0)', 'total')
+        .where('collection.status <> :reversed', {
+          reversed: CollectionStatus.REVERSED,
+        })
+        .getRawOne<{ total: string }>();
+      const agentCreditBalance = Number(agentCreditResult?.total ?? 0);
       const snapshot = {
         treasury: { id: treasury.id, balance: treasury.balance },
         accounts: accounts.map((item) => ({
@@ -441,6 +459,7 @@ export class TreasuryService {
           remainingBalance: item.loadedBalance - item.usedBalance,
           commissionBalance: item.commissionBalance,
         })),
+        agentCreditBalance,
       };
       const totalAssets = Number(
         (
@@ -450,7 +469,8 @@ export class TreasuryService {
           machines.reduce(
             (sum, item) => sum + item.loadedBalance - item.usedBalance,
             0,
-          )
+          ) +
+          agentCreditBalance
         ).toFixed(2),
       );
       const close = await manager.getRepository(DailyClose).save({
@@ -484,7 +504,12 @@ export class TreasuryService {
           en: 'Roll end-of-day balances to the next day and reset daily counters',
         }),
         performedBy: username,
-        metadata: { dailyCloseId: close.id, totalAssets, pendingCollections },
+        metadata: {
+          dailyCloseId: close.id,
+          totalAssets,
+          pendingCollections,
+          agentCreditBalance,
+        },
       });
       return {
         closed: true,

@@ -34,19 +34,23 @@ class _ReceiveCollectionDialog extends StatefulWidget {
 
 class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _agentName = TextEditingController();
   final _company = TextEditingController();
   final _amount = TextEditingController();
+  final _receivedAmount = TextEditingController();
   final _commission = TextEditingController(text: '0');
   final List<_WalletPart> _parts = [];
 
   List<dynamic> _accounts = [];
   List<dynamic> _wallets = [];
+  List<dynamic> _agentCredits = [];
   String _mode = 'immediate';
   String? _accountId;
   String? _companyName;
   TimeOfDay _receivedAt = TimeOfDay.now();
   bool _loadingAccounts = true;
   bool _splitIncoming = false;
+  bool _useAgentCredit = false;
   bool _saving = false;
   String? _error;
 
@@ -80,16 +84,22 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   void initState() {
     super.initState();
     _company.addListener(_syncCompanySelection);
+    _agentName.addListener(_onAgentNameChanged);
     _amount.addListener(_onMoneyChanged);
+    _receivedAmount.addListener(_onMoneyChanged);
     _loadAccounts();
   }
 
   @override
   void dispose() {
     _company.removeListener(_syncCompanySelection);
+    _agentName.removeListener(_onAgentNameChanged);
     _amount.removeListener(_onMoneyChanged);
+    _receivedAmount.removeListener(_onMoneyChanged);
+    _agentName.dispose();
     _company.dispose();
     _amount.dispose();
+    _receivedAmount.dispose();
     _commission.dispose();
     for (final part in _parts) {
       part.amount.removeListener(_onMoneyChanged);
@@ -101,9 +111,16 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   void _onMoneyChanged() {
     _syncProfitCommission();
     if (mounted &&
-        (_splitIncoming || _selectedIsProfit || _selectedIsProfitQr)) {
+        (_splitIncoming ||
+            _useAgentCredit ||
+            _selectedIsProfit ||
+            _selectedIsProfitQr)) {
       setState(() {});
     }
+  }
+
+  void _onAgentNameChanged() {
+    if (mounted && _useAgentCredit) setState(() {});
   }
 
   void _syncProfitCommission() {
@@ -131,15 +148,20 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       final walletsFuture = widget.session.api
           .list(ApiEndpoints.wallets)
           .catchError((_) => <dynamic>[]);
+      final creditsFuture = widget.session.api
+          .list(ApiEndpoints.agentCredits)
+          .catchError((_) => <dynamic>[]);
       final results = await Future.wait([
         widget.session.api.list(ApiEndpoints.accounts),
         walletsFuture,
+        creditsFuture,
       ]);
       if (!mounted) return;
       final accounts = results[0];
       setState(() {
         _accounts = accounts.where((item) => item['active'] != false).toList();
         _wallets = results[1].where((item) => item['active'] != false).toList();
+        _agentCredits = results[2];
         _accountId = _accounts.isEmpty ? null : '${_accounts.first['id']}';
         _loadingAccounts = false;
         _syncProfitCommission();
@@ -204,6 +226,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                 : parseNum(_commission.text.trim()) ?? 0
           : 0,
       if (_isImmediate) 'accountId': _accountId,
+      if (_useAgentCredit) ...{
+        'useAgentCredit': true,
+        'cashAmount': parseNum(_receivedAmount.text.trim())!,
+      },
       if (_splitIncoming) ..._splitPayload(),
     };
 
@@ -220,12 +246,21 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   String _recordedAgentName() {
+    if (!_isImmediate || _useAgentCredit) return _agentName.text.trim();
     final username = widget.session.username?.trim() ?? '';
     return username.length >= 2 ? username : 'موظف';
   }
 
   String _requiredText(String? value) {
     return value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : '';
+  }
+
+  String? _agentNameValidator(String? value) {
+    final name = value?.trim() ?? '';
+    if (name.isEmpty) return 'اكتب اسم المندوب';
+    if (name.length < 2) return 'اسم المندوب لازم يكون حرفين على الأقل';
+    if (name.length > 150) return 'اسم المندوب طويل جدًا';
+    return null;
   }
 
   String _searchKey(String value) {
@@ -245,6 +280,41 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       _splitIncoming = enabled && _isImmediate;
       _error = null;
     });
+  }
+
+  void _setAgentCredit(bool enabled) {
+    setState(() {
+      _useAgentCredit = enabled;
+      if (enabled) {
+        _splitIncoming = false;
+        if (_receivedAmount.text.trim().isEmpty) {
+          _receivedAmount.text = _amount.text.trim();
+        }
+      } else {
+        _receivedAmount.clear();
+      }
+      _error = null;
+    });
+  }
+
+  num _currentAgentCredit() {
+    final key = _agentCreditKey(_agentName.text);
+    if (key.isEmpty) return 0;
+    for (final credit in _agentCredits) {
+      if (_agentCreditKey('${credit['agentName']}') == key) {
+        return num.tryParse('${credit['balance']}') ?? 0;
+      }
+    }
+    return 0;
+  }
+
+  String _agentCreditKey(String value) => value.trim().toLowerCase();
+
+  num? _agentCreditChange() {
+    final amount = parseNum(_amount.text.trim());
+    final received = parseNum(_receivedAmount.text.trim());
+    if (amount == null || received == null) return null;
+    return ((amount - received) * 100).round() / 100;
   }
 
   void _addPart({bool rebuild = true}) {
@@ -344,6 +414,17 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     if (!_isImmediate) {
       return 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.';
     }
+    if (_useAgentCredit) {
+      final amount = parseNum(_amount.text.trim()) ?? 0;
+      final received = parseNum(_receivedAmount.text.trim()) ?? 0;
+      final change = _agentCreditChange() ?? 0;
+      final action = change > 0
+          ? 'ويتسجل على المندوب آجل ${money(change)}.'
+          : change < 0
+          ? 'ويتسدد من آجل المندوب ${money(-change)}.'
+          : 'ومفيش تغيير في آجل المندوب.';
+      return 'يتسحب ${money(amount)} من حساب التنفيذ، ويدخل الخزنة ${money(received)}، $action';
+    }
     if (_splitIncoming && _splitError() == null) {
       final total = parseNum(_amount.text.trim())!;
       final cash = _treasuryCash()!;
@@ -403,12 +484,15 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                   runSpacing: 20,
                   children: [
                     SizedBox(width: width, child: _modeField()),
+                    if (!_isImmediate || _useAgentCredit)
+                      SizedBox(width: width, child: _agentField()),
                     SizedBox(width: width, child: _companyField()),
                     SizedBox(
                       width: width,
                       child: _textField(
                         label: tr(ar: 'المبلغ *', en: 'Amount *'),
                         controller: _amount,
+                        fieldKey: const ValueKey('collection-amount'),
                         numeric: true,
                         validator: (value) {
                           final number = parseNum(value?.trim() ?? '');
@@ -482,7 +566,14 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                 );
               },
             ),
-            if (_isImmediate) ...[const SizedBox(height: 16), _splitSection()],
+            if (_isImmediate) ...[
+              const SizedBox(height: 16),
+              _agentCreditSection(),
+              if (!_useAgentCredit) ...[
+                const SizedBox(height: 8),
+                _splitSection(),
+              ],
+            ],
             const SizedBox(height: 18),
             HesbaModalCallout(
               child: Text.rich(
@@ -526,6 +617,110 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _agentField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _textField(
+          label: 'اسم المندوب *',
+          controller: _agentName,
+          fieldKey: const ValueKey('agent-name'),
+          validator: _agentNameValidator,
+        ),
+        if (_useAgentCredit && _agentCredits.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text('اختار مديون حالي أو اكتب اسم جديد', style: HesbaText.caption),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final credit in _agentCredits)
+                ActionChip(
+                  label: Text(
+                    '${credit['agentName']} · ${money(credit['balance'])}',
+                  ),
+                  onPressed: _saving
+                      ? null
+                      : () {
+                          final name = '${credit['agentName']}';
+                          _agentName.value = TextEditingValue(
+                            text: name,
+                            selection: TextSelection.collapsed(
+                              offset: name.length,
+                            ),
+                          );
+                        },
+                ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _agentCreditSection() {
+    final change = _agentCreditChange();
+    final current = _currentAgentCredit();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Material(
+          color: Colors.transparent,
+          child: CheckboxListTile(
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+            visualDensity: VisualDensity.compact,
+            value: _useAgentCredit,
+            title: const Text('آجل المندوب'),
+            subtitle: const Text(
+              'فعّلها لو المندوب دفع أقل من مبلغ التوريد أو دفع زيادة لتسديد آجل قديم.',
+            ),
+            onChanged: _saving
+                ? null
+                : (value) => _setAgentCredit(value ?? false),
+          ),
+        ),
+        if (_useAgentCredit) ...[
+          const SizedBox(height: 10),
+          _textField(
+            label: 'المبلغ المستلم فعليًا *',
+            controller: _receivedAmount,
+            fieldKey: const ValueKey('received-amount'),
+            numeric: true,
+            validator: (value) {
+              final received = parseNum(value?.trim() ?? '');
+              final amount = parseNum(_amount.text.trim());
+              if (received == null || received < 0) {
+                return 'أدخل المبلغ المستلم فعليًا';
+              }
+              if (amount != null && received > amount) {
+                final repayment = received - amount;
+                if (current <= 0) return 'المندوب ده ملوش آجل يتسدد';
+                if (repayment > current) {
+                  return 'أقصى مبلغ تسديد هو ${money(current)}';
+                }
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 10),
+          HesbaModalCallout(
+            child: Text(
+              change == null
+                  ? 'اكتب مبلغ العملية والمبلغ المستلم عشان يظهر فرق الآجل.'
+                  : change > 0
+                  ? 'هيتسجل على ${_agentName.text.trim().isEmpty ? 'المندوب' : _agentName.text.trim()} آجل ${money(change)}. الرصيد بعد العملية ${money(current + change)}.'
+                  : change < 0
+                  ? 'هيتسدد من الآجل ${money(-change)}. الرصيد بعد العملية ${money(current + change)}.'
+                  : 'المبلغ كامل، مفيش آجل جديد ولا تسديد.',
+            ),
+          ),
+        ],
+      ],
     );
   }
 
@@ -666,7 +861,11 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             ? null
             : (value) => setState(() {
                 _mode = value ?? 'immediate';
-                if (_mode != 'immediate') _splitIncoming = false;
+                if (_mode != 'immediate') {
+                  _splitIncoming = false;
+                  _useAgentCredit = false;
+                  _receivedAmount.clear();
+                }
                 _error = null;
               }),
       ),
@@ -777,6 +976,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   Widget _textField({
     required String label,
     required TextEditingController controller,
+    Key? fieldKey,
     bool numeric = false,
     bool readOnly = false,
     String? Function(String?)? validator,
@@ -784,6 +984,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     return HesbaModalField(
       label: label,
       child: TextFormField(
+        key: fieldKey,
         controller: controller,
         enabled: !_saving,
         readOnly: readOnly,

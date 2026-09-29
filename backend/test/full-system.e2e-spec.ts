@@ -163,6 +163,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'FawryDeposits1790087699427',
       'ProfitAccountType1790087699428',
       'ProfitQrAccountType1790087699429',
+      'AgentCredit1790087699430',
     ]);
   });
 
@@ -1094,10 +1095,10 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .send({ accountId: fawry.body.id, commission: 0 })
       .expect(201);
 
-    const { FawryDropReminderService } = await import(
-      '../src/accounts/fawry-drop-reminder.service.js'
-    );
-    const { instantAtCairoHour } = await import('../src/accounts/cairo-time.js');
+    const { FawryDropReminderService } =
+      await import('../src/accounts/fawry-drop-reminder.service.js');
+    const { instantAtCairoHour } =
+      await import('../src/accounts/cairo-time.js');
     const reminder = app.get(FawryDropReminderService);
     expect(
       (await reminder.remindIfDue(instantAtCairoHour('2099-01-15', 7))).sent,
@@ -1285,5 +1286,89 @@ describe.sequential('full system lifecycle (e2e)', () => {
         (item) => item.id === wallet.body.id,
       ),
     ).toMatchObject({ balance: 10500 });
+  });
+
+  it('tracks agent credit and settles it from a later overpayment', async () => {
+    const agentName = `مندوب آجل ${randomUUID().slice(0, 8)}`;
+    const credit = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'agent-credit-open'))
+      .send({
+        agentName,
+        companyName: 'شركة الآجل',
+        amount: 50,
+        cashAmount: 48,
+        useAgentCredit: true,
+        executionMode: 'immediate',
+        accountId,
+        commission: 0,
+      })
+      .expect(201);
+    expect(credit.body).toMatchObject({
+      amount: 50,
+      cashAmount: 48,
+      agentCreditChange: 2,
+    });
+
+    const openCredits = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(openCredits.body).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ agentName, balance: 2, movementsCount: 1 }),
+      ]),
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'agent-credit-too-much'))
+      .send({
+        agentName,
+        companyName: 'شركة الآجل',
+        amount: 50,
+        cashAmount: 53,
+        useAgentCredit: true,
+        executionMode: 'immediate',
+        accountId,
+        commission: 0,
+      })
+      .expect(400);
+
+    const settlement = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'agent-credit-settle'))
+      .send({
+        agentName,
+        companyName: 'شركة الآجل',
+        amount: 50,
+        cashAmount: 52,
+        useAgentCredit: true,
+        executionMode: 'immediate',
+        accountId,
+        commission: 0,
+      })
+      .expect(201);
+    expect(settlement.body).toMatchObject({
+      amount: 50,
+      cashAmount: 52,
+      agentCreditChange: -2,
+    });
+
+    const settledCredits = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (settledCredits.body as Array<{ agentName: string }>).some(
+        (item) => item.agentName === agentName,
+      ),
+    ).toBe(false);
+
+    const summary = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(summary.body.agentCreditBalance).toBe(0);
   });
 });

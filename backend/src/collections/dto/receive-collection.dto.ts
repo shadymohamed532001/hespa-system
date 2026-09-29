@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
+  IsBoolean,
   IsArray,
   IsDateString,
   IsEnum,
@@ -66,4 +67,8 @@ export class ReceiveCollectionDto {
   @ValidateNested({ each: true })
   @Type(() => IncomingPartDto)
   incomingParts?: IncomingPartDto[];
+
+  @IsOptional()
+  @IsBoolean()
+  useAgentCredit = false;
 }

@@ -51,7 +51,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.text('المندوب *'), findsNothing);
+    expect(find.text('اسم المندوب *'), findsNothing);
     expect(find.text('الشركة *'), findsOneWidget);
 
     final companyField = find.descendant(
@@ -77,6 +77,113 @@ void main() {
     expect(find.text('ياسين للتجارة'), findsOneWidget);
     expect(find.text('جهينة'), findsOneWidget);
     expect(find.text('حساب شركة 01'), findsNothing);
+  });
+
+  testWidgets('pending collection requires the agent name', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 900);
+    addTearDown(tester.view.reset);
+
+    final session = SessionController(
+      ApiClient(
+        baseUrl: 'https://example.test/api',
+        adapter: _AccountsAdapter(),
+        retryBaseDelay: Duration.zero,
+        delay: (_) async {},
+      )..setToken('test-token'),
+    )..username = 'shady';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: hesbaTheme(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showReceiveCollectionDialog(
+                context: context,
+                session: session,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تنفيذ العملية الآن'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('تسجيل كمعلّق وتنفيذ لاحقًا').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('اسم المندوب *'), findsOneWidget);
+
+    final submit = find.text('تسجيل كمعلّق');
+    await tester.ensureVisible(submit);
+    await tester.tap(submit);
+    await tester.pumpAndSettle();
+
+    expect(find.text('اكتب اسم المندوب'), findsOneWidget);
+  });
+
+  testWidgets('agent credit calculates the difference from cash received', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1200, 1100);
+    addTearDown(tester.view.reset);
+
+    final session = SessionController(
+      ApiClient(
+        baseUrl: 'https://example.test/api',
+        adapter: _AccountsAdapter(),
+        retryBaseDelay: Duration.zero,
+        delay: (_) async {},
+      )..setToken('test-token'),
+    )..username = 'shady';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: hesbaTheme(),
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () => showReceiveCollectionDialog(
+                context: context,
+                session: session,
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('collection-amount')),
+      '50000',
+    );
+    await tester.tap(find.text('آجل المندوب'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('اسم المندوب *'), findsOneWidget);
+    expect(find.text('المبلغ المستلم فعليًا *'), findsOneWidget);
+
+    await tester.enterText(
+      find.byKey(const ValueKey('agent-name')),
+      'مندوب أحمد',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('received-amount')),
+      '48000',
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('هيتسجل على مندوب أحمد آجل'), findsOneWidget);
+    expect(find.textContaining('2,000'), findsWidgets);
   });
 
   testWidgets(
@@ -134,19 +241,37 @@ class _AccountsAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
+    final body = options.path.endsWith('/collections/agent-credits')
+        ? <dynamic>[]
+        : [
+            {
+              'id': '1',
+              'name': 'شركة اليسر',
+              'type': 'company',
+              'active': true,
+            },
+            {
+              'id': '2',
+              'name': 'ياسين للتجارة',
+              'type': 'company',
+              'active': true,
+            },
+            {'id': '3', 'name': 'جهينة', 'type': 'company', 'active': true},
+            {
+              'id': '4',
+              'name': 'حساب شركة 01',
+              'type': 'company',
+              'active': true,
+            },
+            {
+              'id': '5',
+              'name': 'شركة ياسمين فوري',
+              'type': 'fawry',
+              'active': true,
+            },
+          ];
     return ResponseBody.fromString(
-      jsonEncode([
-        {'id': '1', 'name': 'شركة اليسر', 'type': 'company', 'active': true},
-        {'id': '2', 'name': 'ياسين للتجارة', 'type': 'company', 'active': true},
-        {'id': '3', 'name': 'جهينة', 'type': 'company', 'active': true},
-        {'id': '4', 'name': 'حساب شركة 01', 'type': 'company', 'active': true},
-        {
-          'id': '5',
-          'name': 'شركة ياسمين فوري',
-          'type': 'fawry',
-          'active': true,
-        },
-      ]),
+      jsonEncode(body),
       200,
       headers: {
         Headers.contentTypeHeader: [Headers.jsonContentType],
