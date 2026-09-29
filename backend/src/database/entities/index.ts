@@ -16,6 +16,7 @@ export {
 } from './idempotency-record.entity.js';
 export { LedgerEntry } from './ledger-entry.entity.js';
 export { Machine } from './machine.entity.js';
+export { PurchaseVisa } from './purchase-visa.entity.js';
 export { AppNotification } from './notification.entity.js';
 export { Treasury } from './treasury.entity.js';
 export { RefreshToken } from './refresh-token.entity.js';

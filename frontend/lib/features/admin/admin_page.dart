@@ -549,6 +549,11 @@ final _fallbackCatalog = [
     'label': 'سحب نقدي من الخزنة المركزية',
     'note': 'سحب الخزنة كلها أو ترك مبلغ محدد',
   },
+  {
+    'key': AppPermissions.usePurchaseVisas,
+    'label': 'سحب من فيزا المشتريات',
+    'note': 'توريد للمندوب وتسجيل المكسب بخدمة أو من غيرها',
+  },
 ];
 
 class _UsersCard extends StatelessWidget {

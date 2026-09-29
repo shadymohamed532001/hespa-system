@@ -19,6 +19,9 @@ import { ProfitQrAccountType1790087699429 } from './database/migrations/17900876
 import { AgentCredit1790087699430 } from './database/migrations/1790087699430-AgentCredit.js';
 import { AgentCreditPayments1790087699431 } from './database/migrations/1790087699431-AgentCreditPayments.js';
 import { OwnerWithdrawal1790087699432 } from './database/migrations/1790087699432-OwnerWithdrawal.js';
+import { PurchaseVisa1790087699433 } from './database/migrations/1790087699433-PurchaseVisa.js';
+import { PurchaseVisaDetails1790087699434 } from './database/migrations/1790087699434-PurchaseVisaDetails.js';
+import { CollectionPurchaseVisa1790087699435 } from './database/migrations/1790087699435-CollectionPurchaseVisa.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -48,6 +51,7 @@ import {
   IdempotencyRecord,
   LedgerEntry,
   Machine,
+  PurchaseVisa,
   RefreshToken,
   Treasury,
   User,
@@ -56,6 +60,7 @@ import {
 import { InventoryModule } from './inventory/inventory.module.js';
 import { LedgerModule } from './ledger/ledger.module.js';
 import { MachinesModule } from './machines/machines.module.js';
+import { PurchaseVisasModule } from './purchase-visas/purchase-visas.module.js';
 import { NotificationsModule } from './notifications/notifications.module.js';
 import { ReportsModule } from './reports/reports.module.js';
 import { TreasuryModule } from './treasury/treasury.module.js';
@@ -90,6 +95,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           FinancialAccount,
           Wallet,
           Machine,
+          PurchaseVisa,
           Treasury,
           Collection,
           LedgerEntry,
@@ -124,6 +130,9 @@ import { WalletsModule } from './wallets/wallets.module.js';
           AgentCredit1790087699430,
           AgentCreditPayments1790087699431,
           OwnerWithdrawal1790087699432,
+          PurchaseVisa1790087699433,
+          PurchaseVisaDetails1790087699434,
+          CollectionPurchaseVisa1790087699435,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',
@@ -134,6 +143,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
     AccountsModule,
     WalletsModule,
     MachinesModule,
+    PurchaseVisasModule,
     CollectionsModule,
     TreasuryModule,
     LedgerModule,

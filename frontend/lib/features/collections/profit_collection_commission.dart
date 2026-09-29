@@ -1,3 +1,17 @@
+/// Purchase visa profit: 20 EGP per 1,000, or 13 when a machine takes 7.
+num purchaseVisaCollectionProfit(num amount, bool withService) {
+  if (amount <= 0) return 0;
+  final gross = _perThousand(amount, 20);
+  final service = withService ? _perThousand(amount, 7) : 0;
+  return ((gross - service) * 100).round() / 100;
+}
+
+num _perThousand(num amount, int rate) {
+  final cents = (amount * 100).round();
+  final feeCents = ((cents * rate) / 1000).round();
+  return feeCents / 100;
+}
+
 /// 4 EGP per 1,000 of the collected amount, rounded to piasters.
 num profitCollectionCommission(num amount) {
   if (amount <= 0) return 0;

@@ -393,6 +393,11 @@ export class UsersService implements OnModuleInit {
         label: 'سحب نقدي من الخزنة المركزية',
         note: 'سحب الخزنة كلها أو ترك مبلغ محدد',
       },
+      {
+        key: AppPermission.USE_PURCHASE_VISAS,
+        label: 'سحب من فيزا المشتريات',
+        note: 'توريد للمندوب وتسجيل المكسب بخدمة أو من غيرها',
+      },
     ];
   }
 

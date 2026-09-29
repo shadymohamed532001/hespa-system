@@ -284,6 +284,14 @@ export function mapLedgerCategory(category: LedgerCategory): {
         kind: NotificationKind.INFO,
         title: msg({ ar: 'ترحيل يومي', en: 'Daily rollover' }),
       };
+    case LedgerCategory.PURCHASE_VISA_USAGE:
+      return {
+        kind: NotificationKind.DEPOSIT,
+        title: msg({
+          ar: 'سحب من فيزا مشتريات',
+          en: 'Purchase visa withdrawal',
+        }),
+      };
     case LedgerCategory.OWNER_WITHDRAWAL:
       return {
         kind: NotificationKind.WITHDRAWAL,

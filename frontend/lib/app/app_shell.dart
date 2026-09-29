@@ -19,6 +19,7 @@ import '../features/reports/reports_page.dart';
 import '../features/top_up/top_up_page.dart';
 import '../features/treasury/internal_transfer_page.dart';
 import '../features/treasury/treasury_page.dart';
+import '../features/purchase_visas/purchase_visas_page.dart';
 import '../features/wallets/wallets_page.dart';
 
 /// Width at/under which the shell switches from persistent sidebar to drawer.
@@ -75,6 +76,7 @@ class _AppShellState extends State<AppShell> {
         onOpenLedger: () => _selectLabel(t.ledger),
       ),
     ),
+    _NavItem(t.purchaseVisas, () => PurchaseVisasPage(session: widget.session)),
     if (widget.session.can(AppPermissions.receiveCollections))
       _NavItem(t.collections, () => CollectionsPage(session: widget.session)),
     if (widget.session.can(AppPermissions.receiveCollections))

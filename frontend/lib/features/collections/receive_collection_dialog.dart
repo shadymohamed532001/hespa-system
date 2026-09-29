@@ -42,10 +42,12 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   final List<_WalletPart> _parts = [];
 
   List<dynamic> _accounts = [];
+  List<dynamic> _visas = [];
   List<dynamic> _wallets = [];
   List<dynamic> _agentCredits = [];
   String _mode = 'immediate';
   String? _accountId;
+  bool _withService = false;
   String? _companyName;
   TimeOfDay _receivedAt = TimeOfDay.now();
   bool _loadingAccounts = true;
@@ -62,9 +64,18 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   bool get _selectedIsProfitQr => _selectedAccountType == 'profit_qr';
 
+  bool get _selectedIsVisa => _accountId?.startsWith('visa:') ?? false;
+
+  String? get _selectedSourceId {
+    final key = _accountId;
+    if (key == null || !key.contains(':')) return key;
+    return key.substring(key.indexOf(':') + 1);
+  }
+
   String? get _selectedAccountType {
+    if (_selectedIsVisa) return 'purchase_visa';
     for (final item in _accounts) {
-      if ('${item['id']}' == _accountId) return '${item['type']}';
+      if ('${item['id']}' == _selectedSourceId) return '${item['type']}';
     }
     return null;
   }
@@ -114,7 +125,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         (_splitIncoming ||
             _useAgentCredit ||
             _selectedIsProfit ||
-            _selectedIsProfitQr)) {
+            _selectedIsProfitQr ||
+            _selectedIsVisa)) {
       setState(() {});
     }
   }
@@ -151,10 +163,14 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       final creditsFuture = widget.session.api
           .list(ApiEndpoints.agentCredits)
           .catchError((_) => <dynamic>[]);
+      final visasFuture = widget.session.api
+          .list(ApiEndpoints.purchaseVisas)
+          .catchError((_) => <dynamic>[]);
       final results = await Future.wait([
         widget.session.api.list(ApiEndpoints.accounts),
         walletsFuture,
         creditsFuture,
+        visasFuture,
       ]);
       if (!mounted) return;
       final accounts = results[0];
@@ -162,7 +178,12 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         _accounts = accounts.where((item) => item['active'] != false).toList();
         _wallets = results[1].where((item) => item['active'] != false).toList();
         _agentCredits = results[2];
-        _accountId = _accounts.isEmpty ? null : '${_accounts.first['id']}';
+        _visas = results[3].where((item) => item['active'] != false).toList();
+        _accountId = _accounts.isNotEmpty
+            ? 'account:${_accounts.first['id']}'
+            : _visas.isNotEmpty
+            ? 'visa:${_visas.first['id']}'
+            : null;
         _loadingAccounts = false;
         _syncProfitCommission();
       });
@@ -189,7 +210,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   Future<void> _submit() async {
     FocusScope.of(context).unfocus();
     if (!(_formKey.currentState?.validate() ?? false)) return;
-    if (_isImmediate && _accountId == null) {
+    if (_isImmediate && _selectedSourceId == null) {
       setState(() => _error = 'لا يوجد حساب متاح لتنفيذ العملية فورًا.');
       return;
     }
@@ -220,12 +241,16 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       'amount': parseNum(_amount.text.trim())!,
       'executionMode': _mode,
       'receivedAt': receivedAt.toIso8601String(),
-      'commission': _isImmediate && !_selectedIsFawry
+      'commission': _isImmediate && !_selectedIsFawry && !_selectedIsVisa
           ? _selectedIsProfitQr
                 ? 0
                 : parseNum(_commission.text.trim()) ?? 0
           : 0,
-      if (_isImmediate) 'accountId': _accountId,
+      if (_isImmediate && _selectedIsVisa) ...{
+        'purchaseVisaId': _selectedSourceId,
+        'withService': _withService,
+      } else if (_isImmediate)
+        'accountId': _selectedSourceId,
       if (_useAgentCredit) ...{
         'useAgentCredit': true,
         'cashAmount': parseNum(_receivedAmount.text.trim())!,
@@ -440,6 +465,14 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
           : 'يدخل الخزنة ${money(cash)}.';
       return 'يتسحب ${money(total)} من حساب التنفيذ. $treasury يدخل $wallets.';
     }
+    if (_selectedIsVisa) {
+      final amount = parseNum(_amount.text.trim()) ?? 0;
+      final profit = purchaseVisaCollectionProfit(amount, _withService);
+      final service = _withService
+          ? 'بخدمة، والمكسب ١٣ جنيه لكل ألف (${money(profit)}).'
+          : 'من غير خدمة، والمكسب ٢٠ جنيه لكل ألف (${money(profit)}).';
+      return 'يتسحب ${money(amount)} من فيزا المشتريات، ويدخل الكاش الخزنة، ويتضاف المكسب على الخزنة. $service';
+    }
     if (_selectedIsFawry) {
       return 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.';
     }
@@ -508,6 +541,11 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     SizedBox(width: width, child: _timeField()),
                     if (_isImmediate)
                       SizedBox(width: width, child: _accountField()),
+                    if (_isImmediate && _selectedIsVisa)
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: _visaServiceField(),
+                      ),
                     if (_isImmediate && _selectedIsProfitQr)
                       SizedBox(
                         width: width,
@@ -517,7 +555,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                           ),
                         ),
                       )
-                    else if (_isImmediate && !_selectedIsFawry)
+                    else if (_isImmediate &&
+                        !_selectedIsFawry &&
+                        !_selectedIsVisa)
                       SizedBox(
                         width: width,
                         child: Column(
@@ -944,6 +984,47 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     );
   }
 
+  Widget _visaServiceField() {
+    final amount = parseNum(_amount.text.trim()) ?? 0;
+    final profit = purchaseVisaCollectionProfit(amount, _withService);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _ServiceChoice(
+                title: 'من غير خدمة',
+                subtitle: 'المكسب ٢٠ جنيه على كل ألف',
+                selected: !_withService,
+                onTap: _saving
+                    ? null
+                    : () => setState(() => _withService = false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ServiceChoice(
+                title: 'بخدمة ماكينة',
+                subtitle: 'الماكينة بتاخد ٧، والمكسب ١٣',
+                selected: _withService,
+                onTap: _saving
+                    ? null
+                    : () => setState(() => _withService = true),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        HesbaModalCallout(
+          child: Text(
+            'هيتسحب ${money(amount)} من الفيزا، والمكسب ${money(profit)} هيدخل الخزنة مع الكاش.',
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _accountField() {
     return HesbaModalField(
       label: 'الحساب المستخدم في التنفيذ *',
@@ -953,14 +1034,20 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         isExpanded: true,
         decoration: const InputDecoration(),
         hint: Text(_loadingAccounts ? 'جارٍ تحميل الحسابات...' : 'اختر الحساب'),
-        items: _accounts
-            .map<DropdownMenuItem<String>>(
-              (item) => DropdownMenuItem(
-                value: '${item['id']}',
-                child: Text('${item['name']} — ${money(item['balance'])}'),
+        items: [
+          for (final item in _accounts)
+            DropdownMenuItem(
+              value: 'account:${item['id']}',
+              child: Text('${item['name']} — ${money(item['balance'])}'),
+            ),
+          for (final item in _visas)
+            DropdownMenuItem(
+              value: 'visa:${item['id']}',
+              child: Text(
+                'فيزا مشتريات — ${item['name']} — ${money(item['balance'])}',
               ),
-            )
-            .toList(),
+            ),
+        ],
         onChanged: _saving || _loadingAccounts
             ? null
             : (value) => setState(() {
@@ -1035,6 +1122,50 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     final minute = time.minute.toString().padLeft(2, '0');
     final period = time.period == DayPeriod.am ? 'AM' : 'PM';
     return '${hour.toString().padLeft(2, '0')}:$minute $period';
+  }
+}
+
+class _ServiceChoice extends StatelessWidget {
+  const _ServiceChoice({
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected ? HesbaColors.tealLight : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? HesbaColors.teal : HesbaColors.border,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: HesbaText.bodyMuted),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

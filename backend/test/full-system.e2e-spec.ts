@@ -166,6 +166,9 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'AgentCredit1790087699430',
       'AgentCreditPayments1790087699431',
       'OwnerWithdrawal1790087699432',
+      'PurchaseVisa1790087699433',
+      'PurchaseVisaDetails1790087699434',
+      'CollectionPurchaseVisa1790087699435',
     ]);
   });
 

@@ -24,7 +24,7 @@ class CollectionsPage extends StatefulWidget {
 }
 
 class _CollectionsPageState extends State<CollectionsPage> {
-  List<dynamic> data = [], accounts = [];
+  List<dynamic> data = [], accounts = [], visas = [];
   bool loading = true;
   String? error;
 
@@ -39,9 +39,13 @@ class _CollectionsPageState extends State<CollectionsPage> {
       final values = await Future.wait([
         widget.session.api.list(ApiEndpoints.collections),
         widget.session.api.list(ApiEndpoints.accounts),
+        widget.session.api
+            .list(ApiEndpoints.purchaseVisas)
+            .catchError((_) => <dynamic>[]),
       ]);
       data = values[0];
       accounts = values[1];
+      visas = values[2];
       error = null;
     } catch (e) {
       error = ApiClient.errorMessage(e);
@@ -94,13 +98,20 @@ class _CollectionsPageState extends State<CollectionsPage> {
   }
 
   Future<void> _execute(Map<String, dynamic> collection) async {
-    if (accounts.isEmpty) return;
-    var accountId = '${accounts.first['id']}';
+    if (accounts.isEmpty && visas.isEmpty) return;
+    var accountId = accounts.isNotEmpty
+        ? 'account:${accounts.first['id']}'
+        : 'visa:${visas.first['id']}';
+    var withService = false;
     final commission = TextEditingController(text: '0');
     final amount = num.tryParse('${collection['amount']}') ?? 0;
-    String? accountType(String id) {
+    String? sourceId(String key) =>
+        key.contains(':') ? key.substring(key.indexOf(':') + 1) : key;
+    bool isVisa(String key) => key.startsWith('visa:');
+    String? accountType(String key) {
+      if (isVisa(key)) return 'purchase_visa';
       for (final account in accounts) {
-        if ('${account['id']}' == id) return '${account['type']}';
+        if ('${account['id']}' == sourceId(key)) return '${account['type']}';
       }
       return null;
     }
@@ -126,6 +137,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
           final fawry = isFawry(accountId);
           final profit = isProfit(accountId);
           final profitQr = isProfitQr(accountId);
+          final visa = isVisa(accountId);
           return HesbaModalCard(
             title: 'تنفيذ المعلّق ${collection['reference']}',
             subtitle:
@@ -146,8 +158,15 @@ class _CollectionsPageState extends State<CollectionsPage> {
                     items: [
                       for (final e in accounts)
                         DropdownMenuItem(
-                          value: '${e['id']}',
+                          value: 'account:${e['id']}',
                           child: Text('${e['name']} — ${money(e['balance'])}'),
+                        ),
+                      for (final e in visas)
+                        DropdownMenuItem(
+                          value: 'visa:${e['id']}',
+                          child: Text(
+                            'فيزا مشتريات — ${e['name']} — ${money(e['balance'])}',
+                          ),
                         ),
                     ],
                     onChanged: (v) => setLocal(() {
@@ -157,7 +176,34 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   ),
                 ),
                 const SizedBox(height: 18),
-                if (profitQr)
+                if (visa) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('من غير خدمة · ٢٠'),
+                          selected: !withService,
+                          onSelected: (_) =>
+                              setLocal(() => withService = false),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ChoiceChip(
+                          label: const Text('بخدمة · ١٣'),
+                          selected: withService,
+                          onSelected: (_) => setLocal(() => withService = true),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  HesbaModalCallout(
+                    child: Text(
+                      'المكسب ${money(purchaseVisaCollectionProfit(amount, withService))} بيدخل الخزنة، والفيزا بتنقص بالمبلغ.',
+                    ),
+                  ),
+                ] else if (profitQr)
                   HesbaModalCallout(
                     child: Text(
                       'خصم مكسب عند التوريد ${money(profitCollectionCommission(amount))} — ٤ جنيه لكل ألف، ويُخصم فوق مبلغ العملية.',
@@ -201,13 +247,20 @@ class _CollectionsPageState extends State<CollectionsPage> {
     );
     if (ok == true) {
       try {
-        await widget.session.api
-            .post(ApiEndpoints.executeCollection('${collection['id']}'), {
-              'accountId': accountId,
-              'commission': isFawry(accountId) || isProfitQr(accountId)
-                  ? 0
-                  : parseNum(commission.text) ?? 0,
-            });
+        await widget.session.api.post(
+          ApiEndpoints.executeCollection('${collection['id']}'),
+          {
+            if (isVisa(accountId))
+              'purchaseVisaId': sourceId(accountId)
+            else
+              'accountId': sourceId(accountId),
+            if (isVisa(accountId)) 'withService': withService,
+            'commission':
+                isFawry(accountId) || isProfitQr(accountId) || isVisa(accountId)
+                ? 0
+                : parseNum(commission.text) ?? 0,
+          },
+        );
         await load();
         if (mounted) showAppSnack(context, 'تم تنفيذ المعلّق');
       } catch (e) {
@@ -217,6 +270,19 @@ class _CollectionsPageState extends State<CollectionsPage> {
       }
     }
   }
+}
+
+String _executionName(dynamic row) {
+  final account = row['account'];
+  if (account is Map && '${account['name']}'.trim().isNotEmpty) {
+    return '${account['name']}';
+  }
+  final visa = row['purchaseVisa'];
+  if (visa is Map && '${visa['name']}'.trim().isNotEmpty) {
+    final service = row['withService'] == true ? 'بخدمة' : 'من غير خدمة';
+    return 'فيزا مشتريات — ${visa['name']} · $service';
+  }
+  return '—';
 }
 
 class _CollectionsTable extends StatelessWidget {
@@ -358,10 +424,7 @@ class _CollectionsTable extends StatelessWidget {
                           ),
                         ),
                         DataCell(
-                          Text(
-                            e['account']?['name']?.toString() ?? '—',
-                            style: HesbaText.tableCell,
-                          ),
+                          Text(_executionName(e), style: HesbaText.tableCell),
                         ),
                         if (showProfits)
                           DataCell(

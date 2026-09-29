@@ -764,6 +764,10 @@ String _categoryName(String category) {
         'wallet_usage': tr(ar: 'استخدام محفظة', en: 'Wallet usage'),
         'daily_rollover': tr(ar: 'ترحيل يومي', en: 'Daily rollover'),
         'owner_withdrawal': tr(ar: 'سحب من الخزنة', en: 'Treasury withdrawal'),
+        'purchase_visa_usage': tr(
+          ar: 'سحب فيزا مشتريات',
+          en: 'Purchase visa withdrawal',
+        ),
         'reconciliation': tr(ar: 'تسوية رصيد', en: 'Balance reconciliation'),
       }[category] ??
       category;
@@ -805,6 +809,10 @@ String _categoryEffect(String category) {
         'owner_withdrawal': tr(
           ar: 'خروج نقد من الخزنة',
           en: 'Cash left the treasury',
+        ),
+        'purchase_visa_usage': tr(
+          ar: 'دخل الكاش الخزنة والمكسب',
+          en: 'Cash and profit entered the treasury',
         ),
         'reconciliation': tr(
           ar: 'مطابقة الرصيد المعدود',

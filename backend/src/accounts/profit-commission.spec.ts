@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  purchaseVisaProfit,
   profitQrCustomerCommission,
   profitQrIncomingFee,
   profitQrOutgoingFee,
@@ -18,6 +19,24 @@ describe('regular profit commission', () => {
     expect(regularProfitWithdrawCommission(1_000_000)).toBe(4000);
     expect(regularProfitWithdrawCommission(1000)).toBe(4);
     expect(regularProfitWithdrawCommission(2500)).toBe(10);
+  });
+
+  it('keeps 20 per thousand on a purchase visa, or 13 when a machine takes 7', () => {
+    expect(purchaseVisaProfit(1000, false)).toEqual({
+      grossProfit: 20,
+      serviceFee: 0,
+      netProfit: 20,
+    });
+    expect(purchaseVisaProfit(1000, true)).toEqual({
+      grossProfit: 20,
+      serviceFee: 7,
+      netProfit: 13,
+    });
+    expect(purchaseVisaProfit(2500, true)).toEqual({
+      grossProfit: 50,
+      serviceFee: 17.5,
+      netProfit: 32.5,
+    });
   });
 
   it('calculates the QR customer and provider rates proportionally', () => {

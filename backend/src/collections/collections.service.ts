@@ -14,6 +14,7 @@ import {
   CollectionIncomingSplit,
 } from '../database/entities/collection.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
+import { PurchaseVisa } from '../database/entities/purchase-visa.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
@@ -28,6 +29,7 @@ import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
 import { PayAgentCreditDto } from './dto/pay-agent-credit.dto.js';
 import {
   profitQrOutgoingFee,
+  purchaseVisaProfit,
   regularProfitCollectionCommission,
 } from '../accounts/profit-commission.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
@@ -73,7 +75,7 @@ export class CollectionsService implements OnModuleInit {
 
   findAll() {
     return this.collections.find({
-      relations: { account: true },
+      relations: { account: true, purchaseVisa: true },
       order: { createdAt: 'DESC' },
     });
   }
@@ -217,7 +219,7 @@ export class CollectionsService implements OnModuleInit {
   async findOne(id: string) {
     const collection = await this.collections.findOne({
       where: { id },
-      relations: { account: true },
+      relations: { account: true, purchaseVisa: true },
     });
     if (!collection)
       throw new NotFoundException(
@@ -227,13 +229,8 @@ export class CollectionsService implements OnModuleInit {
   }
 
   async receive(dto: ReceiveCollectionDto, username: string) {
-    if (dto.executionMode === ExecutionMode.IMMEDIATE && !dto.accountId) {
-      throw new BadRequestException(
-        msg({
-          ar: 'الحساب المستخدم مطلوب للتنفيذ الفوري',
-          en: 'An account is required for immediate execution',
-        }),
-      );
+    if (dto.executionMode === ExecutionMode.IMMEDIATE) {
+      assertOneExecutionSource(dto.accountId, dto.purchaseVisaId);
     }
     const incoming = resolveIncoming(dto);
     return this.dataSource.transaction(async (manager) => {
@@ -275,7 +272,22 @@ export class CollectionsService implements OnModuleInit {
         );
 
       let account: FinancialAccount | null = null;
-      if (dto.executionMode === ExecutionMode.IMMEDIATE) {
+      let visa: PurchaseVisa | null = null;
+      let visaProfit = { grossProfit: 0, serviceFee: 0, netProfit: 0 };
+      if (
+        dto.executionMode === ExecutionMode.IMMEDIATE &&
+        dto.purchaseVisaId
+      ) {
+        const prepared = await preparePurchaseVisa(
+          manager,
+          dto.purchaseVisaId,
+          Number(dto.amount),
+          dto.withService,
+        );
+        visa = prepared.visa;
+        visaProfit = prepared.profit;
+        dto.commission = visaProfit.netProfit;
+      } else if (dto.executionMode === ExecutionMode.IMMEDIATE) {
         account = await manager.getRepository(FinancialAccount).findOne({
           where: { id: dto.accountId, active: true },
           lock: { mode: 'pessimistic_write' },
@@ -343,6 +355,20 @@ export class CollectionsService implements OnModuleInit {
         treasury.balance = Number(
           (Number(treasury.balance) + incoming.cashAmount).toFixed(2),
         );
+      }
+      if (visa) {
+        visa.balance = Number(
+          (Number(visa.balance) - Number(dto.amount)).toFixed(2),
+        );
+        visa.commissionBalance = Number(
+          (Number(visa.commissionBalance) + visaProfit.netProfit).toFixed(2),
+        );
+        treasury.balance = Number(
+          (Number(treasury.balance) + visaProfit.netProfit).toFixed(2),
+        );
+        await manager.getRepository(PurchaseVisa).save(visa);
+      }
+      if (incoming.cashAmount > 0 || visaProfit.netProfit > 0) {
         await treasuryRepo.save(treasury);
       }
 
@@ -380,6 +406,8 @@ export class CollectionsService implements OnModuleInit {
         executedAt:
           dto.executionMode === ExecutionMode.IMMEDIATE ? new Date() : null,
         account,
+        purchaseVisa: visa,
+        withService: visa ? dto.withService! : null,
         commission: dto.commission,
       });
 
@@ -453,6 +481,20 @@ export class CollectionsService implements OnModuleInit {
           });
         }
       }
+      if (visa) {
+        await recordPurchaseVisaCollection(manager, {
+          visa,
+          amount: Number(dto.amount),
+          profit: visaProfit,
+          withService: dto.withService!,
+          reference,
+          companyName: dto.companyName,
+          agentName: dto.agentName,
+          collectionId: collection.id,
+          username,
+          pending: false,
+        });
+      }
       return collection;
     });
   }
@@ -472,6 +514,54 @@ export class CollectionsService implements OnModuleInit {
         throw new BadRequestException(
           msg({ ar: 'العملية منفذة بالفعل', en: 'Operation already executed' }),
         );
+      assertOneExecutionSource(dto.accountId, dto.purchaseVisaId);
+      if (dto.purchaseVisaId) {
+        const treasury = await manager.getRepository(Treasury).findOne({
+          where: { id: 'main' },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!treasury)
+          throw new NotFoundException(
+            msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+          );
+        const prepared = await preparePurchaseVisa(
+          manager,
+          dto.purchaseVisaId,
+          Number(collection.amount),
+          dto.withService,
+        );
+        const { visa, profit } = prepared;
+        visa.balance = Number(
+          (Number(visa.balance) - Number(collection.amount)).toFixed(2),
+        );
+        visa.commissionBalance = Number(
+          (Number(visa.commissionBalance) + profit.netProfit).toFixed(2),
+        );
+        treasury.balance = Number(
+          (Number(treasury.balance) + profit.netProfit).toFixed(2),
+        );
+        await manager.getRepository(PurchaseVisa).save(visa);
+        if (profit.netProfit > 0) await manager.save(treasury);
+        collection.status = CollectionStatus.DONE;
+        collection.executedAt = new Date();
+        collection.purchaseVisa = visa;
+        collection.withService = dto.withService!;
+        collection.commission = profit.netProfit;
+        await collectionRepo.save(collection);
+        await recordPurchaseVisaCollection(manager, {
+          visa,
+          amount: Number(collection.amount),
+          profit,
+          withService: dto.withService!,
+          reference: collection.reference,
+          companyName: collection.companyName,
+          agentName: collection.agentName,
+          collectionId: collection.id,
+          username,
+          pending: true,
+        });
+        return collection;
+      }
       const account = await manager.getRepository(FinancialAccount).findOne({
         where: { id: dto.accountId, active: true },
         lock: { mode: 'pessimistic_write' },
@@ -539,6 +629,134 @@ export class CollectionsService implements OnModuleInit {
       return collection;
     });
   }
+}
+
+function assertOneExecutionSource(
+  accountId?: string,
+  purchaseVisaId?: string,
+) {
+  if (accountId && purchaseVisaId) {
+    throw new BadRequestException(
+      msg({
+        ar: 'اختار حساب تنفيذ أو فيزا مشتريات، مش الاتنين',
+        en: 'Choose an execution account or a purchase visa, not both',
+      }),
+    );
+  }
+  if (!accountId && !purchaseVisaId) {
+    throw new BadRequestException(
+      msg({
+        ar: 'الحساب المستخدم مطلوب للتنفيذ',
+        en: 'An execution account is required',
+      }),
+    );
+  }
+}
+
+async function preparePurchaseVisa(
+  manager: EntityManager,
+  visaId: string,
+  amount: number,
+  withService: boolean | undefined,
+) {
+  if (typeof withService !== 'boolean') {
+    throw new BadRequestException(
+      msg({
+        ar: 'حدد لو سحب الفيزا بخدمة ولا من غير خدمة',
+        en: 'Choose whether the visa withdrawal includes machine service',
+      }),
+    );
+  }
+  const visa = await manager.getRepository(PurchaseVisa).findOne({
+    where: { id: visaId, active: true },
+    lock: { mode: 'pessimistic_write' },
+  });
+  if (!visa) {
+    throw new NotFoundException(
+      msg({
+        ar: 'فيزا المشتريات غير موجودة أو موقوفة',
+        en: 'Purchase visa not found or inactive',
+      }),
+    );
+  }
+  if (Number(visa.balance) < amount) {
+    throw new BadRequestException(
+      msg({ ar: 'رصيد الفيزا غير كافٍ', en: 'Insufficient visa balance' }),
+    );
+  }
+  return { visa, profit: purchaseVisaProfit(amount, withService) };
+}
+
+async function recordPurchaseVisaCollection(
+  manager: EntityManager,
+  args: {
+    visa: PurchaseVisa;
+    amount: number;
+    profit: { grossProfit: number; serviceFee: number; netProfit: number };
+    withService: boolean;
+    reference: string;
+    companyName: string;
+    agentName: string;
+    collectionId: string;
+    username: string;
+    pending: boolean;
+  },
+) {
+  const ledger = manager.getRepository(LedgerEntry);
+  const serviceText = args.withService
+    ? `بخدمة ماكينة ${args.profit.serviceFee.toFixed(2)} ج.م، وصافي المكسب ${args.profit.netProfit.toFixed(2)} ج.م`
+    : `من غير خدمة، والمكسب ${args.profit.netProfit.toFixed(2)} ج.م`;
+  const verb = args.pending ? 'تنفيذ المعلّق' : 'تنفيذ فوري';
+  await ledger.save({
+    category: LedgerCategory.PURCHASE_VISA_USAGE,
+    amount: -args.amount,
+    entityType: 'purchase_visa',
+    entityId: args.visa.id,
+    sourceType: 'purchase_visa',
+    sourceId: args.visa.id,
+    reference: args.reference,
+    description: `${verb} ${args.amount.toFixed(2)} ج.م من فيزا ${args.visa.name} لصالح ${args.companyName} للمندوب ${args.agentName}. ${serviceText}`,
+    performedBy: args.username,
+    metadata: {
+      collectionId: args.collectionId,
+      visaId: args.visa.id,
+      principal: args.amount,
+      withService: args.withService,
+      grossProfit: args.profit.grossProfit,
+      serviceFee: args.profit.serviceFee,
+      netProfit: args.profit.netProfit,
+    },
+  });
+  if (args.profit.netProfit <= 0) return;
+  await ledger.save({
+    category: LedgerCategory.PURCHASE_VISA_USAGE,
+    amount: args.profit.netProfit,
+    entityType: 'treasury',
+    entityId: 'main',
+    sourceType: 'purchase_visa',
+    sourceId: args.visa.id,
+    reference: args.reference,
+    description: `مكسب فيزا ${args.visa.name} دخل الخزنة ${args.profit.netProfit.toFixed(2)} ج.م`,
+    performedBy: args.username,
+    metadata: {
+      collectionId: args.collectionId,
+      visaId: args.visa.id,
+      netProfit: args.profit.netProfit,
+      withService: args.withService,
+    },
+  });
+  await ledger.save({
+    category: LedgerCategory.COMMISSION,
+    amount: args.profit.netProfit,
+    entityType: 'purchase_visa',
+    entityId: args.visa.id,
+    reference: args.reference,
+    description: args.withService
+      ? `مكسب فيزا ${args.visa.name}: ١٣ جنيه لكل ألف بعد خصم خدمة الماكينة`
+      : `مكسب فيزا ${args.visa.name}: ٢٠ جنيه لكل ألف`,
+    performedBy: args.username,
+    metadata: { collectionId: args.collectionId },
+  });
 }
 
 function moneyCents(value: number): number {

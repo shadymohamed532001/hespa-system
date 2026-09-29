@@ -36,6 +36,7 @@ class AppStrings {
   String get profitQrAccounts => _ar ? 'حسابات مكسب QR' : 'QR profit';
   String get topUp => _ar ? 'شحن حساب / محفظة' : 'Top up account / wallet';
   String get wallets => _ar ? 'المحافظ وInstaPay' : 'Wallets & InstaPay';
+  String get purchaseVisas => _ar ? 'فيزا المشتريات' : 'Purchase visas';
   String get machines => _ar ? 'ماكينات شحن الرصيد' : 'Balance machines';
   String get collections =>
       _ar ? 'تحصيلات المندوبين / المعلّقات' : 'Agent collections / Pending';

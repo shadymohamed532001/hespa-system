@@ -465,6 +465,9 @@ export class ReportsService {
     if (entry.category === LedgerCategory.OWNER_WITHDRAWAL) {
       return 'withdrawal';
     }
+    if (entry.category === LedgerCategory.PURCHASE_VISA_USAGE) {
+      return Number(entry.amount) >= 0 ? 'deposit' : 'withdrawal';
+    }
     return 'neutral';
   }
 

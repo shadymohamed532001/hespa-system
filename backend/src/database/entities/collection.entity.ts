@@ -12,6 +12,7 @@ import {
 } from '../decimal.transformer.js';
 import { CollectionStatus, ExecutionMode } from '../enums.js';
 import { FinancialAccount } from './financial-account.entity.js';
+import { PurchaseVisa } from './purchase-visa.entity.js';
 
 export type CollectionIncomingSplit = {
   walletId: string;
@@ -93,6 +94,16 @@ export class Collection {
 
   @Column({ name: 'account_id', type: 'uuid', nullable: true })
   accountId: string | null;
+
+  @ManyToOne(() => PurchaseVisa, { nullable: true, onDelete: 'RESTRICT' })
+  @JoinColumn({ name: 'purchase_visa_id' })
+  purchaseVisa: PurchaseVisa | null;
+
+  @Column({ name: 'purchase_visa_id', type: 'uuid', nullable: true })
+  purchaseVisaId: string | null;
+
+  @Column({ name: 'with_service', type: 'boolean', nullable: true })
+  withService: boolean | null;
 
   @Column({
     type: 'numeric',

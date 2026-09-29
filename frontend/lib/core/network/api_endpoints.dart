@@ -60,6 +60,11 @@ abstract final class ApiEndpoints {
   static String machineUse(String id) => '$machines/$id/use';
   static String machineStatus(String id) => '$machines/$id/status';
 
+  // Purchase visas
+  static const String purchaseVisas = '/purchase-visas';
+  static String purchaseVisaWithdraw(String id) =>
+      '$purchaseVisas/$id/withdraw';
+
   // Collections
   static const String collections = '/collections';
   static const String receiveCollection = '$collections/receive';

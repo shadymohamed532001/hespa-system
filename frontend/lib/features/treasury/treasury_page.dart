@@ -475,6 +475,10 @@ class _TreasuryMovements extends StatelessWidget {
     'opening_balance' => tr(ar: 'رصيد افتتاحي', en: 'Opening balance'),
     'reversal' => 'عكس حركة',
     'owner_withdrawal' => tr(ar: 'سحب من الخزنة', en: 'Treasury withdrawal'),
+    'purchase_visa_usage' => tr(
+      ar: 'سحب فيزا مشتريات',
+      en: 'Purchase visa withdrawal',
+    ),
     'reconciliation' => tr(ar: 'تسوية رصيد', en: 'Balance reconciliation'),
     _ => category,
   };
@@ -519,6 +523,10 @@ class _TreasuryMovements extends StatelessWidget {
       'owner_withdrawal' => tr(
         ar: 'خرج النقد من الخزنة',
         en: 'Cash left the treasury',
+      ),
+      'purchase_visa_usage' => tr(
+        ar: 'دخل الكاش الخزنة والمكسب',
+        en: 'Cash and profit entered the treasury',
       ),
       'reconciliation' => tr(
         ar: 'مطابقة الرصيد المعدود',

@@ -29,6 +29,17 @@ export function profitQrOutgoingFee(amount: number): number {
   return commissionPerThousand(amount, 4);
 }
 
+/** Purchase visa: the shop keeps 20 EGP per 1,000, or 13 when a machine takes 7. */
+export function purchaseVisaProfit(amount: number, withService: boolean) {
+  const grossProfit = commissionPerThousand(amount, 20);
+  const serviceFee = withService ? commissionPerThousand(amount, 7) : 0;
+  return {
+    grossProfit,
+    serviceFee,
+    netProfit: Number((grossProfit - serviceFee).toFixed(2)),
+  };
+}
+
 function commissionPerThousand(
   amount: number,
   poundsPerThousand: number,

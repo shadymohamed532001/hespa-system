@@ -10,6 +10,7 @@ import { ReversalDto } from '../common/dto/reversal.dto.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
+import { PurchaseVisa } from '../database/entities/purchase-visa.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
 import { LedgerCategory } from '../database/enums.js';
@@ -558,6 +559,75 @@ export class LedgerService {
     await manager.save(wallet);
   }
 
+  private async reversePurchaseVisaUsage(
+    manager: EntityManager,
+    entry: LedgerEntry,
+  ) {
+    if (entry.metadata?.collectionId) {
+      throw new BadRequestException(
+        msg({
+          ar: 'سحب الفيزا ده جزء من استلام المندوب ولا يُعكس لوحده',
+          en: 'This visa withdrawal belongs to an agent receipt and cannot be reversed alone',
+        }),
+      );
+    }
+    const visaId = entry.sourceId ?? entry.metadata?.visaId;
+    const principal = Number(entry.metadata?.principal);
+    const netProfit = Number(entry.metadata?.netProfit ?? 0);
+    const treasuryCredit = Number(
+      entry.metadata?.treasuryCredit ?? entry.amount,
+    );
+    if (typeof visaId !== 'string' || !Number.isFinite(principal)) {
+      throw new BadRequestException(
+        msg({
+          ar: 'بيانات سحب الفيزا غير مكتملة',
+          en: 'Purchase visa withdrawal data is incomplete',
+        }),
+      );
+    }
+    const treasury = await manager.getRepository(Treasury).findOne({
+      where: { id: 'main' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    const visa = await manager.getRepository(PurchaseVisa).findOne({
+      where: { id: visaId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!treasury || !visa) {
+      throw new NotFoundException(
+        msg({
+          ar: 'الخزنة أو الفيزا غير موجودة',
+          en: 'Treasury or visa not found',
+        }),
+      );
+    }
+    if (Number(treasury.balance) < treasuryCredit) {
+      throw new BadRequestException(
+        msg({
+          ar: 'رصيد الخزنة الحالي لا يسمح بعكس السحب',
+          en: 'Current treasury balance does not allow reversing this withdrawal',
+        }),
+      );
+    }
+    if (Number(visa.commissionBalance) < netProfit) {
+      throw new BadRequestException(
+        msg({
+          ar: 'رصيد مكسب الفيزا لا يسمح بالعكس',
+          en: 'Visa profit balance does not allow reversal',
+        }),
+      );
+    }
+    visa.balance = Number((Number(visa.balance) + principal).toFixed(2));
+    visa.commissionBalance = Number(
+      (Number(visa.commissionBalance) - netProfit).toFixed(2),
+    );
+    treasury.balance = Number(
+      (Number(treasury.balance) - treasuryCredit).toFixed(2),
+    );
+    await manager.save(visa);
+    await manager.save(treasury);
+  }
+
   private async reverseOwnerWithdrawal(
     manager: EntityManager,
     entry: LedgerEntry,
@@ -669,6 +739,8 @@ export class LedgerService {
         await this.reverseReconciliation(manager, entry);
       } else if (entry.category === LedgerCategory.OWNER_WITHDRAWAL) {
         await this.reverseOwnerWithdrawal(manager, entry);
+      } else if (entry.category === LedgerCategory.PURCHASE_VISA_USAGE) {
+        await this.reversePurchaseVisaUsage(manager, entry);
       } else {
         throw new BadRequestException(
           msg({
@@ -696,12 +768,15 @@ export class LedgerService {
 
       if (
         entry.category === LedgerCategory.MACHINE_USAGE ||
-        entry.category === LedgerCategory.WALLET_USAGE
+        entry.category === LedgerCategory.WALLET_USAGE ||
+        entry.category === LedgerCategory.PURCHASE_VISA_USAGE
       ) {
         const relationKey =
           entry.category === LedgerCategory.MACHINE_USAGE
             ? 'machineUsageEntryId'
-            : 'walletUsageEntryId';
+            : entry.category === LedgerCategory.WALLET_USAGE
+              ? 'walletUsageEntryId'
+              : 'purchaseVisaUsageEntryId';
         const commission = await repo
           .createQueryBuilder('entry')
           .where('entry.category = :category', {

@@ -52,6 +52,15 @@ export class ReceiveCollectionDto {
   accountId?: string;
 
   @IsOptional()
+  @IsUUID()
+  purchaseVisaId?: string;
+
+  /** Required when the execution source is a purchase visa. */
+  @IsOptional()
+  @IsBoolean()
+  withService?: boolean;
+
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   commission = 0;
