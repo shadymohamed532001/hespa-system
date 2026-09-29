@@ -257,6 +257,7 @@ class _NotificationsOverlay extends StatelessWidget {
     final muted = isDark ? const Color(0xFF9AADB8) : HesbaColors.muted;
     final divider = isDark ? const Color(0xFF2A4050) : const Color(0xFFE9EEF2);
     final locale = Localizations.localeOf(context).languageCode;
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
 
     return Stack(
       children: [
@@ -270,8 +271,10 @@ class _NotificationsOverlay extends StatelessWidget {
         CompositedTransformFollower(
           link: link,
           showWhenUnlinked: false,
-          targetAnchor: Alignment.bottomLeft,
-          followerAnchor: Alignment.topLeft,
+          // Keep the panel inside the viewport: the bell sits on the right in
+          // English and on the left in Arabic, so the panel must grow inward.
+          targetAnchor: isRtl ? Alignment.bottomLeft : Alignment.bottomRight,
+          followerAnchor: isRtl ? Alignment.topLeft : Alignment.topRight,
           offset: const Offset(0, 8),
           child: Material(
             elevation: 10,
