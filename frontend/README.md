@@ -51,6 +51,13 @@ flutter run -d android
 flutter run -d ios
 ```
 
+```bash
+flutter run --flavor dev
+flutter run --flavor prod
+```
+
+`dev` يتصل بالسيرفر المحلي. `prod` يتصل بسيرفر المحل. بناء الـrelease يقدر يمرّر `API_BASE_URL` لو العنوان مختلف.
+
 ### بناء نسخة إنتاج
 
 ```bash

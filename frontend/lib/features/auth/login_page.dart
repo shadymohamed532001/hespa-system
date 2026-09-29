@@ -4,6 +4,7 @@ import '../../core/network/api_client.dart';
 import '../../core/settings/app_settings.dart';
 import '../../core/settings/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/flavor_badge.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/hesba_modal.dart';
 import 'session_controller.dart';
@@ -447,6 +448,11 @@ class _PortalChooser extends StatelessWidget {
           Text(strings.choosePortalTitle, style: HesbaText.loginTitle),
           const SizedBox(height: 5),
           Text(strings.choosePortalSubtitle, style: HesbaText.bodyMuted),
+          const SizedBox(height: 12),
+          const Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FlavorBadge(),
+          ),
           const SizedBox(height: 24),
           _PortalCard(
             portal: LoginPortal.admin,

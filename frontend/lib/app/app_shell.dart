@@ -4,6 +4,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import '../core/settings/app_settings.dart';
 import '../core/settings/app_strings.dart';
 import '../core/theme/app_theme.dart';
+import '../core/widgets/flavor_badge.dart';
 import '../core/widgets/header_icon_button.dart';
 import '../core/widgets/notifications_bell.dart';
 import '../features/accounts/accounts_page.dart';
@@ -447,10 +448,23 @@ class _ContextBar extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: Text(
-              DateFormat('EEEE، d MMMM y', dateLocale).format(DateTime.now()),
-              textAlign: TextAlign.center,
-              style: HesbaText.bodyMuted.copyWith(color: muted),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const FlavorBadge(),
+                const SizedBox(width: 10),
+                Flexible(
+                  child: Text(
+                    DateFormat(
+                      'EEEE، d MMMM y',
+                      dateLocale,
+                    ).format(DateTime.now()),
+                    textAlign: TextAlign.center,
+                    overflow: TextOverflow.ellipsis,
+                    style: HesbaText.bodyMuted.copyWith(color: muted),
+                  ),
+                ),
+              ],
             ),
           ),
           Expanded(

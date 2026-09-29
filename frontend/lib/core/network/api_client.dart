@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 
 import 'api_endpoints.dart';
+import '../settings/app_flavor.dart';
 import '../settings/app_locale_holder.dart';
 
 final _sensitiveNetworkLogValue = RegExp(
@@ -527,13 +528,15 @@ class ApiClient {
   }
 }
 
+const _configuredBaseUrl = String.fromEnvironment('API_BASE_URL');
+
 String _resolveBaseUrl(String? override) {
+  // `--flavor dev` uses the local API. `--flavor prod` uses the live API.
+  // An explicit API_BASE_URL still wins. With no flavor, debug stays local
+  // and release stays on production.
   final value =
       override ??
-      const String.fromEnvironment(
-        'API_BASE_URL',
-        defaultValue: 'https://hesba.alien-fit.com/api',
-      );
+      (_configuredBaseUrl.isNotEmpty ? _configuredBaseUrl : flavorApiBaseUrl);
   final uri = Uri.tryParse(value);
   const loopbackHosts = {'localhost', '127.0.0.1', '::1'};
   if (kReleaseMode &&

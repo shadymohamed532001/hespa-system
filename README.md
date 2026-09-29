@@ -36,6 +36,15 @@
    flutter run -d macos
    ```
 
+من قائمة التشغيل في Cursor اختَر **حسبة — تطوير** أو **حسبة — برودكشن**. أو من الطرفية داخل `frontend`:
+
+```bash
+flutter run --flavor dev
+flutter run --flavor prod
+```
+
+فلافور التطوير يتصل بـ`http://127.0.0.1:3000/api` وقاعدة `hesba_dev`. فلافور البرودكشن يتصل بـ`https://hesba.alien-fit.com/api` وقاعدة `hesba`. شارة أعلى الشاشة بتوضح أنت على أنهي بيئة.
+
 لـWindows استخدم `flutter run -d windows`، ولـLinux استخدم `flutter run -d linux`، ولـAndroid/iOS استخدم `flutter run -d android` أو `flutter run -d ios`. تفاصيل البناء للموبايل في `frontend/README.md`.
 
 ## القواعد المطبقة
