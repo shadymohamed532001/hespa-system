@@ -134,9 +134,8 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
   bool get _profit => _accountType(_accountId) == 'profit';
   bool get _profitQr => _accountType(_accountId) == 'profit_qr';
 
-  num get _requiredBalance => _profitQr
-      ? _amount + profitCollectionCommission(_amount)
-      : _amount;
+  num get _requiredBalance =>
+      _profitQr ? _amount + profitCollectionCommission(_amount) : _amount;
 
   num? get _selectedBalance {
     if (_visa) {
@@ -500,7 +499,9 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
           subtitle: const Text(
             'فعّلها لو المستلم فعليًا أقل من مبلغ التوريد أو أكتر لتسديد آجل قديم. الكاش الكامل دخل الخزنة وقت التسجيل، والفرق بيتظبط عند التنفيذ.',
           ),
-          onChanged: _saving ? null : (value) => _setAgentCredit(value ?? false),
+          onChanged: _saving
+              ? null
+              : (value) => _setAgentCredit(value ?? false),
         ),
         if (_useAgentCredit) ...[
           const SizedBox(height: 8),

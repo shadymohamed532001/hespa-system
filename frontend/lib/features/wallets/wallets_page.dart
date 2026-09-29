@@ -863,8 +863,7 @@ class _WalletsTable extends StatelessWidget {
 const _walletDailyNotice = 50000;
 const _walletMonthlyWarning = 200000;
 
-num _walletAmount(dynamic raw, String key) =>
-    num.tryParse('${raw[key]}') ?? 0;
+num _walletAmount(dynamic raw, String key) => num.tryParse('${raw[key]}') ?? 0;
 
 bool _dailyWalletNotice(dynamic raw) =>
     _walletAmount(raw, 'dailyTopUp') >= _walletDailyNotice;
