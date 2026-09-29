@@ -395,6 +395,17 @@ class _WalletsPageState extends State<WalletsPage> {
                   onAmountChanged: (_) => setLocal(() {}),
                   reference: reference,
                 ),
+                if (_monthlyWalletWarning(selectedWallet)) ...[
+                  const SizedBox(height: 18),
+                  const HesbaModalCallout(
+                    backgroundColor: HesbaColors.redLight,
+                    borderColor: HesbaColors.red,
+                    child: Text(
+                      'المحفظة وصلت حد الشحن الشهري ٢٠٠٬٠٠٠ ج.م. استخدم محفظة تانية.',
+                      style: TextStyle(color: HesbaColors.red),
+                    ),
+                  ),
+                ],
                 if (direction == 'receive') ...[
                   const SizedBox(height: 18),
                   HesbaModalField(
@@ -641,8 +652,13 @@ class _WalletOperationFields extends StatelessWidget {
               DropdownMenuItem(
                 value: '${wallet['id']}',
                 child: Text(
-                  '${_walletType('${wallet['type']}')} — ${wallet['name']} — ${_ownerName(wallet)} — ${money(wallet['balance'])}',
+                  '${_monthlyWalletWarning(wallet) ? 'تحذير · ' : ''}${_walletType('${wallet['type']}')} — ${wallet['name']} — ${_ownerName(wallet)} — ${money(wallet['balance'])}',
                   overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _monthlyWalletWarning(wallet)
+                        ? HesbaColors.red
+                        : HesbaColors.ink,
+                  ),
                 ),
               ),
           ],
@@ -750,9 +766,33 @@ class _WalletsTable extends StatelessWidget {
             rows: [
               for (final raw in rows)
                 DataRow(
+                  color: _monthlyWalletWarning(raw)
+                      ? WidgetStateProperty.all(HesbaColors.redLight)
+                      : null,
                   cells: [
                     DataCell(
-                      Text('${raw['name']}', style: HesbaText.tableEmphasis),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '${raw['name']}',
+                            style: HesbaText.tableEmphasis,
+                          ),
+                          if (_monthlyWalletWarning(raw)) ...[
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.warning_amber_rounded,
+                              color: HesbaColors.red,
+                              size: 18,
+                            ),
+                            const SizedBox(width: 6),
+                            const SoftBadge(
+                              label: 'تحذير',
+                              tone: SoftBadgeTone.negative,
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                     DataCell(Text(_ownerName(raw), style: HesbaText.tableCell)),
                     DataCell(
@@ -770,13 +810,24 @@ class _WalletsTable extends StatelessWidget {
                     DataCell(
                       Text(
                         '${money(raw['dailyTopUp'])} / 60,000',
-                        style: HesbaText.tableCell,
+                        style: HesbaText.tableCell.copyWith(
+                          color: _dailyWalletNotice(raw)
+                              ? HesbaColors.warning
+                              : null,
+                        ),
                       ),
                     ),
                     DataCell(
                       Text(
                         '${money(raw['monthlyTopUp'])} / 200,000',
-                        style: HesbaText.tableCell,
+                        style: HesbaText.tableCell.copyWith(
+                          color: _monthlyWalletWarning(raw)
+                              ? HesbaColors.red
+                              : null,
+                          fontWeight: _monthlyWalletWarning(raw)
+                              ? FontWeight.w700
+                              : null,
+                        ),
                       ),
                     ),
                     if (showProfits)
@@ -808,6 +859,18 @@ class _WalletsTable extends StatelessWidget {
     ),
   );
 }
+
+const _walletDailyNotice = 50000;
+const _walletMonthlyWarning = 200000;
+
+num _walletAmount(dynamic raw, String key) =>
+    num.tryParse('${raw[key]}') ?? 0;
+
+bool _dailyWalletNotice(dynamic raw) =>
+    _walletAmount(raw, 'dailyTopUp') >= _walletDailyNotice;
+
+bool _monthlyWalletWarning(dynamic raw) =>
+    _walletAmount(raw, 'monthlyTopUp') >= _walletMonthlyWarning;
 
 enum _WalletAction { activate, deactivate, delete }
 

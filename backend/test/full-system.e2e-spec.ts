@@ -1366,4 +1366,55 @@ describe.sequential('full system lifecycle (e2e)', () => {
       beforePayment.body.actualBalance + 2,
     );
   });
+
+  it('enforces wallet incoming limits for customer transfers', async () => {
+    const wallet = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .set(mutation(adminToken, 'wallet-incoming-limit-create'))
+      .send({
+        name: `محفظة حد التحويل ${randomUUID()}`,
+        type: 'vodafone_cash',
+        openingBalance: 0,
+      })
+      .expect(201);
+    const day = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Africa/Cairo',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+
+    await dataSource.query(
+      `UPDATE wallets SET daily_top_up = 59999, monthly_top_up = 59999,
+       counter_day = $2, counter_month = $3 WHERE id = $1`,
+      [wallet.body.id, day, day.slice(0, 7)],
+    );
+    await request(app.getHttpServer())
+      .post(`/api/wallets/${wallet.body.id}/customer-operation`)
+      .set(mutation(adminToken, 'wallet-incoming-daily-limit'))
+      .send({ direction: 'receive', amount: 1.01, feePaymentMode: 'separate' })
+      .expect(400)
+      .expect(({ body }) => expect(body.limit).toBe(60_000));
+
+    await dataSource.query(
+      `UPDATE wallets SET daily_top_up = 1000, monthly_top_up = 199999 WHERE id = $1`,
+      [wallet.body.id],
+    );
+    await request(app.getHttpServer())
+      .post(`/api/wallets/${wallet.body.id}/customer-operation`)
+      .set(mutation(adminToken, 'wallet-incoming-monthly-limit'))
+      .send({ direction: 'receive', amount: 1.01, feePaymentMode: 'separate' })
+      .expect(400)
+      .expect(({ body }) => expect(body.limit).toBe(200_000));
+
+    const rows = (await dataSource.query(
+      `SELECT balance, daily_top_up, monthly_top_up FROM wallets WHERE id = $1`,
+      [wallet.body.id],
+    )) as Array<{ balance: string; daily_top_up: string; monthly_top_up: string }>;
+    expect(rows[0]).toMatchObject({
+      balance: '0.00',
+      daily_top_up: '1000.00',
+      monthly_top_up: '199999.00',
+    });
+  });
 });

@@ -3,16 +3,14 @@ import 'package:flutter/material.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_endpoints.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/utils/digits.dart';
 import '../../core/utils/datetime_formatter.dart';
 import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/app_snack.dart';
 import '../../core/widgets/error_box.dart';
-import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
-import 'profit_collection_commission.dart';
+import 'execute_hold_dialog.dart';
 import 'receive_collection_dialog.dart';
 import '../../core/settings/tr.dart';
 
@@ -99,175 +97,16 @@ class _CollectionsPageState extends State<CollectionsPage> {
 
   Future<void> _execute(Map<String, dynamic> collection) async {
     if (accounts.isEmpty && visas.isEmpty) return;
-    var accountId = accounts.isNotEmpty
-        ? 'account:${accounts.first['id']}'
-        : 'visa:${visas.first['id']}';
-    var withService = false;
-    final commission = TextEditingController(text: '0');
-    final amount = num.tryParse('${collection['amount']}') ?? 0;
-    String? sourceId(String key) =>
-        key.contains(':') ? key.substring(key.indexOf(':') + 1) : key;
-    bool isVisa(String key) => key.startsWith('visa:');
-    String? accountType(String key) {
-      if (isVisa(key)) return 'purchase_visa';
-      for (final account in accounts) {
-        if ('${account['id']}' == sourceId(key)) return '${account['type']}';
-      }
-      return null;
-    }
-
-    bool isFawry(String id) => accountType(id) == 'fawry';
-    bool isProfit(String id) => accountType(id) == 'profit';
-    bool isProfitQr(String id) => accountType(id) == 'profit_qr';
-    void syncCommission() {
-      if (isProfit(accountId)) {
-        commission.text = formatProfitCollectionCommission(amount);
-      } else if (isProfitQr(accountId)) {
-        commission.text = '0';
-      }
-    }
-
-    syncCommission();
-
-    final ok = await showHesbaModal<bool>(
+    final ok = await showExecuteHoldDialog(
       context: context,
-      maxWidth: 520,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) {
-          final fawry = isFawry(accountId);
-          final profit = isProfit(accountId);
-          final profitQr = isProfitQr(accountId);
-          final visa = isVisa(accountId);
-          return HesbaModalCard(
-            title: 'تنفيذ المعلّق ${collection['reference']}',
-            subtitle:
-                '${collection['companyName']} · ${collection['agentName']} · ${money(collection['amount'])}',
-            actions: HesbaModalActions(
-              primaryLabel: 'تأكيد التنفيذ',
-              onPrimary: () => Navigator.pop(ctx, true),
-              onCancel: () => Navigator.pop(ctx, false),
-            ),
-            child: Column(
-              children: [
-                HesbaModalField(
-                  label: 'الحساب المستخدم *',
-                  child: DropdownButtonFormField<String>(
-                    initialValue: accountId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(),
-                    items: [
-                      for (final e in accounts)
-                        DropdownMenuItem(
-                          value: 'account:${e['id']}',
-                          child: Text('${e['name']} — ${money(e['balance'])}'),
-                        ),
-                      for (final e in visas)
-                        DropdownMenuItem(
-                          value: 'visa:${e['id']}',
-                          child: Text(
-                            'فيزا مشتريات — ${e['name']} — ${money(e['balance'])}',
-                          ),
-                        ),
-                    ],
-                    onChanged: (v) => setLocal(() {
-                      accountId = v!;
-                      syncCommission();
-                    }),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                if (visa) ...[
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ChoiceChip(
-                          label: const Text('من غير خدمة · ٢٠'),
-                          selected: !withService,
-                          onSelected: (_) =>
-                              setLocal(() => withService = false),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ChoiceChip(
-                          label: const Text('بخدمة · ١٣'),
-                          selected: withService,
-                          onSelected: (_) => setLocal(() => withService = true),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  HesbaModalCallout(
-                    child: Text(
-                      'المكسب ${money(purchaseVisaCollectionProfit(amount, withService))} بيدخل الخزنة، والفيزا بتنقص بالمبلغ.',
-                    ),
-                  ),
-                ] else if (profitQr)
-                  HesbaModalCallout(
-                    child: Text(
-                      'خصم مكسب عند التوريد ${money(profitCollectionCommission(amount))} — ٤ جنيه لكل ألف، ويُخصم فوق مبلغ العملية.',
-                    ),
-                  )
-                else if (!fawry)
-                  HesbaModalField(
-                    label: tr(ar: 'العمولة', en: 'Commission'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: commission,
-                          readOnly: profit,
-                          keyboardType: TextInputType.number,
-                          inputFormatters: const [ArabicDigitsFormatter()],
-                          decoration: const InputDecoration(),
-                        ),
-                        if (profit)
-                          const Padding(
-                            padding: EdgeInsets.only(top: 6),
-                            child: Text(
-                              '٤ جنيه لكل ألف من المبلغ',
-                              style: HesbaText.caption,
-                            ),
-                          ),
-                      ],
-                    ),
-                  )
-                else
-                  const HesbaModalCallout(
-                    child: Text(
-                      'حساب فوري: العمولة مش بتتسجل مع التنفيذ. الأدمن بيكتب النزلة في اليوم التالي.',
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
+      session: widget.session,
+      collection: collection,
+      accounts: accounts,
+      visas: visas,
     );
-    if (ok == true) {
-      try {
-        await widget.session.api.post(
-          ApiEndpoints.executeCollection('${collection['id']}'),
-          {
-            if (isVisa(accountId))
-              'purchaseVisaId': sourceId(accountId)
-            else
-              'accountId': sourceId(accountId),
-            if (isVisa(accountId)) 'withService': withService,
-            'commission':
-                isFawry(accountId) || isProfitQr(accountId) || isVisa(accountId)
-                ? 0
-                : parseNum(commission.text) ?? 0,
-          },
-        );
-        await load();
-        if (mounted) showAppSnack(context, 'تم تنفيذ المعلّق');
-      } catch (e) {
-        if (mounted) {
-          showAppSnack(context, ApiClient.errorMessage(e), error: true);
-        }
-      }
+    if (ok) {
+      await load();
+      if (mounted) showAppSnack(context, 'تم تنفيذ المعلّق');
     }
   }
 }
@@ -275,6 +114,10 @@ class _CollectionsPageState extends State<CollectionsPage> {
 String _executionName(dynamic row) {
   final account = row['account'];
   if (account is Map && '${account['name']}'.trim().isNotEmpty) {
+    if ('${account['type']}' == 'profit' && row['withService'] != null) {
+      final service = row['withService'] == true ? 'بخدمة' : 'من غير خدمة';
+      return '${account['name']} · $service';
+    }
     return '${account['name']}';
   }
   final visa = row['purchaseVisa'];

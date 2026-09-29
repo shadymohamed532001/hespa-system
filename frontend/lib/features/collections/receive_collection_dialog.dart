@@ -66,6 +66,36 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   bool get _selectedIsVisa => _accountId?.startsWith('visa:') ?? false;
 
+  num get _requiredBalance {
+    final amount = parseNum(_amount.text.trim()) ?? 0;
+    if (_selectedIsProfitQr) return amount + profitCollectionCommission(amount);
+    return amount;
+  }
+
+  num? get _selectedBalance {
+    if (_selectedIsVisa) {
+      for (final item in _visas) {
+        if ('visa:${item['id']}' == _accountId) {
+          return num.tryParse('${item['balance']}') ?? 0;
+        }
+      }
+      return null;
+    }
+    for (final item in _accounts) {
+      if ('account:${item['id']}' == _accountId) {
+        return num.tryParse('${item['balance']}') ?? 0;
+      }
+    }
+    return null;
+  }
+
+  bool get _shortBalance {
+    if (!_isImmediate) return false;
+    final balance = _selectedBalance;
+    if (balance == null || _requiredBalance <= 0) return false;
+    return (balance * 100).round() < (_requiredBalance * 100).round();
+  }
+
   String? get _selectedSourceId {
     final key = _accountId;
     if (key == null || !key.contains(':')) return key;
@@ -121,14 +151,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   void _onMoneyChanged() {
     _syncProfitCommission();
-    if (mounted &&
-        (_splitIncoming ||
-            _useAgentCredit ||
-            _selectedIsProfit ||
-            _selectedIsProfitQr ||
-            _selectedIsVisa)) {
-      setState(() {});
-    }
+    if (mounted) setState(() {});
   }
 
   void _onAgentNameChanged() {
@@ -214,6 +237,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       setState(() => _error = 'لا يوجد حساب متاح لتنفيذ العملية فورًا.');
       return;
     }
+    if (_isImmediate && _shortBalance) {
+      setState(() => _error = 'رصيد الحساب مش كفاية للمبلغ.');
+      return;
+    }
     if (_splitIncoming) {
       final splitError = _splitError();
       if (splitError != null) {
@@ -241,16 +268,21 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       'amount': parseNum(_amount.text.trim())!,
       'executionMode': _mode,
       'receivedAt': receivedAt.toIso8601String(),
-      'commission': _isImmediate && !_selectedIsFawry && !_selectedIsVisa
-          ? _selectedIsProfitQr
-                ? 0
-                : parseNum(_commission.text.trim()) ?? 0
+      'commission':
+          _isImmediate &&
+              !_selectedIsFawry &&
+              !_selectedIsVisa &&
+              !_selectedIsProfit &&
+              !_selectedIsProfitQr
+          ? parseNum(_commission.text.trim()) ?? 0
           : 0,
       if (_isImmediate && _selectedIsVisa) ...{
         'purchaseVisaId': _selectedSourceId,
         'withService': _withService,
-      } else if (_isImmediate)
+      } else if (_isImmediate) ...{
         'accountId': _selectedSourceId,
+        if (_selectedIsProfit) 'withService': _withService,
+      },
       if (_useAgentCredit) ...{
         'useAgentCredit': true,
         'cashAmount': parseNum(_receivedAmount.text.trim())!,
@@ -477,7 +509,12 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       return 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.';
     }
     if (_selectedIsProfit) {
-      return 'يدخل الكاش الخزنة وينخفض رصيد حساب المكسب. العمولة بتتحسب أوتوماتيك: ٤ جنيه لكل ألف.';
+      final amount = parseNum(_amount.text.trim()) ?? 0;
+      final commission = purchaseVisaCollectionProfit(amount, _withService);
+      final service = _withService
+          ? 'بخدمة، والعمولة ١٣ جنيه لكل ألف (${money(commission)}).'
+          : 'من غير خدمة، والعمولة ٢٠ جنيه لكل ألف (${money(commission)}).';
+      return 'يدخل الكاش الخزنة وينخفض رصيد حساب المكسب. $service';
     }
     if (_selectedIsProfitQr) {
       final amount = parseNum(_amount.text.trim()) ?? 0;
@@ -495,7 +532,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
           'اختر تنفيذ العملية فورًا أو الاحتفاظ بها كمعلّق للتنفيذ لاحقًا.',
       actions: HesbaModalActions(
         primaryLabel: _isImmediate ? 'استلام وتنفيذ الآن' : 'تسجيل كمعلّق',
-        primaryEnabled: !_saving,
+        primaryEnabled: !_saving && !(_isImmediate && _shortBalance),
         cancelEnabled: !_saving,
         onPrimary: _submit,
         onCancel: () => Navigator.of(context).pop(false),
@@ -541,10 +578,20 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     SizedBox(width: width, child: _timeField()),
                     if (_isImmediate)
                       SizedBox(width: width, child: _accountField()),
+                    if (_isImmediate && _shortBalance)
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: _shortBalanceNotice(),
+                      ),
                     if (_isImmediate && _selectedIsVisa)
                       SizedBox(
                         width: constraints.maxWidth,
                         child: _visaServiceField(),
+                      ),
+                    if (_isImmediate && _selectedIsProfit)
+                      SizedBox(
+                        width: constraints.maxWidth,
+                        child: _profitServiceField(),
                       ),
                     if (_isImmediate && _selectedIsProfitQr)
                       SizedBox(
@@ -557,7 +604,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                       )
                     else if (_isImmediate &&
                         !_selectedIsFawry &&
-                        !_selectedIsVisa)
+                        !_selectedIsVisa &&
+                        !_selectedIsProfit)
                       SizedBox(
                         width: width,
                         child: Column(
@@ -567,7 +615,6 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                               label: tr(ar: 'العمولة', en: 'Commission'),
                               controller: _commission,
                               numeric: true,
-                              readOnly: _selectedIsProfit,
                               validator: (value) {
                                 final number = parseNum(
                                   value?.trim().isEmpty ?? true
@@ -582,14 +629,6 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                                     : null;
                               },
                             ),
-                            if (_selectedIsProfit)
-                              const Padding(
-                                padding: EdgeInsets.only(top: 6),
-                                child: Text(
-                                  '٤ جنيه لكل ألف من المبلغ',
-                                  style: HesbaText.caption,
-                                ),
-                              ),
                           ],
                         ),
                       ),
@@ -1025,6 +1064,88 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     );
   }
 
+  Widget _profitServiceField() {
+    final amount = parseNum(_amount.text.trim()) ?? 0;
+    final commission = purchaseVisaCollectionProfit(amount, _withService);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _ServiceChoice(
+                title: 'من غير خدمة',
+                subtitle: 'العمولة ٢٠ جنيه على كل ألف',
+                selected: !_withService,
+                onTap: _saving
+                    ? null
+                    : () => setState(() => _withService = false),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _ServiceChoice(
+                title: 'بخدمة ماكينة',
+                subtitle: 'الماكينة بتاخد ٧، والعمولة ١٣',
+                selected: _withService,
+                onTap: _saving
+                    ? null
+                    : () => setState(() => _withService = true),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        HesbaModalCallout(
+          child: Text(
+            'هيتسحب ${money(amount)} من حساب المكسب، والعمولة ${money(commission)} تتسجل على الحساب.',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _sourceOption(String label, num balance, num needed) {
+    final short =
+        needed > 0 && (balance * 100).round() < (needed * 100).round();
+    return Text.rich(
+      TextSpan(
+        children: [
+          if (short)
+            const WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: EdgeInsetsDirectional.only(end: 6),
+                child: Icon(Icons.error, color: HesbaColors.red, size: 18),
+              ),
+            ),
+          TextSpan(text: short ? '$label · رصيد غير كافٍ' : label),
+        ],
+      ),
+      overflow: TextOverflow.ellipsis,
+      style: TextStyle(
+        color: short ? HesbaColors.red : HesbaColors.ink,
+        fontWeight: short ? FontWeight.w700 : FontWeight.w400,
+      ),
+    );
+  }
+
+  Widget _shortBalanceNotice() {
+    final balance = _selectedBalance ?? 0;
+    return HesbaModalCallout(
+      backgroundColor: HesbaColors.redLight,
+      borderColor: HesbaColors.red,
+      textStyle: const TextStyle(
+        color: HesbaColors.red,
+        fontWeight: FontWeight.w700,
+        height: 1.45,
+      ),
+      child: Text(
+        'رصيد غير كافٍ. الحساب فيه ${money(balance)} والعملية محتاجة ${money(_requiredBalance)}. اختار حساب يغطي المبلغ.',
+      ),
+    );
+  }
+
   Widget _accountField() {
     return HesbaModalField(
       label: 'الحساب المستخدم في التنفيذ *',
@@ -1038,13 +1159,24 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
           for (final item in _accounts)
             DropdownMenuItem(
               value: 'account:${item['id']}',
-              child: Text('${item['name']} — ${money(item['balance'])}'),
+              child: _sourceOption(
+                '${item['name']} — ${money(item['balance'])}',
+                num.tryParse('${item['balance']}') ?? 0,
+                item['type'] == 'profit_qr'
+                    ? (parseNum(_amount.text.trim()) ?? 0) +
+                          profitCollectionCommission(
+                            parseNum(_amount.text.trim()) ?? 0,
+                          )
+                    : parseNum(_amount.text.trim()) ?? 0,
+              ),
             ),
           for (final item in _visas)
             DropdownMenuItem(
               value: 'visa:${item['id']}',
-              child: Text(
+              child: _sourceOption(
                 'فيزا مشتريات — ${item['name']} — ${money(item['balance'])}',
+                num.tryParse('${item['balance']}') ?? 0,
+                parseNum(_amount.text.trim()) ?? 0,
               ),
             ),
         ],

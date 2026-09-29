@@ -18,6 +18,7 @@ import { PurchaseVisa } from '../database/entities/purchase-visa.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
+import { WalletLimitNoticeService } from '../wallets/wallet-limit-notice.service.js';
 import {
   AccountType,
   CollectionStatus,
@@ -30,6 +31,7 @@ import { PayAgentCreditDto } from './dto/pay-agent-credit.dto.js';
 import {
   profitQrOutgoingFee,
   purchaseVisaProfit,
+  profitAccountServiceCommission,
   regularProfitCollectionCommission,
 } from '../accounts/profit-commission.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
@@ -45,6 +47,7 @@ export class CollectionsService implements OnModuleInit {
     @InjectRepository(Treasury) private readonly treasury: Repository<Treasury>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
+    private readonly walletLimitNotices: WalletLimitNoticeService,
   ) {}
 
   async onModuleInit() {
@@ -233,7 +236,8 @@ export class CollectionsService implements OnModuleInit {
       assertOneExecutionSource(dto.accountId, dto.purchaseVisaId);
     }
     const incoming = resolveIncoming(dto);
-    return this.dataSource.transaction(async (manager) => {
+    const outcome = await this.dataSource.transaction(async (manager) => {
+      const dailyNotices: Wallet[] = [];
       // Reference generation must be serialized. count()+1 outside the
       // transaction allowed two simultaneous receipts to choose the same
       // unique reference and made one of them fail.
@@ -274,10 +278,7 @@ export class CollectionsService implements OnModuleInit {
       let account: FinancialAccount | null = null;
       let visa: PurchaseVisa | null = null;
       let visaProfit = { grossProfit: 0, serviceFee: 0, netProfit: 0 };
-      if (
-        dto.executionMode === ExecutionMode.IMMEDIATE &&
-        dto.purchaseVisaId
-      ) {
+      if (dto.executionMode === ExecutionMode.IMMEDIATE && dto.purchaseVisaId) {
         const prepared = await preparePurchaseVisa(
           manager,
           dto.purchaseVisaId,
@@ -300,8 +301,9 @@ export class CollectionsService implements OnModuleInit {
             }),
           );
         if (account.type === AccountType.PROFIT) {
-          dto.commission = regularProfitCollectionCommission(
+          dto.commission = profitCollectionCommissionFor(
             Number(dto.amount),
+            dto.withService,
           );
         } else if (account.type === AccountType.PROFIT_QR) {
           dto.commission = -profitQrOutgoingFee(Number(dto.amount));
@@ -341,7 +343,8 @@ export class CollectionsService implements OnModuleInit {
             }),
           );
         }
-        recordWalletIncoming(wallet, part.amount);
+        const usage = recordWalletIncoming(wallet, part.amount);
+        if (usage.crossedDailyNotice) dailyNotices.push(wallet);
         await manager.getRepository(Wallet).save(wallet);
         credited.set(wallet.id, {
           walletId: wallet.id,
@@ -407,7 +410,10 @@ export class CollectionsService implements OnModuleInit {
           dto.executionMode === ExecutionMode.IMMEDIATE ? new Date() : null,
         account,
         purchaseVisa: visa,
-        withService: visa ? dto.withService! : null,
+        withService:
+          visa || account?.type === AccountType.PROFIT
+            ? (dto.withService ?? null)
+            : null,
         commission: dto.commission,
       });
 
@@ -495,12 +501,17 @@ export class CollectionsService implements OnModuleInit {
           pending: false,
         });
       }
-      return collection;
+      return { collection, dailyNotices };
     });
+    for (const wallet of outcome.dailyNotices) {
+      await this.walletLimitNotices.notifyDailyThreshold(wallet);
+    }
+    return outcome.collection;
   }
 
   async execute(id: string, dto: ExecuteHoldDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const outcome = await this.dataSource.transaction(async (manager) => {
+      const dailyNotices: Wallet[] = [];
       const collectionRepo = manager.getRepository(Collection);
       const collection = await collectionRepo.findOne({
         where: { id },
@@ -560,81 +571,85 @@ export class CollectionsService implements OnModuleInit {
           username,
           pending: true,
         });
-        return collection;
-      }
-      const account = await manager.getRepository(FinancialAccount).findOne({
-        where: { id: dto.accountId, active: true },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!account)
-        throw new NotFoundException(
-          msg({
-            ar: 'الحساب المستخدم غير موجود أو موقوف',
-            en: 'Selected account not found or inactive',
-          }),
+      } else {
+        const account = await manager.getRepository(FinancialAccount).findOne({
+          where: { id: dto.accountId, active: true },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!account)
+          throw new NotFoundException(
+            msg({
+              ar: 'الحساب المستخدم غير موجود أو موقوف',
+              en: 'Selected account not found or inactive',
+            }),
+          );
+        if (account.type === AccountType.PROFIT) {
+          dto.commission = profitCollectionCommissionFor(
+            Number(collection.amount),
+            dto.withService,
+          );
+          collection.withService = dto.withService ?? null;
+        } else if (account.type === AccountType.PROFIT_QR) {
+          dto.commission = -profitQrOutgoingFee(Number(collection.amount));
+        }
+        const accountDebit =
+          Number(collection.amount) +
+          (account.type === AccountType.PROFIT_QR
+            ? Math.abs(Number(dto.commission))
+            : 0);
+        if (Number(account.balance) < accountDebit)
+          throw new BadRequestException(
+            msg({
+              ar: 'رصيد الحساب غير كافٍ لتغطية المبلغ وخصم مكسب',
+              en: 'Insufficient account balance for the amount and provider fee',
+            }),
+          );
+        assertNoFawryOperationCommission(account, dto.commission);
+        account.balance = Number(
+          (Number(account.balance) - accountDebit).toFixed(2),
         );
-      if (account.type === AccountType.PROFIT) {
-        dto.commission = regularProfitCollectionCommission(
-          Number(collection.amount),
-        );
-      } else if (account.type === AccountType.PROFIT_QR) {
-        dto.commission = -profitQrOutgoingFee(Number(collection.amount));
-      }
-      const accountDebit =
-        Number(collection.amount) +
-        (account.type === AccountType.PROFIT_QR
-          ? Math.abs(Number(dto.commission))
-          : 0);
-      if (Number(account.balance) < accountDebit)
-        throw new BadRequestException(
-          msg({
-            ar: 'رصيد الحساب غير كافٍ لتغطية المبلغ وخصم مكسب',
-            en: 'Insufficient account balance for the amount and provider fee',
-          }),
-        );
-      assertNoFawryOperationCommission(account, dto.commission);
-      account.balance = Number(
-        (Number(account.balance) - accountDebit).toFixed(2),
-      );
-      account.commissionBalance += dto.commission;
-      await manager.getRepository(FinancialAccount).save(account);
-      collection.status = CollectionStatus.DONE;
-      collection.executedAt = new Date();
-      collection.account = account;
-      collection.commission = dto.commission;
-      await collectionRepo.save(collection);
-      await manager.getRepository(LedgerEntry).save({
-        category: LedgerCategory.COMPANY_EXECUTION,
-        amount: -collection.amount,
-        entityType: 'account',
-        entityId: account.id,
-        reference: collection.reference,
-        description: `تنفيذ المعلّق لصالح ${collection.companyName}`,
-        performedBy: username,
-      });
-      if (dto.commission !== 0) {
+        account.commissionBalance += dto.commission;
+        await manager.getRepository(FinancialAccount).save(account);
+        collection.status = CollectionStatus.DONE;
+        collection.executedAt = new Date();
+        collection.account = account;
+        collection.commission = dto.commission;
+        await collectionRepo.save(collection);
         await manager.getRepository(LedgerEntry).save({
-          category: LedgerCategory.COMMISSION,
-          amount: dto.commission,
+          category: LedgerCategory.COMPANY_EXECUTION,
+          amount: -collection.amount,
           entityType: 'account',
           entityId: account.id,
           reference: collection.reference,
-          description:
-            dto.commission < 0
-              ? `خصم مكسب QR عند تنفيذ المعلّق لصالح ${collection.companyName}: ٤ جنيه لكل ألف`
-              : `عمولة تنفيذ المعلّق لصالح ${collection.companyName}`,
+          description: `تنفيذ المعلّق لصالح ${collection.companyName}`,
           performedBy: username,
         });
+        if (dto.commission !== 0) {
+          await manager.getRepository(LedgerEntry).save({
+            category: LedgerCategory.COMMISSION,
+            amount: dto.commission,
+            entityType: 'account',
+            entityId: account.id,
+            reference: collection.reference,
+            description:
+              dto.commission < 0
+                ? `خصم مكسب QR عند تنفيذ المعلّق لصالح ${collection.companyName}: ٤ جنيه لكل ألف`
+                : `عمولة تنفيذ المعلّق لصالح ${collection.companyName}`,
+            performedBy: username,
+          });
+        }
       }
-      return collection;
+      await applyHeldIncoming(manager, collection, dto, username, dailyNotices);
+      return { collection, dailyNotices };
     });
+    for (const wallet of outcome.dailyNotices) {
+      await this.walletLimitNotices.notifyDailyThreshold(wallet);
+    }
+    return outcome.collection;
   }
 }
 
-function assertOneExecutionSource(
-  accountId?: string,
-  purchaseVisaId?: string,
-) {
+function assertOneExecutionSource(accountId?: string, purchaseVisaId?: string) {
   if (accountId && purchaseVisaId) {
     throw new BadRequestException(
       msg({
@@ -763,7 +778,13 @@ function moneyCents(value: number): number {
   return Math.round(Number(value) * 100);
 }
 
-function resolveIncoming(dto: ReceiveCollectionDto): {
+function resolveIncoming(dto: {
+  amount: number;
+  executionMode: ExecutionMode;
+  cashAmount?: number | null;
+  incomingParts?: Array<{ walletId: string; amount: number }>;
+  useAgentCredit?: boolean;
+}): {
   cashAmount: number;
   parts: Array<{ walletId: string; amount: number }>;
   totalReceived: number;
@@ -864,6 +885,152 @@ function lockAgentCredit(manager: EntityManager, agentName: string) {
   return manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
     `hesba:agent-credit:${agentName.trim().toLowerCase()}`,
   ]);
+}
+
+function profitCollectionCommissionFor(
+  amount: number,
+  withService?: boolean,
+): number {
+  if (typeof withService === 'boolean') {
+    return profitAccountServiceCommission(amount, withService);
+  }
+  return regularProfitCollectionCommission(amount);
+}
+
+async function applyHeldIncoming(
+  manager: EntityManager,
+  collection: Collection,
+  dto: ExecuteHoldDto,
+  username: string,
+  dailyNotices: Wallet[],
+) {
+  const incoming = resolveIncoming({
+    amount: Number(collection.amount),
+    executionMode: ExecutionMode.IMMEDIATE,
+    cashAmount: dto.cashAmount,
+    incomingParts: dto.incomingParts,
+    useAgentCredit: dto.useAgentCredit,
+  });
+  const booked = Number(collection.cashAmount ?? collection.amount);
+  const treasuryDelta =
+    (moneyCents(incoming.cashAmount) - moneyCents(booked)) / 100;
+  const hasParts = incoming.parts.length > 0;
+  if (!dto.useAgentCredit && !hasParts && treasuryDelta === 0) return;
+
+  let agentCreditChange = Number(collection.agentCreditChange);
+  if (dto.useAgentCredit) {
+    await lockAgentCredit(manager, collection.agentName);
+    agentCreditChange =
+      (moneyCents(Number(collection.amount)) -
+        moneyCents(incoming.totalReceived)) /
+      100;
+    if (agentCreditChange < 0) {
+      const currentCredit = await agentCreditBalance(
+        manager,
+        collection.agentName,
+      );
+      if (-agentCreditChange > currentCredit) {
+        throw new BadRequestException(
+          msg({
+            ar: `المبلغ الزيادة ${-agentCreditChange} أكبر من آجل المندوب الحالي ${currentCredit}`,
+            en: `The extra payment ${-agentCreditChange} exceeds the agent's current credit ${currentCredit}`,
+          }),
+        );
+      }
+    }
+  }
+
+  const credited = new Map<string, CollectionIncomingSplit>();
+  const orderedParts = [...incoming.parts].sort((left, right) =>
+    left.walletId.localeCompare(right.walletId),
+  );
+  for (const part of orderedParts) {
+    const wallet = await manager.getRepository(Wallet).findOne({
+      where: { id: part.walletId, active: true },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!wallet) {
+      throw new NotFoundException(
+        msg({
+          ar: 'المحفظة غير موجودة أو موقوفة',
+          en: 'Wallet not found or inactive',
+        }),
+      );
+    }
+    const usage = recordWalletIncoming(wallet, part.amount);
+    if (usage.crossedDailyNotice) dailyNotices.push(wallet);
+    await manager.getRepository(Wallet).save(wallet);
+    credited.set(wallet.id, {
+      walletId: wallet.id,
+      walletName: wallet.name,
+      amount: part.amount,
+    });
+  }
+  const splits = incoming.parts.map((part) => credited.get(part.walletId)!);
+
+  const ledger = manager.getRepository(LedgerEntry);
+  if (treasuryDelta !== 0) {
+    const treasury = await manager.getRepository(Treasury).findOne({
+      where: { id: 'main' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!treasury) {
+      throw new NotFoundException(
+        msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+      );
+    }
+    const nextBalance = Number(
+      (Number(treasury.balance) + treasuryDelta).toFixed(2),
+    );
+    if (nextBalance < 0) {
+      throw new BadRequestException(
+        msg({
+          ar: 'رصيد الخزنة مش كفاية لتحويل جزء الكاش للمحافظ',
+          en: 'Treasury balance is not enough to move cash into wallets',
+        }),
+      );
+    }
+    treasury.balance = nextBalance;
+    await manager.save(treasury);
+    await ledger.save({
+      category: LedgerCategory.CASH_RECEIPT,
+      amount: treasuryDelta,
+      entityType: 'collection',
+      entityId: collection.id,
+      reference: collection.reference,
+      description:
+        treasuryDelta < 0
+          ? `تحويل ${Math.abs(treasuryDelta).toFixed(2)} من كاش المعلّق ${collection.reference} إلى المحافظ`
+          : `تعديل كاش تنفيذ المعلّق ${collection.reference}`,
+      performedBy: username,
+      metadata: {
+        heldIncomingAdjustment: true,
+        cashAmount: incoming.cashAmount,
+        agentCreditChange,
+      },
+    });
+  }
+  for (const split of splits) {
+    await ledger.save({
+      category: LedgerCategory.TOP_UP,
+      amount: split.amount,
+      entityType: 'wallet',
+      entityId: split.walletId,
+      reference: collection.reference,
+      description: `تنفيذ المعلّق ${collection.reference}: ${split.amount} على محفظة ${split.walletName}`,
+      performedBy: username,
+      metadata: {
+        collectionReceipt: true,
+        collectionId: collection.id,
+        heldIncomingAdjustment: true,
+      },
+    });
+  }
+
+  collection.cashAmount = incoming.cashAmount;
+  collection.incomingSplits = splits.length ? splits : null;
+  collection.agentCreditChange = agentCreditChange;
+  await manager.getRepository(Collection).save(collection);
 }
 
 function assertNoFawryOperationCommission(

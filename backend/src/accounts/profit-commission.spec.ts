@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  profitAccountServiceCommission,
   purchaseVisaProfit,
   profitQrCustomerCommission,
   profitQrIncomingFee,
   profitQrOutgoingFee,
+  regularProfitCollectionCommission,
   regularProfitDepositCommission,
   regularProfitWithdrawCommission,
 } from './profit-commission.js';
@@ -13,6 +15,12 @@ describe('regular profit commission', () => {
     expect(regularProfitDepositCommission(1_000_000)).toBe(5000);
     expect(regularProfitDepositCommission(1000)).toBe(5);
     expect(regularProfitDepositCommission(2500)).toBe(12.5);
+  });
+
+  it('records 4 EGP per thousand on a profit collection unless service is chosen', () => {
+    expect(regularProfitCollectionCommission(1000)).toBe(4);
+    expect(profitAccountServiceCommission(1000, false)).toBe(20);
+    expect(profitAccountServiceCommission(1000, true)).toBe(13);
   });
 
   it('takes 4 EGP back on each thousand transferred out', () => {

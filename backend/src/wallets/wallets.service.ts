@@ -17,12 +17,68 @@ import { CreateWalletDto } from './dto/create-wallet.dto.js';
 import { TopUpWalletDto } from './dto/top-up-wallet.dto.js';
 import { CustomerWalletOperationDto } from './dto/customer-wallet-operation.dto.js';
 import { walletCommission } from './wallet-commission.js';
+import { WalletLimitNoticeService } from './wallet-limit-notice.service.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 
 export const WALLET_DAILY_TOP_UP_LIMIT = 60_000;
 export const WALLET_MONTHLY_TOP_UP_LIMIT = 200_000;
+export const WALLET_DAILY_NOTICE_AMOUNT = 50_000;
 
-export function recordWalletIncoming(wallet: Wallet, amount: number): void {
+export function crossedDailyWalletNotice(before: number, after: number) {
+  return before < WALLET_DAILY_NOTICE_AMOUNT && after >= WALLET_DAILY_NOTICE_AMOUNT;
+}
+
+export function addWalletPeriodUsage(
+  wallet: Wallet,
+  amount: number,
+): { crossedDailyNotice: boolean } {
+  rollWalletPeriod(wallet);
+  const dailyBefore = Number(wallet.dailyTopUp);
+  const dailyAfter = Number((dailyBefore + amount).toFixed(2));
+  const monthlyAfter = Number(
+    (Number(wallet.monthlyTopUp) + amount).toFixed(2),
+  );
+  if (dailyAfter > WALLET_DAILY_TOP_UP_LIMIT) {
+    throw new BadRequestException({
+      message: msg({
+        ar: `سيتم تجاوز حد شحن محفظة ${wallet.name} اليومي`,
+        en: `This would exceed the daily top-up limit for ${wallet.name}`,
+      }),
+      limit: WALLET_DAILY_TOP_UP_LIMIT,
+      available: Math.max(0, WALLET_DAILY_TOP_UP_LIMIT - dailyBefore),
+    });
+  }
+  if (monthlyAfter > WALLET_MONTHLY_TOP_UP_LIMIT) {
+    throw new BadRequestException({
+      message: msg({
+        ar: `سيتم تجاوز حد شحن محفظة ${wallet.name} الشهري`,
+        en: `This would exceed the monthly top-up limit for ${wallet.name}`,
+      }),
+      limit: WALLET_MONTHLY_TOP_UP_LIMIT,
+      available: Math.max(
+        0,
+        WALLET_MONTHLY_TOP_UP_LIMIT - Number(wallet.monthlyTopUp),
+      ),
+    });
+  }
+  wallet.dailyTopUp = dailyAfter;
+  wallet.monthlyTopUp = monthlyAfter;
+  return {
+    crossedDailyNotice: crossedDailyWalletNotice(dailyBefore, dailyAfter),
+  };
+}
+
+export function recordWalletIncoming(
+  wallet: Wallet,
+  amount: number,
+): { crossedDailyNotice: boolean } {
+  const usage = addWalletPeriodUsage(wallet, amount);
+  wallet.balance += amount;
+  wallet.todayTopUp += amount;
+  return usage;
+}
+
+function rollWalletPeriod(wallet: Wallet) {
   const period = cairoPeriod();
   if (wallet.counterDay !== period.day) {
     wallet.counterDay = period.day;
@@ -34,33 +90,6 @@ export function recordWalletIncoming(wallet: Wallet, amount: number): void {
     wallet.counterMonth = period.month;
     wallet.monthlyTopUp = 0;
   }
-  if (wallet.dailyTopUp + amount > WALLET_DAILY_TOP_UP_LIMIT) {
-    throw new BadRequestException({
-      message: msg({
-        ar: `سيتم تجاوز حد شحن محفظة ${wallet.name} اليومي`,
-        en: `This would exceed the daily top-up limit for ${wallet.name}`,
-      }),
-      limit: WALLET_DAILY_TOP_UP_LIMIT,
-      available: Math.max(0, WALLET_DAILY_TOP_UP_LIMIT - wallet.dailyTopUp),
-    });
-  }
-  if (wallet.monthlyTopUp + amount > WALLET_MONTHLY_TOP_UP_LIMIT) {
-    throw new BadRequestException({
-      message: msg({
-        ar: `سيتم تجاوز حد شحن محفظة ${wallet.name} الشهري`,
-        en: `This would exceed the monthly top-up limit for ${wallet.name}`,
-      }),
-      limit: WALLET_MONTHLY_TOP_UP_LIMIT,
-      available: Math.max(
-        0,
-        WALLET_MONTHLY_TOP_UP_LIMIT - wallet.monthlyTopUp,
-      ),
-    });
-  }
-  wallet.balance += amount;
-  wallet.todayTopUp += amount;
-  wallet.dailyTopUp += amount;
-  wallet.monthlyTopUp += amount;
 }
 
 function cairoPeriod() {
@@ -79,6 +108,7 @@ export class WalletsService implements OnModuleInit {
     @InjectRepository(Wallet) private readonly wallets: Repository<Wallet>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
+    private readonly limitNotices: WalletLimitNoticeService,
   ) {}
 
   async onModuleInit() {
@@ -142,14 +172,14 @@ export class WalletsService implements OnModuleInit {
   }
 
   async topUp(id: string, dto: TopUpWalletDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(Wallet);
       const wallet = await repo.findOne({
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
       if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
-      recordWalletIncoming(wallet, dto.amount);
+      const incoming = recordWalletIncoming(wallet, dto.amount);
       await repo.save(wallet);
       await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.TOP_UP,
@@ -160,8 +190,12 @@ export class WalletsService implements OnModuleInit {
         description: `شحن ${wallet.name}${wallet.ownerName ? ` باسم ${wallet.ownerName}` : ''}`,
         performedBy: username,
       });
-      return wallet;
+      return { wallet, crossedDailyNotice: incoming.crossedDailyNotice };
     });
+    if (result.crossedDailyNotice) {
+      await this.limitNotices.notifyDailyThreshold(result.wallet);
+    }
+    return result.wallet;
   }
 
   async customerOperation(
@@ -169,7 +203,7 @@ export class WalletsService implements OnModuleInit {
     dto: CustomerWalletOperationDto,
     username: string,
   ) {
-    return this.dataSource.transaction(async (manager) => {
+    const result = await this.dataSource.transaction(async (manager) => {
       // Lock in the same order as internal-transfer reversals: treasury, wallet.
       const treasuryRepo = manager.getRepository(Treasury);
       const treasury = await treasuryRepo.findOne({
@@ -220,6 +254,9 @@ export class WalletsService implements OnModuleInit {
       }
 
       const send = dto.direction === 'send';
+      const received = send
+        ? { crossedDailyNotice: false }
+        : addWalletPeriodUsage(wallet, amount);
       const cashToCollect = send
         ? amount + commission
         : feePaymentMode === 'separate'
@@ -310,8 +347,14 @@ export class WalletsService implements OnModuleInit {
         cashToCollect: Number(cashToCollect.toFixed(2)),
         cashToPay: Number(cashToPay.toFixed(2)),
         operationEntryId: principal.id,
+        crossedDailyNotice: received.crossedDailyNotice,
       };
     });
+    if (result.crossedDailyNotice) {
+      await this.limitNotices.notifyDailyThreshold(result.wallet);
+    }
+    const { crossedDailyNotice: _crossed, ...response } = result;
+    return response;
   }
 
   async setActive(id: string, active: boolean) {

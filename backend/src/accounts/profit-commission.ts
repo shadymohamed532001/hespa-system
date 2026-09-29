@@ -14,6 +14,17 @@ export function regularProfitCollectionCommission(amount: number): number {
   return commissionPerThousand(amount, 4);
 }
 
+/**
+ * Profit-account collection when the operator chooses machine service:
+ * 20 EGP per 1,000 without service, or 13 when the machine takes 7.
+ */
+export function profitAccountServiceCommission(
+  amount: number,
+  withService: boolean,
+): number {
+  return purchaseVisaProfit(amount, withService).netProfit;
+}
+
 /** QR cash-out: the customer pays 10 EGP per 1,000 of cash requested. */
 export function profitQrCustomerCommission(amount: number): number {
   return commissionPerThousand(amount, 10);
