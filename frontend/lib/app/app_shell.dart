@@ -10,6 +10,7 @@ import '../features/accounts/accounts_page.dart';
 import '../features/admin/admin_page.dart';
 import '../features/auth/session_controller.dart';
 import '../features/collections/collections_page.dart';
+import '../features/collections/agent_credits_page.dart';
 import '../features/dashboard/dashboard_page.dart';
 import '../features/inventory/inventory_page.dart';
 import '../features/ledger/ledger_page.dart';
@@ -75,6 +76,8 @@ class _AppShellState extends State<AppShell> {
     ),
     if (widget.session.can(AppPermissions.receiveCollections))
       _NavItem(t.collections, () => CollectionsPage(session: widget.session)),
+    if (widget.session.can(AppPermissions.receiveCollections))
+      _NavItem(t.agentCredits, () => AgentCreditsPage(session: widget.session)),
     _NavItem(t.inventory, () => InventoryPage(session: widget.session)),
     if (widget.session.can(AppPermissions.internalTransfer))
       _NavItem(t.transfer, () => InternalTransferPage(session: widget.session)),

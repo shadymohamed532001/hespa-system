@@ -24,7 +24,7 @@ class CollectionsPage extends StatefulWidget {
 }
 
 class _CollectionsPageState extends State<CollectionsPage> {
-  List<dynamic> data = [], accounts = [], agentCredits = [];
+  List<dynamic> data = [], accounts = [];
   bool loading = true;
   String? error;
 
@@ -39,11 +39,9 @@ class _CollectionsPageState extends State<CollectionsPage> {
       final values = await Future.wait([
         widget.session.api.list(ApiEndpoints.collections),
         widget.session.api.list(ApiEndpoints.accounts),
-        widget.session.api.list(ApiEndpoints.agentCredits),
       ]);
       data = values[0];
       accounts = values[1];
-      agentCredits = values[2];
       error = null;
     } catch (e) {
       error = ApiClient.errorMessage(e);
@@ -54,8 +52,8 @@ class _CollectionsPageState extends State<CollectionsPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
-      title: 'التحصيل والمعلّقات وآجل المندوبين',
-      subtitle: 'استلام التوريدات ومتابعة المعلّقات وكل المبالغ الآجلة',
+      title: 'التحصيل والمعلّقات',
+      subtitle: 'استلام المندوب يمكن تنفيذه فورًا أو حفظه كمعلّق',
       actions: [
         FilledButton(
           onPressed: _receive,
@@ -71,17 +69,10 @@ class _CollectionsPageState extends State<CollectionsPage> {
             )
           : error != null
           ? ErrorBox(message: error!, retry: load)
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _AgentCreditsPanel(rows: agentCredits),
-                const SizedBox(height: 18),
-                _CollectionsTable(
-                  rows: data,
-                  onExecute: (row) => _execute(row),
-                  showProfits: widget.session.isAdmin,
-                ),
-              ],
+          : _CollectionsTable(
+              rows: data,
+              onExecute: (row) => _execute(row),
+              showProfits: widget.session.isAdmin,
             ),
     );
   }
@@ -225,118 +216,6 @@ class _CollectionsPageState extends State<CollectionsPage> {
         }
       }
     }
-  }
-}
-
-class _AgentCreditsPanel extends StatelessWidget {
-  const _AgentCreditsPanel({required this.rows});
-
-  final List<dynamic> rows;
-
-  @override
-  Widget build(BuildContext context) {
-    final total = rows.fold<num>(
-      0,
-      (sum, row) => sum + (num.tryParse('${row['balance']}') ?? 0),
-    );
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: HesbaColors.border),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
-            child: Row(
-              children: [
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('آجل المندوبين', style: HesbaText.sectionTitle),
-                      SizedBox(height: 3),
-                      Text(
-                        'كل المندوبين اللي عليهم مبالغ للمحل',
-                        style: HesbaText.bodyMuted,
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: rows.isEmpty
-                        ? HesbaColors.tealLight
-                        : HesbaColors.warningLight,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    rows.isEmpty ? 'لا يوجد آجل' : 'الإجمالي ${money(total)}',
-                    style: TextStyle(
-                      color: rows.isEmpty
-                          ? HesbaColors.teal
-                          : HesbaColors.warning,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (rows.isEmpty)
-            const Padding(
-              padding: EdgeInsets.fromLTRB(18, 0, 18, 18),
-              child: Text(
-                'أي مبلغ آجل جديد هيظهر هنا لحد ما المندوب يسدده بالكامل.',
-                style: HesbaText.bodyMuted,
-              ),
-            )
-          else
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: DataTable(
-                headingRowColor: WidgetStateProperty.all(
-                  const Color(0xFFF2F5F8),
-                ),
-                horizontalMargin: 18,
-                columnSpacing: 34,
-                columns: const [
-                  DataColumn(label: Text('المندوب')),
-                  DataColumn(label: Text('المتبقي عليه')),
-                  DataColumn(label: Text('آخر حركة')),
-                  DataColumn(label: Text('عدد الحركات')),
-                ],
-                rows: [
-                  for (final row in rows)
-                    DataRow(
-                      cells: [
-                        DataCell(Text('${row['agentName']}')),
-                        DataCell(
-                          Text(
-                            money(row['balance']),
-                            style: const TextStyle(
-                              color: HesbaColors.warning,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        DataCell(Text(formatDateTime(row['lastActivityAt']))),
-                        DataCell(Text('${row['movementsCount']}')),
-                      ],
-                    ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
   }
 }
 

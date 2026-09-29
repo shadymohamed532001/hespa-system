@@ -5,6 +5,7 @@ import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
+import { PayAgentCreditDto } from './dto/pay-agent-credit.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -25,6 +26,21 @@ export class CollectionsController {
   @Get('agent-credits')
   findAgentCredits() {
     return this.collections.findAgentCredits();
+  }
+
+  @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)
+  @Idempotent()
+  @Post('agent-credits/payments')
+  async payAgentCredit(
+    @Body() dto: PayAgentCreditDto,
+    @Request() request: UserRequest,
+  ) {
+    await this.users.assertAmountLimit(
+      request.user.userId,
+      'maxReceiveAmount',
+      dto.amount,
+    );
+    return this.collections.payAgentCredit(dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)

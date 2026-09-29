@@ -17,6 +17,7 @@ import { FawryDeposits1790087699427 } from './database/migrations/1790087699427-
 import { ProfitAccountType1790087699428 } from './database/migrations/1790087699428-ProfitAccountType.js';
 import { ProfitQrAccountType1790087699429 } from './database/migrations/1790087699429-ProfitQrAccountType.js';
 import { AgentCredit1790087699430 } from './database/migrations/1790087699430-AgentCredit.js';
+import { AgentCreditPayments1790087699431 } from './database/migrations/1790087699431-AgentCreditPayments.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -31,6 +32,7 @@ import { validateConfig } from './config/validate-config.js';
 import { CollectionsModule } from './collections/collections.module.js';
 import {
   AppNotification,
+  AgentCreditPayment,
   AuditEvent,
   DailyClose,
   Collection,
@@ -81,6 +83,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
         database: config.get('DB_NAME', 'hesba'),
         entities: [
           User,
+          AgentCreditPayment,
           FawryDailyDrop,
           FawryDeposit,
           FinancialAccount,
@@ -118,6 +121,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           ProfitAccountType1790087699428,
           ProfitQrAccountType1790087699429,
           AgentCredit1790087699430,
+          AgentCreditPayments1790087699431,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

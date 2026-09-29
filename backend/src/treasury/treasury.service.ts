@@ -7,6 +7,7 @@ import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, EntityManager, Repository } from 'typeorm';
 import { Collection } from '../database/entities/collection.entity.js';
+import { AgentCreditPayment } from '../database/entities/agent-credit-payment.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
@@ -39,6 +40,8 @@ export class TreasuryService {
     @InjectRepository(Treasury) private readonly treasury: Repository<Treasury>,
     @InjectRepository(Collection)
     private readonly collections: Repository<Collection>,
+    @InjectRepository(AgentCreditPayment)
+    private readonly agentCreditPayments: Repository<AgentCreditPayment>,
     @InjectRepository(DailyClose)
     private readonly closes: Repository<DailyClose>,
     private readonly dataSource: DataSource,
@@ -65,7 +68,15 @@ export class TreasuryService {
         reversed: CollectionStatus.REVERSED,
       })
       .getRawOne<{ total: string }>();
-    const agentCreditBalance = Number(creditResult?.total ?? 0);
+    const paymentResult = await this.agentCreditPayments
+      .createQueryBuilder('payment')
+      .select('COALESCE(SUM(payment.amount), 0)', 'total')
+      .getRawOne<{ total: string }>();
+    const agentCreditBalance = Number(
+      (
+        Number(creditResult?.total ?? 0) - Number(paymentResult?.total ?? 0)
+      ).toFixed(2),
+    );
     return {
       actualBalance: treasury.balance,
       pendingAmount: pending,
@@ -437,6 +448,16 @@ export class TreasuryService {
         })
         .getRawOne<{ total: string }>();
       const agentCreditBalance = Number(agentCreditResult?.total ?? 0);
+      const agentCreditPaymentResult = await manager
+        .getRepository(AgentCreditPayment)
+        .createQueryBuilder('payment')
+        .select('COALESCE(SUM(payment.amount), 0)', 'total')
+        .getRawOne<{ total: string }>();
+      const outstandingAgentCredit = Number(
+        (
+          agentCreditBalance - Number(agentCreditPaymentResult?.total ?? 0)
+        ).toFixed(2),
+      );
       const snapshot = {
         treasury: { id: treasury.id, balance: treasury.balance },
         accounts: accounts.map((item) => ({
@@ -459,7 +480,7 @@ export class TreasuryService {
           remainingBalance: item.loadedBalance - item.usedBalance,
           commissionBalance: item.commissionBalance,
         })),
-        agentCreditBalance,
+        agentCreditBalance: outstandingAgentCredit,
       };
       const totalAssets = Number(
         (
@@ -470,7 +491,7 @@ export class TreasuryService {
             (sum, item) => sum + item.loadedBalance - item.usedBalance,
             0,
           ) +
-          agentCreditBalance
+          outstandingAgentCredit
         ).toFixed(2),
       );
       const close = await manager.getRepository(DailyClose).save({
@@ -508,7 +529,7 @@ export class TreasuryService {
           dailyCloseId: close.id,
           totalAssets,
           pendingCollections,
-          agentCreditBalance,
+          agentCreditBalance: outstandingAgentCredit,
         },
       });
       return {

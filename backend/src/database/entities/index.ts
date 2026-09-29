@@ -1,4 +1,5 @@
 export { Collection } from './collection.entity.js';
+export { AgentCreditPayment } from './agent-credit-payment.entity.js';
 export { AuditEvent } from './audit-event.entity.js';
 export { DailyClose } from './daily-close.entity.js';
 export { DevicePushToken } from './device-push-token.entity.js';

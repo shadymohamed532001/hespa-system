@@ -64,6 +64,7 @@ abstract final class ApiEndpoints {
   static const String collections = '/collections';
   static const String receiveCollection = '$collections/receive';
   static const String agentCredits = '$collections/agent-credits';
+  static const String agentCreditPayments = '$agentCredits/payments';
 
   static String executeCollection(String id) => '$collections/$id/execute';
   // Treasury

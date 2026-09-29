@@ -1,6 +1,7 @@
 import { DataSource } from 'typeorm';
 import {
   AppNotification,
+  AgentCreditPayment,
   AuditEvent,
   DailyClose,
   Collection,
@@ -30,6 +31,7 @@ const AppDataSource = new DataSource({
   database: process.env.DB_NAME ?? 'hesba',
   entities: [
     User,
+    AgentCreditPayment,
     FawryDailyDrop,
     FawryDeposit,
     FinancialAccount,

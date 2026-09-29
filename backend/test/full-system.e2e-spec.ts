@@ -164,6 +164,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'ProfitAccountType1790087699428',
       'ProfitQrAccountType1790087699429',
       'AgentCredit1790087699430',
+      'AgentCreditPayments1790087699431',
     ]);
   });
 
@@ -1288,7 +1289,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
     ).toMatchObject({ balance: 10500 });
   });
 
-  it('tracks agent credit and settles it from a later overpayment', async () => {
+  it('tracks agent credit and settles it directly into treasury', async () => {
     const agentName = `مندوب آجل ${randomUUID().slice(0, 8)}`;
     const credit = await request(app.getHttpServer())
       .post('/api/collections/receive')
@@ -1321,38 +1322,25 @@ describe.sequential('full system lifecycle (e2e)', () => {
     );
 
     await request(app.getHttpServer())
-      .post('/api/collections/receive')
+      .post('/api/collections/agent-credits/payments')
       .set(mutation(adminToken, 'agent-credit-too-much'))
-      .send({
-        agentName,
-        companyName: 'شركة الآجل',
-        amount: 50,
-        cashAmount: 53,
-        useAgentCredit: true,
-        executionMode: 'immediate',
-        accountId,
-        commission: 0,
-      })
+      .send({ agentName, amount: 3 })
       .expect(400);
 
+    const beforePayment = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
     const settlement = await request(app.getHttpServer())
-      .post('/api/collections/receive')
+      .post('/api/collections/agent-credits/payments')
       .set(mutation(adminToken, 'agent-credit-settle'))
-      .send({
-        agentName,
-        companyName: 'شركة الآجل',
-        amount: 50,
-        cashAmount: 52,
-        useAgentCredit: true,
-        executionMode: 'immediate',
-        accountId,
-        commission: 0,
-      })
+      .send({ agentName, amount: 2 })
       .expect(201);
     expect(settlement.body).toMatchObject({
-      amount: 50,
-      cashAmount: 52,
-      agentCreditChange: -2,
+      agentName,
+      amount: 2,
+      remainingBalance: 0,
+      treasuryBalance: beforePayment.body.actualBalance + 2,
     });
 
     const settledCredits = await request(app.getHttpServer())
@@ -1370,5 +1358,8 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .set(bearer(adminToken))
       .expect(200);
     expect(summary.body.agentCreditBalance).toBe(0);
+    expect(summary.body.actualBalance).toBe(
+      beforePayment.body.actualBalance + 2,
+    );
   });
 });

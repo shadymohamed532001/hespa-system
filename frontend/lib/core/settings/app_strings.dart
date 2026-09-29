@@ -38,7 +38,8 @@ class AppStrings {
   String get wallets => _ar ? 'المحافظ وInstaPay' : 'Wallets & InstaPay';
   String get machines => _ar ? 'ماكينات شحن الرصيد' : 'Balance machines';
   String get collections =>
-      _ar ? 'تحصيلات المندوبين / الآجل' : 'Agent collections / Credit';
+      _ar ? 'تحصيلات المندوبين / المعلّقات' : 'Agent collections / Pending';
+  String get agentCredits => _ar ? 'آجل المندوبين' : 'Agent credit';
   String get inventory =>
       _ar ? 'مخزن الموبايلات والإكسسوارات' : 'Mobiles & accessories store';
   String get transfer => _ar ? 'تحويل داخلي' : 'Internal transfer';

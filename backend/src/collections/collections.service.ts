@@ -7,7 +7,8 @@ import {
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
+import { AgentCreditPayment } from '../database/entities/agent-credit-payment.entity.js';
 import {
   Collection,
   CollectionIncomingSplit,
@@ -24,6 +25,7 @@ import {
 } from '../database/enums.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
+import { PayAgentCreditDto } from './dto/pay-agent-credit.dto.js';
 import {
   profitQrOutgoingFee,
   regularProfitCollectionCommission,
@@ -36,6 +38,8 @@ export class CollectionsService implements OnModuleInit {
   constructor(
     @InjectRepository(Collection)
     private readonly collections: Repository<Collection>,
+    @InjectRepository(AgentCreditPayment)
+    private readonly agentCreditPayments: Repository<AgentCreditPayment>,
     @InjectRepository(Treasury) private readonly treasury: Repository<Treasury>,
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
@@ -78,6 +82,7 @@ export class CollectionsService implements OnModuleInit {
     const rows = await this.collections
       .createQueryBuilder('collection')
       .select('MIN(collection.agentName)', 'agentName')
+      .addSelect('LOWER(TRIM(collection.agentName))', 'agentKey')
       .addSelect('SUM(collection.agentCreditChange)', 'balance')
       .addSelect(
         'MAX(collection.receivedAt) FILTER (WHERE collection.agentCreditChange <> 0)',
@@ -95,16 +100,118 @@ export class CollectionsService implements OnModuleInit {
       .orderBy('SUM(collection.agentCreditChange)', 'DESC')
       .getRawMany<{
         agentName: string;
+        agentKey: string;
         balance: string;
         lastActivityAt: Date;
         movementsCount: string;
       }>();
-    return rows.map((row) => ({
-      agentName: row.agentName,
-      balance: Number(row.balance),
-      lastActivityAt: row.lastActivityAt,
-      movementsCount: Number(row.movementsCount),
-    }));
+    const payments = await this.agentCreditPayments
+      .createQueryBuilder('payment')
+      .select('LOWER(TRIM(payment.agentName))', 'agentKey')
+      .addSelect('SUM(payment.amount)', 'paid')
+      .addSelect('MAX(payment.createdAt)', 'lastPaymentAt')
+      .addSelect('COUNT(*)', 'paymentsCount')
+      .groupBy('LOWER(TRIM(payment.agentName))')
+      .getRawMany<{
+        agentKey: string;
+        paid: string;
+        lastPaymentAt: Date;
+        paymentsCount: string;
+      }>();
+    const paymentsByAgent = new Map(
+      payments.map((payment) => [payment.agentKey, payment]),
+    );
+    return rows
+      .map((row) => {
+        const payment = paymentsByAgent.get(row.agentKey);
+        const balance =
+          moneyCents(Number(row.balance) - Number(payment?.paid ?? 0)) / 100;
+        const collectionAt = new Date(row.lastActivityAt).getTime();
+        const paymentAt = payment?.lastPaymentAt
+          ? new Date(payment.lastPaymentAt).getTime()
+          : 0;
+        return {
+          agentName: row.agentName,
+          balance,
+          lastActivityAt:
+            paymentAt > collectionAt
+              ? payment!.lastPaymentAt
+              : row.lastActivityAt,
+          movementsCount:
+            Number(row.movementsCount) + Number(payment?.paymentsCount ?? 0),
+        };
+      })
+      .filter((row) => row.balance > 0)
+      .sort((left, right) => right.balance - left.balance);
+  }
+
+  async payAgentCredit(dto: PayAgentCreditDto, username: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const agentName = dto.agentName.trim();
+      await lockAgentCredit(manager, agentName);
+      const currentBalance = await agentCreditBalance(manager, agentName);
+      const amount = moneyCents(dto.amount) / 100;
+      if (currentBalance <= 0) {
+        throw new BadRequestException(
+          msg({
+            ar: 'المندوب ده ملوش آجل مستحق',
+            en: 'This agent has no outstanding credit',
+          }),
+        );
+      }
+      if (amount > currentBalance) {
+        throw new BadRequestException(
+          msg({
+            ar: `أقصى مبلغ تسديد هو ${currentBalance}`,
+            en: `The maximum repayment is ${currentBalance}`,
+          }),
+        );
+      }
+
+      await manager.query(
+        `SELECT pg_advisory_xact_lock(hashtext('hesba:agent-credit-payment-reference'))`,
+      );
+      const referenceNumber =
+        (await manager.getRepository(AgentCreditPayment).count()) + 1;
+      const reference = `CRD-${String(referenceNumber).padStart(3, '0')}`;
+      const treasury = await manager.getRepository(Treasury).findOne({
+        where: { id: 'main' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!treasury) {
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+        );
+      }
+      treasury.balance = Number((Number(treasury.balance) + amount).toFixed(2));
+      await manager.getRepository(Treasury).save(treasury);
+
+      const payment = await manager.getRepository(AgentCreditPayment).save({
+        reference,
+        agentName,
+        amount,
+        performedBy: username,
+      });
+      await manager.getRepository(LedgerEntry).save({
+        category: LedgerCategory.CASH_RECEIPT,
+        amount,
+        entityType: 'agent_credit',
+        entityId: payment.id,
+        reference,
+        description: `سداد آجل من المندوب ${agentName}`,
+        performedBy: username,
+        metadata: {
+          agentCreditPayment: true,
+          agentName,
+          remainingBalance: moneyCents(currentBalance - amount) / 100,
+        },
+      });
+      return {
+        ...payment,
+        remainingBalance: moneyCents(currentBalance - amount) / 100,
+        treasuryBalance: treasury.balance,
+      };
+    });
   }
 
   async findOne(id: string) {
@@ -142,6 +249,9 @@ export class CollectionsService implements OnModuleInit {
 
       const agentCreditChange =
         (moneyCents(dto.amount) - moneyCents(incoming.totalReceived)) / 100;
+      if (dto.useAgentCredit) {
+        await lockAgentCredit(manager, dto.agentName);
+      }
       if (agentCreditChange < 0) {
         const currentCredit = await agentCreditBalance(manager, dto.agentName);
         if (-agentCreditChange > currentCredit) {
@@ -503,10 +613,10 @@ function resolveIncoming(dto: ReceiveCollectionDto): {
 }
 
 async function agentCreditBalance(
-  manager: DataSource['manager'],
+  manager: EntityManager,
   agentName: string,
 ): Promise<number> {
-  const result = await manager
+  const creditResult = await manager
     .getRepository(Collection)
     .createQueryBuilder('collection')
     .select('COALESCE(SUM(collection.agentCreditChange), 0)', 'balance')
@@ -517,7 +627,25 @@ async function agentCreditBalance(
       reversed: CollectionStatus.REVERSED,
     })
     .getRawOne<{ balance: string }>();
-  return Number(result?.balance ?? 0);
+  const paymentResult = await manager
+    .getRepository(AgentCreditPayment)
+    .createQueryBuilder('payment')
+    .select('COALESCE(SUM(payment.amount), 0)', 'paid')
+    .where('LOWER(TRIM(payment.agentName)) = LOWER(TRIM(:agentName))', {
+      agentName,
+    })
+    .getRawOne<{ paid: string }>();
+  return (
+    moneyCents(
+      Number(creditResult?.balance ?? 0) - Number(paymentResult?.paid ?? 0),
+    ) / 100
+  );
+}
+
+function lockAgentCredit(manager: EntityManager, agentName: string) {
+  return manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
+    `hesba:agent-credit:${agentName.trim().toLowerCase()}`,
+  ]);
 }
 
 function assertNoFawryOperationCommission(
