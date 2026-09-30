@@ -51,6 +51,13 @@ flutter run -d android
 flutter run -d ios
 ```
 
+قبل فتح `ios/Runner.xcworkspace` في Xcode بعد `flutter pub get` أو تحديث إضافات iOS، أعد توليد حزمة Swift المحلية وحل اعتمادياتها. بدون هذه الخطوة قد تعود الحزمة المولّدة إلى iOS 13 وتظهر أخطاء Firebase التي تتطلب iOS 15:
+
+```bash
+flutter build ios --config-only --no-codesign
+xcodebuild -resolvePackageDependencies -workspace ios/Runner.xcworkspace -scheme Runner
+```
+
 على Android، فلافور `dev` أو `prod` متاح في إعدادات Gradle:
 
 ```bash
