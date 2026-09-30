@@ -84,12 +84,13 @@ flutter build ipa --release --dart-define=API_BASE_URL=https://hesba.alien-fit.c
 
 | المنصة | Application / Bundle ID |
 |--------|-------------------------|
-| Android | `com.hesba.hesba` |
-| iOS | `com.hesba.hesbaDesktop` (نفس تطبيق Firebase الخاص بـ macOS) |
+| Android (prod) | `com.hesba.hesba_Desktop` |
+| Android (dev) | `com.hesba.hesba_Desktop.dev` |
+| iOS | `com.hesba.hesba-Desktop` |
 
 ### Firebase على الموبايل
 
-- **iOS**: يستخدم إعدادات Firebase الحالية (`GoogleService-Info.plist`).
+- **iOS**: يجب تسجيل `com.hesba.hesba-Desktop` كتطبيق iOS جديد في مشروع Firebase واستبدال `ios/Runner/GoogleService-Info.plist` وإعدادات iOS في `lib/firebase_options.dart` بإعدادات التطبيق الجديد. الإعدادات الحالية تخص `com.hesba.hesbaDesktop`.
 - **Android**: Remote Config يعمل مؤقتًا بإعدادات الـweb. لتفعيل FCM كامل على أندرويد سجّل تطبيق Android في Firebase Console ثم نفّذ:
 
 ```bash

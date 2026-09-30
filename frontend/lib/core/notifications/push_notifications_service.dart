@@ -140,7 +140,7 @@ class PushNotificationsService {
       requestSoundPermission: true,
     );
     const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
+      'ic_stat_hesba',
     );
     await _local.initialize(
       settings: const InitializationSettings(
@@ -214,6 +214,8 @@ class PushNotificationsService {
         'hesba_alerts',
         'Hesba alerts',
         channelDescription: 'Operational alerts for Hesba',
+        icon: 'ic_stat_hesba',
+        largeIcon: DrawableResourceAndroidBitmap('ic_notification_large'),
         importance: Importance.high,
         priority: Priority.high,
       ),

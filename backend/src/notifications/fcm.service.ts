@@ -140,6 +140,11 @@ export class FcmService implements OnModuleInit {
             body: input.body,
           },
           data: input.data,
+          android: {
+            notification: {
+              icon: 'ic_stat_hesba',
+            },
+          },
           apns: {
             payload: {
               aps: {

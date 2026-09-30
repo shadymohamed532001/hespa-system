@@ -2,6 +2,10 @@ import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
+import {
+  redactCardNumbers,
+  viewerCanSeePurchaseVisaNumber,
+} from '../purchase-visas/purchase-visa-card.js';
 import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
@@ -19,8 +23,9 @@ export class CollectionsController {
   ) {}
 
   @Get()
-  findAll() {
-    return this.collections.findAll();
+  async findAll(@Request() request: UserRequest) {
+    const rows = await this.collections.findAll();
+    return redactCardNumbers(rows, await this.revealCards(request.user.userId));
   }
 
   @Get('agent-credits')
@@ -55,7 +60,14 @@ export class CollectionsController {
       'maxReceiveAmount',
       dto.amount,
     );
-    return this.collections.receive(dto, request.user.username);
+    const collection = await this.collections.receive(
+      dto,
+      request.user.username,
+    );
+    return redactCardNumbers(
+      collection,
+      await this.revealCards(request.user.userId),
+    );
   }
 
   @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)
@@ -72,6 +84,19 @@ export class CollectionsController {
       'maxReceiveAmount',
       Number(hold.amount),
     );
-    return this.collections.execute(id, dto, request.user.username);
+    const collection = await this.collections.execute(
+      id,
+      dto,
+      request.user.username,
+    );
+    return redactCardNumbers(
+      collection,
+      await this.revealCards(request.user.userId),
+    );
+  }
+
+  private async revealCards(userId: string) {
+    const user = await this.users.findActiveById(userId);
+    return viewerCanSeePurchaseVisaNumber(user.role, user.permissions);
   }
 }

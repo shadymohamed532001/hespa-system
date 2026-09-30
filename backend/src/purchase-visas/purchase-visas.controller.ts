@@ -11,42 +11,65 @@ import { ParseBoolPipe } from '@nestjs/common';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { AppPermission } from '../database/enums.js';
+import { UsersService } from '../users/users.service.js';
 import {
   CreatePurchaseVisaDto,
   WithdrawPurchaseVisaDto,
 } from './dto/purchase-visa.dto.js';
+import {
+  viewerCanSeePurchaseVisaNumber,
+  redactCardNumbers,
+} from './purchase-visa-card.js';
 import { PurchaseVisasService } from './purchase-visas.service.js';
 
-type UserRequest = { user: { username: string } };
+type UserRequest = { user: { userId: string; username: string } };
 
 @Controller('purchase-visas')
 @RequirePermissions(AppPermission.VIEW_BALANCES)
 export class PurchaseVisasController {
-  constructor(private readonly visas: PurchaseVisasService) {}
+  constructor(
+    private readonly visas: PurchaseVisasService,
+    private readonly users: UsersService,
+  ) {}
 
   @Get()
-  findAll(
+  async findAll(
     @Query('includeInactive', new ParseBoolPipe({ optional: true }))
-    includeInactive?: boolean,
+    includeInactive: boolean | undefined,
+    @Request() request: UserRequest,
   ) {
-    return this.visas.findAll(includeInactive ?? false);
+    const rows = await this.visas.findAll(includeInactive ?? false);
+    return redactCardNumbers(rows, await this.revealCards(request.user.userId));
   }
 
   @RequirePermissions(AppPermission.MANAGE_ASSETS)
   @Idempotent()
   @Post()
-  create(@Body() dto: CreatePurchaseVisaDto, @Request() request: UserRequest) {
-    return this.visas.create(dto, request.user.username);
+  async create(
+    @Body() dto: CreatePurchaseVisaDto,
+    @Request() request: UserRequest,
+  ) {
+    const visa = await this.visas.create(dto, request.user.username);
+    return redactCardNumbers(visa, await this.revealCards(request.user.userId));
   }
 
   @RequirePermissions(AppPermission.USE_PURCHASE_VISAS)
   @Idempotent()
   @Post(':id/withdraw')
-  withdraw(
+  async withdraw(
     @Param('id') id: string,
     @Body() dto: WithdrawPurchaseVisaDto,
     @Request() request: UserRequest,
   ) {
-    return this.visas.withdraw(id, dto, request.user.username);
+    const result = await this.visas.withdraw(id, dto, request.user.username);
+    return redactCardNumbers(
+      result,
+      await this.revealCards(request.user.userId),
+    );
+  }
+
+  private async revealCards(userId: string) {
+    const user = await this.users.findActiveById(userId);
+    return viewerCanSeePurchaseVisaNumber(user.role, user.permissions);
   }
 }

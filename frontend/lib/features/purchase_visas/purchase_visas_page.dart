@@ -147,7 +147,7 @@ class _VisaCard extends StatelessWidget {
           Text('${visa['ownerName']}', style: HesbaText.bodyMuted),
           const SizedBox(height: 4),
           Text(
-            _formatCardNumber('${visa['cardNumber']}'),
+            _displayCardNumber('${visa['cardNumber']}'),
             style: const TextStyle(letterSpacing: 0.6),
           ),
           const SizedBox(height: 4),
@@ -380,6 +380,15 @@ class _ExpiryFormatter extends TextInputFormatter {
 
 String _cardDigits(String raw) =>
     normalizeDigits(raw).replaceAll(RegExp(r'\D'), '');
+
+String _displayCardNumber(String raw) {
+  final digits = _cardDigits(raw);
+  if (digits.length == 16) return _formatCardNumber(digits);
+  final last4 = digits.length <= 4
+      ? digits
+      : digits.substring(digits.length - 4);
+  return '•••• •••• •••• $last4';
+}
 
 String _formatCardNumber(String raw) {
   final digits = _cardDigits(raw);

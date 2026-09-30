@@ -17,7 +17,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.hesba.hesba"
+        applicationId = "com.hesba.hesba_Desktop"
         // Firebase / messaging plugins require API 23+.
         minSdk = maxOf(flutter.minSdkVersion, 23)
         targetSdk = flutter.targetSdkVersion

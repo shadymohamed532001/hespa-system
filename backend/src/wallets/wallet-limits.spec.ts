@@ -57,4 +57,13 @@ describe('wallet incoming limits', () => {
     expect(wallet.monthlyTopUp).toBe(200_000);
     expect(wallet.balance).toBe(101);
   });
+
+  it('stores the incoming balance in cents', () => {
+    const wallet = walletWithUsage(0, 0);
+    wallet.balance = 0.1;
+    wallet.todayTopUp = 0.1;
+    recordWalletIncoming(wallet, 0.2);
+    expect(wallet.balance).toBe(0.3);
+    expect(wallet.todayTopUp).toBe(0.3);
+  });
 });

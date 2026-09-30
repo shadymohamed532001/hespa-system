@@ -25,7 +25,9 @@ export const WALLET_MONTHLY_TOP_UP_LIMIT = 200_000;
 export const WALLET_DAILY_NOTICE_AMOUNT = 50_000;
 
 export function crossedDailyWalletNotice(before: number, after: number) {
-  return before < WALLET_DAILY_NOTICE_AMOUNT && after >= WALLET_DAILY_NOTICE_AMOUNT;
+  return (
+    before < WALLET_DAILY_NOTICE_AMOUNT && after >= WALLET_DAILY_NOTICE_AMOUNT
+  );
 }
 
 export function addWalletPeriodUsage(
@@ -73,8 +75,8 @@ export function recordWalletIncoming(
   amount: number,
 ): { crossedDailyNotice: boolean } {
   const usage = addWalletPeriodUsage(wallet, amount);
-  wallet.balance += amount;
-  wallet.todayTopUp += amount;
+  wallet.balance = Number((Number(wallet.balance) + amount).toFixed(2));
+  wallet.todayTopUp = Number((Number(wallet.todayTopUp) + amount).toFixed(2));
   return usage;
 }
 
@@ -141,10 +143,21 @@ export class WalletsService implements OnModuleInit {
 
   async create(dto: CreateWalletDto, username: string) {
     const name = dto.name.trim();
-    if (!name) throw new BadRequestException(msg({ ar: 'اسم أو رقم المحفظة مطلوب', en: 'Wallet name or number is required' }));
+    if (!name)
+      throw new BadRequestException(
+        msg({
+          ar: 'اسم أو رقم المحفظة مطلوب',
+          en: 'Wallet name or number is required',
+        }),
+      );
     const ownerName = dto.ownerName?.trim() ?? '';
     if (await this.wallets.exists({ where: { name } })) {
-      throw new ConflictException(msg({ ar: 'توجد محفظة بنفس الاسم أو الرقم بالفعل', en: 'A wallet with this name or number already exists' }));
+      throw new ConflictException(
+        msg({
+          ar: 'توجد محفظة بنفس الاسم أو الرقم بالفعل',
+          en: 'A wallet with this name or number already exists',
+        }),
+      );
     }
     return this.dataSource.transaction(async (manager) => {
       const wallet = await manager.getRepository(Wallet).save(
@@ -178,7 +191,13 @@ export class WalletsService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة أو موقوفة', en: 'Wallet not found or inactive' }));
+      if (!wallet)
+        throw new NotFoundException(
+          msg({
+            ar: 'المحفظة غير موجودة أو موقوفة',
+            en: 'Wallet not found or inactive',
+          }),
+        );
       const incoming = recordWalletIncoming(wallet, dto.amount);
       await repo.save(wallet);
       await manager.getRepository(LedgerEntry).save({
@@ -359,14 +378,20 @@ export class WalletsService implements OnModuleInit {
 
   async setActive(id: string, active: boolean) {
     const wallet = await this.wallets.findOne({ where: { id } });
-    if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }));
+    if (!wallet)
+      throw new NotFoundException(
+        msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }),
+      );
     wallet.active = active;
     return this.wallets.save(wallet);
   }
 
   async remove(id: string, username: string) {
     const wallet = await this.wallets.findOne({ where: { id } });
-    if (!wallet) throw new NotFoundException(msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }));
+    if (!wallet)
+      throw new NotFoundException(
+        msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }),
+      );
 
     const history = await this.dataSource
       .getRepository(LedgerEntry)
@@ -387,7 +412,10 @@ export class WalletsService implements OnModuleInit {
 
     if (wallet.balance !== 0 || wallet.commissionBalance !== 0 || history > 0) {
       throw new BadRequestException(
-        msg({ ar: 'لا يمكن حذف المحفظة نهائيًا إلا إذا كان الرصيد والعمولة صفرًا ولا توجد حركات مرتبطة بها', en: 'Permanent wallet delete is only allowed when balance and commission are zero and there are no related movements' }),
+        msg({
+          ar: 'لا يمكن حذف المحفظة نهائيًا إلا إذا كان الرصيد والعمولة صفرًا ولا توجد حركات مرتبطة بها',
+          en: 'Permanent wallet delete is only allowed when balance and commission are zero and there are no related movements',
+        }),
       );
     }
 

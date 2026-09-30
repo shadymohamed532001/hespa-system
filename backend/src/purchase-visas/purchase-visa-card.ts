@@ -1,3 +1,5 @@
+import { AppPermission, UserRole } from '../database/enums.js';
+
 export type PurchaseVisaCard =
   | { ok: true; cardNumber: string; expiresOn: string }
   | { ok: false; error: 'card' | 'expiry' | 'expired' };
@@ -31,6 +33,56 @@ export function parsePurchaseVisaCard(
     cardNumber: digits,
     expiresOn: `${year}-${monthText}-${dayText}`,
   };
+}
+
+export function maskCardNumber(cardNumber: string) {
+  const digits = cardNumber.replace(/\D/g, '');
+  if (digits.length <= 4) return digits;
+  return `${'*'.repeat(digits.length - 4)}${digits.slice(-4)}`;
+}
+
+export function viewerCanSeePurchaseVisaNumber(
+  role: UserRole | string | undefined,
+  permissions: readonly string[] | null | undefined,
+) {
+  if (role === UserRole.ADMIN) return true;
+  const owned = new Set(permissions ?? []);
+  return (
+    owned.has(AppPermission.MANAGE_ASSETS) ||
+    owned.has(AppPermission.USE_PURCHASE_VISAS)
+  );
+}
+
+/** Hides full card numbers from viewers who only follow balances. */
+export function redactCardNumbers<T>(value: T, reveal: boolean): T {
+  if (reveal || value == null || typeof value !== 'object') return value;
+  if (value instanceof Date) return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => redactCardNumbers(item, reveal)) as T;
+  }
+
+  const source = value as Record<string, unknown>;
+  let changed = false;
+  const next: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(source)) {
+    if (key === 'cardNumber' && typeof item === 'string') {
+      next[key] = maskCardNumber(item);
+      changed = true;
+      continue;
+    }
+    if (
+      item &&
+      typeof item === 'object' &&
+      (key === 'purchaseVisa' || key === 'visa' || Array.isArray(item))
+    ) {
+      const redacted = redactCardNumbers(item, reveal);
+      next[key] = redacted;
+      if (redacted !== item) changed = true;
+      continue;
+    }
+    next[key] = item;
+  }
+  return (changed ? next : value) as T;
 }
 
 function luhn(digits: string) {

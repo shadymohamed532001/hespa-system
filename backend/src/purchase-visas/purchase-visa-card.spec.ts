@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { parsePurchaseVisaCard } from './purchase-visa-card.js';
+import { UserRole } from '../database/enums.js';
+import {
+  maskCardNumber,
+  parsePurchaseVisaCard,
+  redactCardNumbers,
+  viewerCanSeePurchaseVisaNumber,
+} from './purchase-visa-card.js';
 
 describe('parsePurchaseVisaCard', () => {
   const now = new Date(2026, 8, 29);
@@ -38,5 +44,42 @@ describe('parsePurchaseVisaCard', () => {
     expect(parsePurchaseVisaCard('4111111111111111', '09/26', now).ok).toBe(
       true,
     );
+  });
+});
+
+describe('purchase visa card visibility', () => {
+  it('shows only the last four digits to balance viewers', () => {
+    expect(maskCardNumber('4111111111111111')).toBe('************1111');
+    expect(
+      viewerCanSeePurchaseVisaNumber(UserRole.EMPLOYEE, ['view_balances']),
+    ).toBe(false);
+    expect(
+      redactCardNumbers(
+        {
+          name: 'فيزا المحل',
+          cardNumber: '4111111111111111',
+          purchaseVisa: { cardNumber: '4111111111111111', name: 'nested' },
+        },
+        false,
+      ),
+    ).toEqual({
+      name: 'فيزا المحل',
+      cardNumber: '************1111',
+      purchaseVisa: { cardNumber: '************1111', name: 'nested' },
+    });
+  });
+
+  it('keeps the full number for admins and visa operators', () => {
+    const number = '4111111111111111';
+    expect(viewerCanSeePurchaseVisaNumber(UserRole.ADMIN, [])).toBe(true);
+    expect(
+      viewerCanSeePurchaseVisaNumber(UserRole.EMPLOYEE, ['use_purchase_visas']),
+    ).toBe(true);
+    expect(
+      viewerCanSeePurchaseVisaNumber(UserRole.EMPLOYEE, ['manage_assets']),
+    ).toBe(true);
+    expect(redactCardNumbers({ cardNumber: number }, true)).toEqual({
+      cardNumber: number,
+    });
   });
 });

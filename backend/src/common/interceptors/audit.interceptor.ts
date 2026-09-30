@@ -23,18 +23,26 @@ type RequestShape = {
 
 const REDACTED_KEYS = new Set([
   'password',
-  'passwordHash',
+  'passwordhash',
   'token',
-  'accessToken',
-  'refreshToken',
-  'recoveryKey',
+  'accesstoken',
+  'refreshtoken',
+  'recoverykey',
   'authorization',
   'secret',
+  'cardnumber',
 ]);
-function sanitize(value: unknown, depth = 0): unknown {
+
+function isRedactedKey(key: string) {
+  return REDACTED_KEYS.has(key.toLowerCase().replace(/[_-]/g, ''));
+}
+
+export function sanitizeAuditValue(value: unknown, depth = 0): unknown {
   if (depth > 4) return '[truncated]';
   if (Array.isArray(value))
-    return value.slice(0, 50).map((item) => sanitize(item, depth + 1));
+    return value
+      .slice(0, 50)
+      .map((item) => sanitizeAuditValue(item, depth + 1));
   if (!value || typeof value !== 'object') {
     return typeof value === 'string' && value.length > 500
       ? `${value.slice(0, 500)}…`
@@ -43,7 +51,7 @@ function sanitize(value: unknown, depth = 0): unknown {
   return Object.fromEntries(
     Object.entries(value as Record<string, unknown>).map(([key, item]) => [
       key,
-      REDACTED_KEYS.has(key) ? '[redacted]' : sanitize(item, depth + 1),
+      isRedactedKey(key) ? '[redacted]' : sanitizeAuditValue(item, depth + 1),
     ]),
   );
 }
@@ -101,9 +109,9 @@ export class AuditInterceptor implements NestInterceptor {
             null,
           details: {
             durationMs: Date.now() - started,
-            body: sanitize(request.body),
-            params: sanitize(request.params),
-            query: sanitize(request.query),
+            body: sanitizeAuditValue(request.body),
+            params: sanitizeAuditValue(request.params),
+            query: sanitizeAuditValue(request.query),
           },
         }),
       );

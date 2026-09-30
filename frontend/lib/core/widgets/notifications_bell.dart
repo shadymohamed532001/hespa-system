@@ -30,6 +30,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
   final Set<String> _announcedIds = {};
   List<dynamic> _items = [];
   bool _loadingList = false;
+  bool _announcedCountFailure = false;
   final _layerLink = LayerLink();
   OverlayEntry? _overlay;
 
@@ -66,6 +67,7 @@ class _NotificationsBellState extends State<NotificationsBell> {
       final previous = _lastSeenUnread;
       if (mounted) setState(() => _unread = count);
       _overlay?.markNeedsBuild();
+      _announcedCountFailure = false;
 
       // First baseline: don't spam local alerts for old unread items.
       if (previous == null) {
@@ -76,7 +78,17 @@ class _NotificationsBellState extends State<NotificationsBell> {
         await _announceNewNotifications(count - previous);
       }
       _lastSeenUnread = count;
-    } catch (_) {}
+    } catch (exception) {
+      if (_announcedCountFailure || !mounted) return;
+      _announcedCountFailure = true;
+      final message = ApiClient.errorMessage(exception);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message), backgroundColor: HesbaColors.red),
+        );
+      });
+    }
   }
 
   /// When FCM/APNs is down, still surface a macOS banner from the API feed.
@@ -182,7 +194,16 @@ class _NotificationsBellState extends State<NotificationsBell> {
       await widget.session.api.patch(ApiEndpoints.notificationRead(id), {});
       await _loadList();
       await _refreshCount();
-    } catch (_) {}
+    } catch (exception) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ApiClient.errorMessage(exception)),
+            backgroundColor: HesbaColors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override

@@ -10,6 +10,7 @@ import { RefreshTokens1790087699419 } from './database/migrations/1790087699419-
 import { WalletOperations1790087699420 } from './database/migrations/1790087699420-WalletOperations.js';
 import { WalletOwner1790087699421 } from './database/migrations/1790087699421-WalletOwner.js';
 import { DevicePushTokens1790087699422 } from './database/migrations/1790087699422-DevicePushTokens.js';
+import { EmployeeManageInventory1790087699423 } from './database/migrations/1790087699423-EmployeeManageInventory.js';
 import { WalletCustomerCashFee1790087699424 } from './database/migrations/1790087699424-WalletCustomerCashFee.js';
 import { FawryDailyDrop1790087699425 } from './database/migrations/1790087699425-FawryDailyDrop.js';
 import { CollectionIncomingSplits1790087699426 } from './database/migrations/1790087699426-CollectionIncomingSplits.js';
@@ -121,6 +122,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           WalletOperations1790087699420,
           WalletOwner1790087699421,
           DevicePushTokens1790087699422,
+          EmployeeManageInventory1790087699423,
           WalletCustomerCashFee1790087699424,
           FawryDailyDrop1790087699425,
           CollectionIncomingSplits1790087699426,

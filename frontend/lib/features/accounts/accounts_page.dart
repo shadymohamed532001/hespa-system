@@ -34,6 +34,7 @@ class _AccountsPageState extends State<AccountsPage> {
   List<dynamic> data = [];
   List<dynamic> fawryDepositors = [];
   Map<String, num> todayDrops = {};
+  String? dropsError;
   bool loading = true;
   String? error;
 
@@ -44,6 +45,7 @@ class _AccountsPageState extends State<AccountsPage> {
   }
 
   Future<void> load() async {
+    var reportDropsError = false;
     try {
       data = await widget.session.api.list(
         ApiEndpoints.accountsList(
@@ -55,19 +57,27 @@ class _AccountsPageState extends State<AccountsPage> {
           ApiEndpoints.fawryDepositors,
         );
       }
-      todayDrops = await _loadTodayDrops();
+      final drops = await _loadTodayDrops();
+      todayDrops = drops.amounts;
+      dropsError = drops.error;
+      reportDropsError = widget.isFawry && drops.error != null;
       error = null;
     } catch (e) {
       error = ApiClient.errorMessage(e);
     }
     if (mounted) setState(() => loading = false);
+    if (reportDropsError && mounted) {
+      showAppSnack(context, dropsError!, error: true);
+    }
   }
 
   List<dynamic> get _rows =>
       data.where((item) => item['type'] == widget.kind).toList();
 
-  Future<Map<String, num>> _loadTodayDrops() async {
-    if (!widget.session.isAdmin) return {};
+  Future<({Map<String, num> amounts, String? error})> _loadTodayDrops() async {
+    if (!widget.session.isAdmin) {
+      return (amounts: <String, num>{}, error: null);
+    }
     try {
       final payload = await widget.session.api.getMap(
         ApiEndpoints.fawryDailyDrops,
@@ -76,9 +86,12 @@ class _AccountsPageState extends State<AccountsPage> {
       for (final drop in (payload['drops'] as List? ?? const [])) {
         drops['${drop['accountId']}'] = num.tryParse('${drop['amount']}') ?? 0;
       }
-      return drops;
-    } catch (_) {
-      return {};
+      return (amounts: drops, error: null);
+    } catch (exception) {
+      return (
+        amounts: <String, num>{},
+        error: ApiClient.errorMessage(exception),
+      );
     }
   }
 
@@ -719,6 +732,7 @@ class _AccountsPageState extends State<AccountsPage> {
       builder: (ctx) => _DailyCommissionDialog(
         accounts: accounts,
         todayDrops: todayDrops,
+        dropsError: dropsError,
         todayLabel: formatDate(DateTime.now().toIso8601String()),
       ),
     );
@@ -751,11 +765,13 @@ class _DailyCommissionDialog extends StatefulWidget {
   const _DailyCommissionDialog({
     required this.accounts,
     required this.todayDrops,
+    required this.dropsError,
     required this.todayLabel,
   });
 
   final List<Map<String, dynamic>> accounts;
   final Map<String, num> todayDrops;
+  final String? dropsError;
   final String todayLabel;
 
   @override
@@ -799,7 +815,7 @@ class _DailyCommissionDialogState extends State<_DailyCommissionDialog> {
       subtitle: 'تاريخ اليوم ${widget.todayLabel}',
       actions: HesbaModalActions(
         primaryLabel: 'تسجيل العمولة',
-        primaryEnabled: recorded == null,
+        primaryEnabled: recorded == null && widget.dropsError == null,
         onPrimary: _submit,
         onCancel: () => Navigator.pop(context),
       ),
@@ -839,7 +855,12 @@ class _DailyCommissionDialogState extends State<_DailyCommissionDialog> {
             ),
           ),
           const SizedBox(height: 18),
-          if (recorded != null)
+          if (widget.dropsError != null)
+            Text(
+              widget.dropsError!,
+              style: const TextStyle(color: HesbaColors.red),
+            )
+          else if (recorded != null)
             Text(
               'اتسجلت النهاردة ${money(recorded)}',
               style: HesbaText.tableCell.copyWith(color: HesbaColors.tealDark),
