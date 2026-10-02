@@ -197,6 +197,72 @@ describe('financial operations (e2e)', () => {
     expect(account?.balance).toBe(1100);
   });
 
+  it('adds historical agent debt without cash and supports partial repayment', async () => {
+    const agentName = `Old agent ${randomUUID()}`;
+    const before = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    const key = mutation(`old-credit-${randomUUID()}`);
+    const body = { agentName, amount: 1234.56, note: 'رصيد قديم قبل السيستم' };
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/opening')
+      .set(key)
+      .send(body)
+      .expect(201);
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/opening')
+      .set(key)
+      .send(body)
+      .expect(201);
+    const summary = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(Number(summary.body.actualBalance)).toBe(
+      Number(before.body.actualBalance),
+    );
+    expect(Number(summary.body.agentCreditBalance)).toBe(
+      Number((Number(before.body.agentCreditBalance) + 1234.56).toFixed(2)),
+    );
+    const listed = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      listed.body.find((r: any) => r.agentName === agentName).balance,
+    ).toBe(1234.56);
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/payments')
+      .set(mutation(`old-pay-${randomUUID()}`))
+      .send({ agentName, amount: 234.55 })
+      .expect(201);
+    const after = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(after.body.find((r: any) => r.agentName === agentName).balance).toBe(
+      1000.01,
+    );
+    const cash = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(Number(cash.body.actualBalance)).toBe(
+      Number((Number(before.body.actualBalance) + 234.55).toFixed(2)),
+    );
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/payments')
+      .set(mutation(`old-overpay-${randomUUID()}`))
+      .send({ agentName, amount: 1000.02 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/opening')
+      .set(mutation(`old-invalid-${randomUUID()}`))
+      .send({ agentName: '  ', amount: 100 })
+      .expect(400);
+  });
+
   it('records a Fawry deposit from banknote counts and a typed external name', async () => {
     const created = await request(app.getHttpServer())
       .post('/api/accounts')

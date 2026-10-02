@@ -1,3 +1,4 @@
+import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
 import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
@@ -31,6 +32,21 @@ export class CollectionsController {
   @Get('agent-credits')
   findAgentCredits() {
     return this.collections.findAgentCredits();
+  }
+
+  @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)
+  @Idempotent()
+  @Post('agent-credits/opening')
+  async openAgentCredit(
+    @Body() dto: OpenAgentCreditDto,
+    @Request() request: UserRequest,
+  ) {
+    await this.users.assertAmountLimit(
+      request.user.userId,
+      'maxReceiveAmount',
+      dto.amount,
+    );
+    return this.collections.openAgentCredit(dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)

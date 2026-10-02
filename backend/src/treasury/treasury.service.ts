@@ -73,9 +73,14 @@ export class TreasuryService {
       .createQueryBuilder('payment')
       .select('COALESCE(SUM(payment.amount), 0)', 'total')
       .getRawOne<{ total: string }>();
+    const [openingCredit] = await this.dataSource.query(
+      "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'",
+    );
     const agentCreditBalance = Number(
       (
-        Number(creditResult?.total ?? 0) - Number(paymentResult?.total ?? 0)
+        Number(creditResult?.total ?? 0) +
+        Number(openingCredit.total) -
+        Number(paymentResult?.total ?? 0)
       ).toFixed(2),
     );
     return {
@@ -544,9 +549,14 @@ export class TreasuryService {
         .createQueryBuilder('payment')
         .select('COALESCE(SUM(payment.amount), 0)', 'total')
         .getRawOne<{ total: string }>();
+      const [openingCredit] = await manager.query(
+        "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'",
+      );
       const outstandingAgentCredit = Number(
         (
-          agentCreditBalance - Number(agentCreditPaymentResult?.total ?? 0)
+          agentCreditBalance +
+          Number(openingCredit.total) -
+          Number(agentCreditPaymentResult?.total ?? 0)
         ).toFixed(2),
       );
       const snapshot = {

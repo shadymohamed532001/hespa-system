@@ -52,6 +52,14 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
   Widget build(BuildContext context) {
     return PageFrame(
       title: 'آجل المندوبين',
+      actions: [
+        if (widget.session.can(AppPermissions.receiveCollections))
+          FilledButton.icon(
+            onPressed: _addOpening,
+            icon: const Icon(Icons.add),
+            label: const Text('إضافة آجل قديم'),
+          ),
+      ],
       subtitle: 'المبالغ المستحقة على المندوبين وتسجيل سدادها في الخزنة',
       child: _loading
           ? const Center(
@@ -105,6 +113,106 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
               ],
             ),
     );
+  }
+
+  Future<void> _addOpening() async {
+    final name = TextEditingController();
+    final amount = TextEditingController();
+    final note = TextEditingController();
+    final form = GlobalKey<FormState>();
+    var saving = false;
+    String? error;
+    final saved = await showHesbaModal<bool>(
+      context: context,
+      maxWidth: 520,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => HesbaModalCard(
+          title: 'إضافة آجل قديم',
+          subtitle:
+              'سجّل المبلغ المستحق قبل استخدام السيستم. يدخل الخزنة عند سداده فقط. لو الاسم موجود هيتضاف المبلغ على الآجل الحالي.',
+          actions: HesbaModalActions(
+            primaryLabel: saving ? 'جارٍ الحفظ...' : 'حفظ الآجل',
+            primaryEnabled: !saving,
+            onCancel: () {
+              if (!saving) Navigator.pop(ctx, false);
+            },
+            onPrimary: () async {
+              if (saving || !form.currentState!.validate()) return;
+              setLocal(() {
+                saving = true;
+                error = null;
+              });
+              try {
+                await widget.session.api
+                    .post('${ApiEndpoints.agentCredits}/opening', {
+                      'agentName': name.text.trim(),
+                      'amount': parseNum(amount.text),
+                      if (note.text.trim().isNotEmpty) 'note': note.text.trim(),
+                    });
+                if (ctx.mounted) Navigator.pop(ctx, true);
+              } catch (e) {
+                if (ctx.mounted) {
+                  setLocal(() {
+                    saving = false;
+                    error = ApiClient.errorMessage(e);
+                  });
+                }
+              }
+            },
+          ),
+          child: Form(
+            key: form,
+            child: Column(
+              children: [
+                TextFormField(
+                  controller: name,
+                  enabled: !saving,
+                  maxLength: 150,
+                  decoration: const InputDecoration(labelText: 'اسم المندوب *'),
+                  validator: (v) =>
+                      (v?.trim().length ?? 0) < 2 ? 'اكتب اسم المندوب' : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: amount,
+                  enabled: !saving,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  inputFormatters: const [MoneyInputFormatter()],
+                  decoration: const InputDecoration(
+                    labelText: 'المبلغ المستحق *',
+                  ),
+                  validator: (v) => (parseNum(v) ?? 0) <= 0
+                      ? 'اكتب مبلغًا أكبر من صفر'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: note,
+                  enabled: !saving,
+                  maxLength: 500,
+                  decoration: const InputDecoration(
+                    labelText: 'ملاحظة (اختياري)',
+                  ),
+                ),
+                if (error != null)
+                  Text(error!, style: const TextStyle(color: Colors.red)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    // Dispose after the dialog's closing animation finishes.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    name.dispose();
+    amount.dispose();
+    note.dispose();
+    if (saved == true && mounted) {
+      await _load();
+      if (mounted) showAppSnack(context, 'تم تسجيل الآجل القديم');
+    }
   }
 
   Future<void> _pay(Map<String, dynamic> row) async {

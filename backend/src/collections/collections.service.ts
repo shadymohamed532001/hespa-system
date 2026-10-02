@@ -1,3 +1,4 @@
+import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
 import {
   BadRequestException,
   Injectable,
@@ -100,7 +101,6 @@ export class CollectionsService implements OnModuleInit {
         reversed: CollectionStatus.REVERSED,
       })
       .groupBy('LOWER(TRIM(collection.agentName))')
-      .having('SUM(collection.agentCreditChange) > 0')
       .orderBy('SUM(collection.agentCreditChange)', 'DESC')
       .getRawMany<{
         agentName: string;
@@ -109,6 +109,33 @@ export class CollectionsService implements OnModuleInit {
         lastActivityAt: Date;
         movementsCount: string;
       }>();
+    const openings = await this.dataSource.query(`
+      SELECT MIN(metadata->>'agentName') AS "agentName",
+        LOWER(TRIM(metadata->>'agentName')) AS "agentKey",
+        SUM(amount) AS balance, MAX(created_at) AS "lastActivityAt", COUNT(*) AS "movementsCount"
+      FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'
+      GROUP BY LOWER(TRIM(metadata->>'agentName'))
+    `);
+    for (const opening of openings) {
+      const row = rows.find((item) => item.agentKey === opening.agentKey);
+      if (!row) {
+        rows.push(opening);
+        continue;
+      }
+      row.balance = String(
+        (moneyCents(Number(row.balance)) +
+          moneyCents(Number(opening.balance))) /
+          100,
+      );
+      row.movementsCount = String(
+        Number(row.movementsCount) + Number(opening.movementsCount),
+      );
+      if (
+        !row.lastActivityAt ||
+        new Date(opening.lastActivityAt) > new Date(row.lastActivityAt)
+      )
+        row.lastActivityAt = opening.lastActivityAt;
+    }
     const payments = await this.agentCreditPayments
       .createQueryBuilder('payment')
       .select('LOWER(TRIM(payment.agentName))', 'agentKey')
@@ -147,6 +174,32 @@ export class CollectionsService implements OnModuleInit {
       })
       .filter((row) => row.balance > 0)
       .sort((left, right) => right.balance - left.balance);
+  }
+
+  async openAgentCredit(dto: OpenAgentCreditDto, username: string) {
+    return this.dataSource.transaction(async (manager) => {
+      const agentName = dto.agentName.trim();
+      await lockAgentCredit(manager, agentName);
+      const entry = await manager.getRepository(LedgerEntry).save({
+        category: LedgerCategory.OPENING_BALANCE,
+        amount: dto.amount,
+        entityType: 'agent_credit',
+        entityId: null,
+        reference: null,
+        description: `آجل قديم على ${agentName}${dto.note?.trim() ? ' — ' + dto.note.trim() : ''}`,
+        performedBy: username,
+        metadata: {
+          agentName,
+          note: dto.note?.trim() || null,
+          manualOpeningCredit: true,
+        },
+      });
+      return {
+        entry,
+        agentName,
+        balance: await agentCreditBalance(manager, agentName),
+      };
+    });
   }
 
   async payAgentCredit(dto: PayAgentCreditDto, username: string) {
@@ -867,6 +920,14 @@ async function agentCreditBalance(
       reversed: CollectionStatus.REVERSED,
     })
     .getRawOne<{ balance: string }>();
+  const [opening] = await manager.query(
+    `
+    SELECT COALESCE(SUM(amount), 0) AS balance FROM ledger_entries
+    WHERE entity_type = 'agent_credit' AND category = 'opening_balance'
+      AND LOWER(TRIM(metadata->>'agentName')) = LOWER(TRIM($1))
+  `,
+    [agentName],
+  );
   const paymentResult = await manager
     .getRepository(AgentCreditPayment)
     .createQueryBuilder('payment')
@@ -877,7 +938,9 @@ async function agentCreditBalance(
     .getRawOne<{ paid: string }>();
   return (
     moneyCents(
-      Number(creditResult?.balance ?? 0) - Number(paymentResult?.paid ?? 0),
+      Number(creditResult?.balance ?? 0) +
+        Number(opening.balance) -
+        Number(paymentResult?.paid ?? 0),
     ) / 100
   );
 }
