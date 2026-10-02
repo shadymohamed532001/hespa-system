@@ -238,7 +238,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 child: TextField(
                   controller: stock,
                   keyboardType: TextInputType.number,
-                  inputFormatters: const [ArabicDigitsFormatter()],
+                  inputFormatters: const [MoneyInputFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -250,7 +250,7 @@ class _InventoryPageState extends State<InventoryPage> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  inputFormatters: const [ArabicDigitsFormatter()],
+                  inputFormatters: const [MoneyInputFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -260,7 +260,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 child: TextField(
                   controller: price,
                   keyboardType: TextInputType.number,
-                  inputFormatters: const [ArabicDigitsFormatter()],
+                  inputFormatters: const [MoneyInputFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -312,7 +312,7 @@ class _InventoryPageState extends State<InventoryPage> {
               child: TextField(
                 controller: qty,
                 keyboardType: TextInputType.number,
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -324,7 +324,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -388,7 +388,7 @@ class _InventoryPageState extends State<InventoryPage> {
               child: TextField(
                 controller: qty,
                 keyboardType: TextInputType.number,
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -400,7 +400,7 @@ class _InventoryPageState extends State<InventoryPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),

@@ -331,9 +331,9 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxReceive,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
-                              const ArabicDigitsFormatter(),
+                              const MoneyInputFormatter(),
                               FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.]'),
+                                RegExp(r'[0-9.,]'),
                               ),
                             ],
                             decoration: InputDecoration(
@@ -350,9 +350,9 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxTopUp,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
-                              const ArabicDigitsFormatter(),
+                              const MoneyInputFormatter(),
                               FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.]'),
+                                RegExp(r'[0-9.,]'),
                               ),
                             ],
                             decoration: InputDecoration(
@@ -369,9 +369,9 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxSale,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
-                              const ArabicDigitsFormatter(),
+                              const MoneyInputFormatter(),
                               FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.]'),
+                                RegExp(r'[0-9.,]'),
                               ),
                             ],
                             decoration: InputDecoration(
@@ -388,9 +388,9 @@ class _AdminPageState extends State<AdminPage> {
                             controller: maxTransfer,
                             keyboardType: TextInputType.number,
                             inputFormatters: [
-                              const ArabicDigitsFormatter(),
+                              const MoneyInputFormatter(),
                               FilteringTextInputFormatter.allow(
-                                RegExp(r'[0-9.]'),
+                                RegExp(r'[0-9.,]'),
                               ),
                             ],
                             decoration: InputDecoration(

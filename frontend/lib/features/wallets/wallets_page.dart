@@ -263,7 +263,7 @@ class _WalletsPageState extends State<WalletsPage> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  inputFormatters: const [ArabicDigitsFormatter()],
+                  inputFormatters: const [MoneyInputFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),
@@ -674,7 +674,7 @@ class _WalletOperationFields extends StatelessWidget {
           controller: amount,
           onChanged: onAmountChanged,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          inputFormatters: const [ArabicDigitsFormatter()],
+          inputFormatters: const [MoneyInputFormatter()],
           decoration: const InputDecoration(),
         ),
       ),

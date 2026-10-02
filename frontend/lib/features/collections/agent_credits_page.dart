@@ -197,7 +197,7 @@ class _PayAgentCreditDialogState extends State<_PayAgentCreditDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 textDirection: TextDirection.ltr,
                 textAlign: TextAlign.left,
                 validator: (value) {

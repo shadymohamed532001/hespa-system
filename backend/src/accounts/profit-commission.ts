@@ -9,24 +9,16 @@ export function regularProfitWithdrawCommission(amount: number): number {
   return commissionPerThousand(amount, 4);
 }
 
-/** Collection execution on a regular profit account records 4 EGP per 1,000. */
+/** Collection execution on a regular profit account costs 4 EGP per 1,000. */
 export function regularProfitCollectionCommission(amount: number): number {
   return commissionPerThousand(amount, 4);
 }
 
-/**
- * Profit-account collection when the operator chooses machine service:
- * 20 EGP per 1,000 without service, or 13 when the machine takes 7.
- */
-export function profitAccountServiceCommission(
-  amount: number,
-  withService: boolean,
-): number {
-  return purchaseVisaProfit(amount, withService).netProfit;
-}
-
-/** QR cash-out: the customer pays 10 EGP per 1,000 of cash requested. */
+/** QR customer fee: 5 up to 500, 10 up to 1,000, then 10 per thousand. */
 export function profitQrCustomerCommission(amount: number): number {
+  if (amount <= 0) return 0;
+  if (amount <= 500) return 5;
+  if (amount <= 1000) return 10;
   return commissionPerThousand(amount, 10);
 }
 

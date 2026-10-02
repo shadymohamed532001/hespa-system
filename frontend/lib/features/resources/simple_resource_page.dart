@@ -156,7 +156,7 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
                 child: TextField(
                   controller: amount,
                   keyboardType: TextInputType.number,
-                  inputFormatters: const [ArabicDigitsFormatter()],
+                  inputFormatters: const [MoneyInputFormatter()],
                   decoration: const InputDecoration(),
                 ),
               ),

@@ -193,15 +193,10 @@ export class AccountsService implements OnModuleInit {
         account.type === AccountType.PROFIT
           ? regularProfitDepositCommission(dto.amount)
           : 0;
-      account.balance = nextBalance;
+      account.balance = Number((nextBalance + depositCommission).toFixed(2));
       account.todayTopUp = Number(
         (Number(account.todayTopUp) + dto.amount).toFixed(2),
       );
-      if (depositCommission > 0) {
-        account.commissionBalance = Number(
-          (Number(account.commissionBalance) + depositCommission).toFixed(2),
-        );
-      }
       await repo.save(account);
       const ledger = manager.getRepository(LedgerEntry);
       const topUpEntry = await ledger.save({
@@ -214,7 +209,10 @@ export class AccountsService implements OnModuleInit {
         performedBy: username,
         metadata:
           depositCommission > 0
-            ? { profitDepositCommission: depositCommission }
+            ? {
+                profitDepositCommission: depositCommission,
+                profitDepositCreditedToBalance: true,
+              }
             : null,
       });
       if (depositCommission > 0) {
@@ -229,6 +227,7 @@ export class AccountsService implements OnModuleInit {
           metadata: {
             profitSourceEntryId: topUpEntry.id,
             profitCommissionKind: 'deposit',
+            profitDepositCreditedToBalance: true,
           },
         });
       }
@@ -272,16 +271,24 @@ export class AccountsService implements OnModuleInit {
       const cashAmount = Number(dto.cashAmount);
       const customerCommission = profitQrCustomerCommission(cashAmount);
       const providerFee = profitQrIncomingFee(cashAmount);
-      const customerTransferAmount = Number(
-        (cashAmount + customerCommission).toFixed(2),
+      const customerTransferAmount = cashAmount;
+      const treasuryDebit = Number(
+        (cashAmount - customerCommission).toFixed(2),
       );
+      if (dto.commissionMethod !== 'cash' && treasuryDebit < 0) {
+        throw new BadRequestException(
+          'المبلغ أقل من العمولة؛ حصّل العمولة نقدًا من العميل',
+        );
+      }
+      const customerCashPaid =
+        dto.commissionMethod === 'cash' ? cashAmount : treasuryDebit;
       const creditedAmount = Number(
         (customerTransferAmount - providerFee).toFixed(2),
       );
       const netCommission = Number(
         (customerCommission - providerFee).toFixed(2),
       );
-      if (Number(treasury.balance) < cashAmount) {
+      if (Number(treasury.balance) < treasuryDebit) {
         throw new BadRequestException(
           msg({
             ar: 'رصيد الخزنة لا يكفي لتسليم الكاش للعميل',
@@ -291,13 +298,13 @@ export class AccountsService implements OnModuleInit {
       }
 
       treasury.balance = Number(
-        (Number(treasury.balance) - cashAmount).toFixed(2),
+        (Number(treasury.balance) - treasuryDebit).toFixed(2),
       );
       account.balance = Number(
         (Number(account.balance) + creditedAmount).toFixed(2),
       );
       account.commissionBalance = Number(
-        (Number(account.commissionBalance) + netCommission).toFixed(2),
+        (Number(account.commissionBalance) - providerFee).toFixed(2),
       );
       await manager.getRepository(Treasury).save(treasury);
       await accountRepo.save(account);
@@ -317,6 +324,11 @@ export class AccountsService implements OnModuleInit {
         performedBy: username,
         metadata: {
           profitQrCashOut: true,
+          customerCommissionToTreasury: true,
+          commissionMethod: dto.commissionMethod ?? 'deduct',
+          treasuryDebit,
+          customerCashPaid,
+          accountCommissionChange: -providerFee,
           customerTransferAmount,
           customerCommission,
           providerIncomingFee: providerFee,
@@ -327,10 +339,10 @@ export class AccountsService implements OnModuleInit {
       await ledger.save({
         category: LedgerCategory.COMMISSION,
         amount: customerCommission,
-        entityType: 'account',
-        entityId: account.id,
+        entityType: 'treasury',
+        entityId: 'main',
         reference: dto.reference ?? null,
-        description: `عمولة عميل سحب كاش من مكسب QR ${account.name}: ١٠ جنيه لكل ألف`,
+        description: `عمولة عميل سحب كاش من مكسب QR ${account.name}: ${customerCommission.toFixed(2)} جنيه`,
         performedBy: username,
         metadata: { profitQrCashOutEntryId: operation.id },
       });
@@ -348,6 +360,8 @@ export class AccountsService implements OnModuleInit {
       return {
         account,
         treasuryBalance: treasury.balance,
+        treasuryDebit,
+        customerCashPaid,
         cashAmount,
         customerTransferAmount,
         customerCommission,

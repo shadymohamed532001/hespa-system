@@ -314,9 +314,7 @@ class _TransferFormCard extends StatelessWidget {
                                     const TextInputType.numberWithOptions(
                                       decimal: true,
                                     ),
-                                inputFormatters: const [
-                                  ArabicDigitsFormatter(),
-                                ],
+                                inputFormatters: const [MoneyInputFormatter()],
                                 textDirection: TextDirection.ltr,
                                 textAlign: TextAlign.left,
                                 validator: (value) {

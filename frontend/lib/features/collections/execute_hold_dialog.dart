@@ -134,8 +134,9 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
   bool get _profit => _accountType(_accountId) == 'profit';
   bool get _profitQr => _accountType(_accountId) == 'profit_qr';
 
-  num get _requiredBalance =>
-      _profitQr ? _amount + profitCollectionCommission(_amount) : _amount;
+  num get _requiredBalance => (_profit || _profitQr)
+      ? _amount + profitCollectionCommission(_amount)
+      : _amount;
 
   num? get _selectedBalance {
     if (_visa) {
@@ -261,7 +262,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
         'purchaseVisaId': _sourceId(_accountId)
       else
         'accountId': _sourceId(_accountId),
-      if (_visa || _profit) 'withService': _withService,
+      if (_visa) 'withService': _withService,
       'commission': _fawry || _profitQr || _visa || _profit
           ? 0
           : parseNum(_commission.text) ?? 0,
@@ -327,7 +328,8 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
                       child: _sourceOption(
                         '${account['name']} — ${money(account['balance'])}',
                         num.tryParse('${account['balance']}') ?? 0,
-                        account['type'] == 'profit_qr'
+                        (account['type'] == 'profit_qr' ||
+                                account['type'] == 'profit')
                             ? _amount + profitCollectionCommission(_amount)
                             : _amount,
                       ),
@@ -355,8 +357,13 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
               _shortBalanceNotice(),
             ],
             const SizedBox(height: 18),
-            if (_visa) _serviceChoices(visa: true),
-            if (_profit) _serviceChoices(visa: false),
+            if (_visa) _serviceChoices(),
+            if (_profit)
+              HesbaModalCallout(
+                child: Text(
+                  'مبلغ التوريد ${money(_amount)}، وخصم مكسب ${money(profitCollectionCommission(_amount))} (٤ جنيه لكل ألف). هيتسحب إجمالي ${money(_requiredBalance)} من الحساب. الرصيد بعد التنفيذ ${money((_selectedBalance ?? 0) - _requiredBalance)}.',
+                ),
+              ),
             if (_profitQr)
               HesbaModalCallout(
                 child: Text(
@@ -369,7 +376,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
                 child: TextFormField(
                   controller: _commission,
                   keyboardType: TextInputType.number,
-                  inputFormatters: const [ArabicDigitsFormatter()],
+                  inputFormatters: const [MoneyInputFormatter()],
                   decoration: const InputDecoration(),
                   validator: (value) {
                     final number = parseNum(
@@ -442,7 +449,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
     );
   }
 
-  Widget _serviceChoices({required bool visa}) {
+  Widget _serviceChoices() {
     final value = purchaseVisaCollectionProfit(_amount, _withService);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -473,9 +480,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
         const SizedBox(height: 10),
         HesbaModalCallout(
           child: Text(
-            visa
-                ? 'المكسب ${money(value)} بيدخل الخزنة، والفيزا بتنقص بالمبلغ.'
-                : 'العمولة ${money(value)} بتتسجل على حساب المكسب، والحساب بينقص بالمبلغ.',
+            'المكسب ${money(value)} بيدخل الخزنة، والفيزا بتنقص بالمبلغ.',
           ),
         ),
         const SizedBox(height: 8),
@@ -510,7 +515,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
             child: TextFormField(
               controller: _receivedAmount,
               keyboardType: TextInputType.number,
-              inputFormatters: const [ArabicDigitsFormatter()],
+              inputFormatters: const [MoneyInputFormatter()],
               decoration: const InputDecoration(),
               onChanged: (_) => setState(() {}),
               validator: (value) {
@@ -645,7 +650,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
               child: TextFormField(
                 controller: part.amount,
                 keyboardType: TextInputType.number,
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 decoration: const InputDecoration(),
                 onChanged: (_) => setState(() {}),
                 validator: (value) {

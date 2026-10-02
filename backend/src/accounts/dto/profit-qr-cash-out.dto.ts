@@ -1,5 +1,6 @@
 import {
   IsNumber,
+  IsIn,
   IsOptional,
   IsString,
   MaxLength,
@@ -10,6 +11,10 @@ export class ProfitQrCashOutDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)
   cashAmount: number;
+
+  @IsOptional()
+  @IsIn(['cash', 'deduct'])
+  commissionMethod: 'cash' | 'deduct' = 'deduct';
 
   @IsOptional()
   @IsString()

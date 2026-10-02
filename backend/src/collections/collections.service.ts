@@ -31,7 +31,6 @@ import { PayAgentCreditDto } from './dto/pay-agent-credit.dto.js';
 import {
   profitQrOutgoingFee,
   purchaseVisaProfit,
-  profitAccountServiceCommission,
   regularProfitCollectionCommission,
 } from '../accounts/profit-commission.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
@@ -301,9 +300,8 @@ export class CollectionsService implements OnModuleInit {
             }),
           );
         if (account.type === AccountType.PROFIT) {
-          dto.commission = profitCollectionCommissionFor(
+          dto.commission = -regularProfitCollectionCommission(
             Number(dto.amount),
-            dto.withService,
           );
         } else if (account.type === AccountType.PROFIT_QR) {
           dto.commission = -profitQrOutgoingFee(Number(dto.amount));
@@ -311,7 +309,8 @@ export class CollectionsService implements OnModuleInit {
         const requiredBalance = Number(
           (
             Number(dto.amount) +
-            (account.type === AccountType.PROFIT_QR
+            (account.type === AccountType.PROFIT_QR ||
+            account.type === AccountType.PROFIT
               ? Math.abs(dto.commission)
               : 0)
           ).toFixed(2),
@@ -378,7 +377,8 @@ export class CollectionsService implements OnModuleInit {
       if (account) {
         const accountDebit =
           Number(dto.amount) +
-          (account.type === AccountType.PROFIT_QR
+          (account.type === AccountType.PROFIT_QR ||
+          account.type === AccountType.PROFIT
             ? Math.abs(Number(dto.commission))
             : 0);
         account.balance = Number(
@@ -410,10 +410,7 @@ export class CollectionsService implements OnModuleInit {
           dto.executionMode === ExecutionMode.IMMEDIATE ? new Date() : null,
         account,
         purchaseVisa: visa,
-        withService:
-          visa || account?.type === AccountType.PROFIT
-            ? (dto.withService ?? null)
-            : null,
+        withService: visa ? (dto.withService ?? null) : null,
         commission: dto.commission,
       });
 
@@ -481,7 +478,7 @@ export class CollectionsService implements OnModuleInit {
             reference,
             description:
               dto.commission < 0
-                ? `خصم مكسب QR عند التوريد لصالح ${dto.companyName}: ٤ جنيه لكل ألف`
+                ? `خصم مكسب عند التوريد لصالح ${dto.companyName}: ٤ جنيه لكل ألف`
                 : `عمولة تنفيذ لصالح ${dto.companyName}`,
             performedBy: username,
           });
@@ -584,17 +581,17 @@ export class CollectionsService implements OnModuleInit {
             }),
           );
         if (account.type === AccountType.PROFIT) {
-          dto.commission = profitCollectionCommissionFor(
+          dto.commission = -regularProfitCollectionCommission(
             Number(collection.amount),
-            dto.withService,
           );
-          collection.withService = dto.withService ?? null;
+          collection.withService = null;
         } else if (account.type === AccountType.PROFIT_QR) {
           dto.commission = -profitQrOutgoingFee(Number(collection.amount));
         }
         const accountDebit =
           Number(collection.amount) +
-          (account.type === AccountType.PROFIT_QR
+          (account.type === AccountType.PROFIT_QR ||
+          account.type === AccountType.PROFIT
             ? Math.abs(Number(dto.commission))
             : 0);
         if (Number(account.balance) < accountDebit)
@@ -608,7 +605,11 @@ export class CollectionsService implements OnModuleInit {
         account.balance = Number(
           (Number(account.balance) - accountDebit).toFixed(2),
         );
-        account.commissionBalance += dto.commission;
+        account.commissionBalance = Number(
+          (Number(account.commissionBalance) + Number(dto.commission)).toFixed(
+            2,
+          ),
+        );
         await manager.getRepository(FinancialAccount).save(account);
         collection.status = CollectionStatus.DONE;
         collection.executedAt = new Date();
@@ -633,7 +634,7 @@ export class CollectionsService implements OnModuleInit {
             reference: collection.reference,
             description:
               dto.commission < 0
-                ? `خصم مكسب QR عند تنفيذ المعلّق لصالح ${collection.companyName}: ٤ جنيه لكل ألف`
+                ? `خصم مكسب عند تنفيذ المعلّق لصالح ${collection.companyName}: ٤ جنيه لكل ألف`
                 : `عمولة تنفيذ المعلّق لصالح ${collection.companyName}`,
             performedBy: username,
           });
@@ -885,16 +886,6 @@ function lockAgentCredit(manager: EntityManager, agentName: string) {
   return manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
     `hesba:agent-credit:${agentName.trim().toLowerCase()}`,
   ]);
-}
-
-function profitCollectionCommissionFor(
-  amount: number,
-  withService?: boolean,
-): number {
-  if (typeof withService === 'boolean') {
-    return profitAccountServiceCommission(amount, withService);
-  }
-  return regularProfitCollectionCommission(amount);
 }
 
 async function applyHeldIncoming(

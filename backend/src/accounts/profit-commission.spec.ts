@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  profitAccountServiceCommission,
   purchaseVisaProfit,
   profitQrCustomerCommission,
   profitQrIncomingFee,
@@ -11,16 +10,40 @@ import {
 } from './profit-commission.js';
 
 describe('regular profit commission', () => {
+  it.each([
+    [1, 5],
+    [499.99, 5],
+    [500, 5],
+    [500.01, 10],
+    [800, 10],
+    [1000, 10],
+    [1000.01, 10],
+    [2000, 20],
+  ])('QR customer fee for %s is %s', (amount, fee) => {
+    expect(profitQrCustomerCommission(amount)).toBe(fee);
+  });
+
+  it('preserves piasters for deposits, transfers, collections and visa profit', () => {
+    expect(regularProfitDepositCommission(1234.56)).toBe(6.17);
+    expect(regularProfitWithdrawCommission(1234.56)).toBe(4.94);
+    expect(regularProfitCollectionCommission(1234.56)).toBe(4.94);
+    expect(regularProfitDepositCommission(1)).toBe(0.01);
+    expect(profitQrIncomingFee(2.5)).toBe(0.01);
+    expect(purchaseVisaProfit(1234.56, true)).toEqual({
+      grossProfit: 24.69,
+      serviceFee: 8.64,
+      netProfit: 16.05,
+    });
+  });
+
   it('pays 5,000 EGP on a full million and 5 EGP on each thousand', () => {
     expect(regularProfitDepositCommission(1_000_000)).toBe(5000);
     expect(regularProfitDepositCommission(1000)).toBe(5);
     expect(regularProfitDepositCommission(2500)).toBe(12.5);
   });
 
-  it('records 4 EGP per thousand on a profit collection unless service is chosen', () => {
+  it('records 4 EGP per thousand on a profit collection', () => {
     expect(regularProfitCollectionCommission(1000)).toBe(4);
-    expect(profitAccountServiceCommission(1000, false)).toBe(20);
-    expect(profitAccountServiceCommission(1000, true)).toBe(13);
   });
 
   it('takes 4 EGP back on each thousand transferred out', () => {

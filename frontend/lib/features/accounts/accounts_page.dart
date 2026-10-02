@@ -111,8 +111,8 @@ class _AccountsPageState extends State<AccountsPage> {
                 ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
                 : 'متابعة الرصيد والترحيل لكل حساب'
           : isProfitQr
-          ? 'العميل يحوّل على QR ثم يستلم كاش: ١٠ جنيه لكل ألف للعميل، وخصم مكسب ٢ جنيه لكل ألف. التوريد من الحساب عليه خصم ٤ جنيه لكل ألف.'
-          : 'حساب مكسب عادي. الشحن والتحويل زي أي حساب، والحد مليون جنيه. عمولة الشحن ٥ جنيه لكل ألف، وخصم ٤ جنيه لكل ألف عند التحويل من الحساب.',
+          ? 'العميل يحوّل على QR ثم يستلم كاش: عمولة العميل ٥ جنيه لحد ٥٠٠، و١٠ جنيه لحد ألف، وفوق ألف ١٠ جنيه لكل ألف، وخصم مكسب ٢ جنيه لكل ألف. التوريد من الحساب عليه خصم ٤ جنيه لكل ألف.'
+          : 'حساب مكسب عادي. حد الرصيد قبل زيادة الشحن مليون جنيه. الشحن يضيف ٥ جنيه لكل ألف إلى رصيد الحساب، والتحويل يخصم ٤ جنيه لكل ألف من العمولات.',
       actions: [
         if (widget.session.can(AppPermissions.manageAssets))
           OutlinedButton.icon(
@@ -198,8 +198,8 @@ class _AccountsPageState extends State<AccountsPage> {
                             note: isFawry
                                 ? 'نزلة فوري داخلة في رصيد الحساب'
                                 : isProfitQr
-                                ? '١٠ للعميل ناقص ٢ استقبال و٤ توريد لكل ألف'
-                                : '٥ جنيه لكل ألف شحن، و٤ جنيه تخصم لكل ألف تحويل',
+                                ? 'عمولة العميل للخزنة؛ خصم استقبال ٢ وتوريد ٤ لكل ألف'
+                                : 'زيادة الشحن تدخل الرصيد، و٤ جنيه تخصم من العمولات لكل ألف تحويل',
                             accent: true,
                           ),
                         MetricCard(
@@ -215,7 +215,7 @@ class _AccountsPageState extends State<AccountsPage> {
                             value: isFawry ? '5,000,000 ج.م' : '1,000,000 ج.م',
                             note: isFawry
                                 ? 'لكل حساب فوري'
-                                : 'لكل حساب مكسب عادي',
+                                : 'قبل إضافة زيادة الشحن',
                           ),
                       ],
                     );
@@ -415,7 +415,7 @@ class _AccountsPageState extends State<AccountsPage> {
               child: TextField(
                 controller: opening,
                 keyboardType: TextInputType.number,
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 decoration: const InputDecoration(),
               ),
             ),
@@ -546,7 +546,7 @@ class _AccountsPageState extends State<AccountsPage> {
                     child: TextField(
                       controller: amount,
                       keyboardType: TextInputType.number,
-                      inputFormatters: const [ArabicDigitsFormatter()],
+                      inputFormatters: const [MoneyInputFormatter()],
                       decoration: const InputDecoration(),
                       onChanged: (_) => setLocal(() => formError = null),
                     ),
@@ -554,7 +554,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 if (!widget.isFawry) ...[
                   const SizedBox(height: 10),
                   Text(
-                    'العمولة ٥ جنيه لكل ألف وتضاف لرصيد العمولات، من غير ما تتخصم من مبلغ الشحن.',
+                    'كل ألف شحن يضيف ٥ جنيه زيادة على رصيد الحساب نفسه، وتقدر تستخدم الزيادة.',
                     style: HesbaText.caption,
                   ),
                 ],
@@ -617,6 +617,7 @@ class _AccountsPageState extends State<AccountsPage> {
     var id = '${active.first['id']}';
     final cashAmount = TextEditingController();
     final reference = TextEditingController();
+    var commissionInCash = false;
     final ok = await showHesbaModal<bool>(
       context: context,
       maxWidth: 560,
@@ -624,14 +625,15 @@ class _AccountsPageState extends State<AccountsPage> {
         builder: (ctx, setLocal) {
           final breakdown = profitQrCashOutBreakdown(
             parseNum(cashAmount.text.trim()),
+            commissionInCash: commissionInCash,
           );
           return HesbaModalCard(
             title: 'سحب كاش لعميل من مكسب QR',
             subtitle:
-                'اكتب الكاش اللي العميل هياخده، والنظام يحسب المبلغ المطلوب تحويله وكل الخصومات.',
+                'اكتب المبلغ اللي العميل حوّله، واختار طريقة تحصيل عمولتك في الخزنة.',
             actions: HesbaModalActions(
               primaryLabel: 'تنفيذ العملية',
-              primaryEnabled: breakdown != null,
+              primaryEnabled: breakdown != null && breakdown.cashAmount >= 0,
               onPrimary: () => Navigator.pop(ctx, true),
               onCancel: () => Navigator.pop(ctx, false),
             ),
@@ -657,16 +659,27 @@ class _AccountsPageState extends State<AccountsPage> {
                 ),
                 const SizedBox(height: 18),
                 HesbaModalField(
-                  label: 'الكاش المطلوب للعميل *',
+                  label: 'المبلغ المحوّل من العميل *',
                   child: TextField(
                     controller: cashAmount,
                     keyboardType: TextInputType.number,
-                    inputFormatters: const [ArabicDigitsFormatter()],
+                    inputFormatters: const [MoneyInputFormatter()],
                     decoration: const InputDecoration(hintText: 'مثال: 1000'),
                     onChanged: (_) => setLocal(() {}),
                   ),
                 ),
                 const SizedBox(height: 18),
+                SwitchListTile(
+                  title: const Text('العمولة نقدًا من العميل'),
+                  subtitle: Text(
+                    commissionInCash
+                        ? 'تسلّم العميل المبلغ كاملًا وتحصّل العمولة نقدًا للخزنة.'
+                        : 'تخصم العمولة من الكاش اللي هتسلّمه للعميل وتفضل في الخزنة.',
+                  ),
+                  value: commissionInCash,
+                  onChanged: (value) =>
+                      setLocal(() => commissionInCash = value),
+                ),
                 HesbaModalField(
                   label: tr(
                     ar: 'رقم المرجع (اختياري)',
@@ -678,6 +691,10 @@ class _AccountsPageState extends State<AccountsPage> {
                   ),
                 ),
                 const SizedBox(height: 18),
+                if (breakdown != null && breakdown.cashAmount < 0)
+                  const Text(
+                    'المبلغ أقل من العمولة؛ اختار تحصيل العمولة نقدًا من العميل.',
+                  ),
                 HesbaModalCallout(
                   backgroundColor: breakdown == null
                       ? const Color(0xFFEEF4F7)
@@ -687,14 +704,12 @@ class _AccountsPageState extends State<AccountsPage> {
                       : HesbaColors.teal,
                   child: Text(
                     breakdown == null
-                        ? 'اكتب مبلغ الكاش لعرض حساب العملية.'
+                        ? 'اكتب المبلغ المحوّل لعرض حساب العملية.'
                         : 'العميل يحوّل ${money(breakdown.customerTransferAmount)}\n'
                               'تسلّم العميل ${money(breakdown.cashAmount)} كاش\n'
-                              'عمولة العميل ${money(breakdown.customerCommission)}\n'
+                              'عمولتك في الخزنة ${money(breakdown.customerCommission)}\n'
                               'خصم مكسب عند الدخول ${money(breakdown.providerIncomingFee)}\n'
-                              'يدخل رصيد QR ${money(breakdown.creditedAmount)}\n'
-                              'صافي العمولة قبل التوريد ${money(breakdown.netCommissionBeforeSettlement)}\n'
-                              'بعد خصم التوريد المتوقع ${money(breakdown.providerOutgoingFee)} يبقى صافي المكسب ${money(breakdown.finalNetCommission)}',
+                              'يدخل رصيد QR ${money(breakdown.creditedAmount)}',
                   ),
                 ),
               ],
@@ -708,6 +723,7 @@ class _AccountsPageState extends State<AccountsPage> {
       await _action(
         () => widget.session.api.post(ApiEndpoints.profitQrCashOut(id), {
           'cashAmount': parseNum(cashAmount.text.trim()),
+          'commissionMethod': commissionInCash ? 'cash' : 'deduct',
           if (referenceText.isNotEmpty) 'reference': referenceText,
         }),
       );
@@ -873,7 +889,7 @@ class _DailyCommissionDialogState extends State<_DailyCommissionDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 textDirection: TextDirection.ltr,
                 decoration: const InputDecoration(),
               ),

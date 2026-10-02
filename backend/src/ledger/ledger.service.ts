@@ -131,7 +131,14 @@ export class LedgerService {
         throw new NotFoundException(
           msg({ ar: 'الحساب غير موجود', en: 'Account not found' }),
         );
-      if (account.balance < entry.amount || account.todayTopUp < entry.amount) {
+      const depositBonus =
+        entry.metadata?.profitDepositCreditedToBalance === true
+          ? Number(entry.metadata.profitDepositCommission ?? 0)
+          : 0;
+      if (
+        Number(account.balance) < Number(entry.amount) + depositBonus ||
+        account.todayTopUp < entry.amount
+      ) {
         throw new BadRequestException(
           msg({
             ar: 'لا يمكن عكس الشحن بعد استخدام الرصيد أو بعد إقفال يومه',
@@ -266,11 +273,17 @@ export class LedgerService {
         msg({ ar: 'الحساب غير موجود', en: 'Account not found' }),
       );
     }
-    account.commissionBalance = Number(
-      (Number(account.commissionBalance) - Number(commission.amount)).toFixed(
-        2,
-      ),
-    );
+    if (commission.metadata?.profitDepositCreditedToBalance === true) {
+      account.balance = Number(
+        (Number(account.balance) - Number(commission.amount)).toFixed(2),
+      );
+    } else {
+      account.commissionBalance = Number(
+        (Number(account.commissionBalance) - Number(commission.amount)).toFixed(
+          2,
+        ),
+      );
+    }
     await manager.save(account);
     await repo.save({
       category: LedgerCategory.REVERSAL,
@@ -394,7 +407,17 @@ export class LedgerService {
     const accountId = entry.targetId;
     const creditedAmount = Number(entry.metadata?.creditedAmount);
     const netCommission = Number(entry.metadata?.netCommission);
+    const treasuryCommission =
+      entry.metadata?.customerCommissionToTreasury === true;
+    const accountCommissionChange = treasuryCommission
+      ? Number(entry.metadata?.accountCommissionChange)
+      : netCommission;
+    const treasuryDebit = treasuryCommission
+      ? Number(entry.metadata?.treasuryDebit)
+      : Number(entry.amount);
     if (
+      !Number.isFinite(accountCommissionChange) ||
+      !Number.isFinite(treasuryDebit) ||
       !accountId ||
       !Number.isFinite(creditedAmount) ||
       !Number.isFinite(netCommission)
@@ -424,7 +447,7 @@ export class LedgerService {
     }
     if (
       Number(account.balance) < creditedAmount ||
-      Number(account.commissionBalance) < netCommission
+      (!treasuryCommission && Number(account.commissionBalance) < netCommission)
     ) {
       throw new BadRequestException(
         msg({
@@ -435,13 +458,13 @@ export class LedgerService {
     }
 
     treasury.balance = Number(
-      (Number(treasury.balance) + Number(entry.amount)).toFixed(2),
+      (Number(treasury.balance) + treasuryDebit).toFixed(2),
     );
     account.balance = Number(
       (Number(account.balance) - creditedAmount).toFixed(2),
     );
     account.commissionBalance = Number(
-      (Number(account.commissionBalance) - netCommission).toFixed(2),
+      (Number(account.commissionBalance) - accountCommissionChange).toFixed(2),
     );
     await manager.save(treasury);
     await manager.save(account);

@@ -68,7 +68,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   num get _requiredBalance {
     final amount = parseNum(_amount.text.trim()) ?? 0;
-    if (_selectedIsProfitQr) return amount + profitCollectionCommission(amount);
+    if (_selectedIsProfit || _selectedIsProfitQr) {
+      return amount + profitCollectionCommission(amount);
+    }
     return amount;
   }
 
@@ -281,7 +283,6 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         'withService': _withService,
       } else if (_isImmediate) ...{
         'accountId': _selectedSourceId,
-        if (_selectedIsProfit) 'withService': _withService,
       },
       if (_useAgentCredit) ...{
         'useAgentCredit': true,
@@ -509,12 +510,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       return 'يدخل الكاش الخزنة وينخفض رصيد حساب فوري. العمولة بتتسجل نزلة في اليوم التالي.';
     }
     if (_selectedIsProfit) {
-      final amount = parseNum(_amount.text.trim()) ?? 0;
-      final commission = purchaseVisaCollectionProfit(amount, _withService);
-      final service = _withService
-          ? 'بخدمة، والعمولة ١٣ جنيه لكل ألف (${money(commission)}).'
-          : 'من غير خدمة، والعمولة ٢٠ جنيه لكل ألف (${money(commission)}).';
-      return 'يدخل الكاش الخزنة وينخفض رصيد حساب المكسب. $service';
+      return _profitDebitMessage();
     }
     if (_selectedIsProfitQr) {
       final amount = parseNum(_amount.text.trim()) ?? 0;
@@ -591,7 +587,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                     if (_isImmediate && _selectedIsProfit)
                       SizedBox(
                         width: constraints.maxWidth,
-                        child: _profitServiceField(),
+                        child: _profitDebitNotice(),
                       ),
                     if (_isImmediate && _selectedIsProfitQr)
                       SizedBox(
@@ -1064,45 +1060,15 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     );
   }
 
-  Widget _profitServiceField() {
+  String _profitDebitMessage() {
     final amount = parseNum(_amount.text.trim()) ?? 0;
-    final commission = purchaseVisaCollectionProfit(amount, _withService);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: _ServiceChoice(
-                title: 'من غير خدمة',
-                subtitle: 'العمولة ٢٠ جنيه على كل ألف',
-                selected: !_withService,
-                onTap: _saving
-                    ? null
-                    : () => setState(() => _withService = false),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _ServiceChoice(
-                title: 'بخدمة ماكينة',
-                subtitle: 'الماكينة بتاخد ٧، والعمولة ١٣',
-                selected: _withService,
-                onTap: _saving
-                    ? null
-                    : () => setState(() => _withService = true),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        HesbaModalCallout(
-          child: Text(
-            'هيتسحب ${money(amount)} من حساب المكسب، والعمولة ${money(commission)} تتسجل على الحساب.',
-          ),
-        ),
-      ],
-    );
+    final fee = profitCollectionCommission(amount);
+    final remaining = (_selectedBalance ?? 0) - _requiredBalance;
+    return 'مبلغ التوريد ${money(amount)}، وخصم مكسب ${money(fee)} (٤ جنيه لكل ألف). هيتسحب إجمالي ${money(_requiredBalance)} من الحساب. الرصيد بعد التنفيذ ${money(remaining)}.';
+  }
+
+  Widget _profitDebitNotice() {
+    return HesbaModalCallout(child: Text(_profitDebitMessage()));
   }
 
   Widget _sourceOption(String label, num balance, num needed) {
@@ -1162,7 +1128,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
               child: _sourceOption(
                 '${item['name']} — ${money(item['balance'])}',
                 num.tryParse('${item['balance']}') ?? 0,
-                item['type'] == 'profit_qr'
+                (item['type'] == 'profit_qr' || item['type'] == 'profit')
                     ? (parseNum(_amount.text.trim()) ?? 0) +
                           profitCollectionCommission(
                             parseNum(_amount.text.trim()) ?? 0,
@@ -1210,7 +1176,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         keyboardType: numeric
             ? const TextInputType.numberWithOptions(decimal: true)
             : TextInputType.text,
-        inputFormatters: numeric ? const [ArabicDigitsFormatter()] : null,
+        inputFormatters: numeric ? const [MoneyInputFormatter()] : null,
         textDirection: numeric ? TextDirection.ltr : TextDirection.rtl,
         textAlign: numeric ? TextAlign.left : TextAlign.right,
         validator:

@@ -20,18 +20,27 @@ class ProfitQrCashOutBreakdown {
   final num finalNetCommission;
 }
 
-ProfitQrCashOutBreakdown? profitQrCashOutBreakdown(num? cashAmount) {
+ProfitQrCashOutBreakdown? profitQrCashOutBreakdown(
+  num? cashAmount, {
+  bool commissionInCash = false,
+}) {
   if (cashAmount == null || cashAmount <= 0) return null;
-  final customerCommission = _perThousand(cashAmount, 10);
+  final customerCommission = cashAmount <= 500
+      ? 5
+      : cashAmount <= 1000
+      ? 10
+      : _perThousand(cashAmount, 10);
   final providerIncomingFee = _perThousand(cashAmount, 2);
   final providerOutgoingFee = _perThousand(cashAmount, 4);
-  final customerTransferAmount = _money(cashAmount + customerCommission);
+  final customerTransferAmount = _money(cashAmount);
   final creditedAmount = _money(customerTransferAmount - providerIncomingFee);
   final netCommissionBeforeSettlement = _money(
     customerCommission - providerIncomingFee,
   );
   return ProfitQrCashOutBreakdown(
-    cashAmount: _money(cashAmount),
+    cashAmount: _money(
+      commissionInCash ? cashAmount : cashAmount - customerCommission,
+    ),
     customerCommission: customerCommission,
     providerIncomingFee: providerIncomingFee,
     customerTransferAmount: customerTransferAmount,

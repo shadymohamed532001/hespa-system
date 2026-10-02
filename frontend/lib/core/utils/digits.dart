@@ -85,3 +85,63 @@ class ArabicDigitsFormatter extends TextInputFormatter {
     );
   }
 }
+
+/// Groups monetary input while preserving decimals and the editing selection.
+class MoneyInputFormatter extends TextInputFormatter {
+  const MoneyInputFormatter();
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (!newValue.composing.isCollapsed) return newValue;
+    var input = newValue.text;
+    var selection = newValue.selection;
+    // Backspacing over a separator should remove the preceding digit.
+    if (oldValue.selection.isCollapsed &&
+        selection.isCollapsed &&
+        oldValue.text.length == input.length + 1 &&
+        selection.extentOffset == oldValue.selection.extentOffset - 1 &&
+        selection.extentOffset > 0 &&
+        oldValue.text[selection.extentOffset] == ',') {
+      final offset = selection.extentOffset;
+      input = input.replaceRange(offset - 1, offset, '');
+      selection = TextSelection.collapsed(offset: offset - 1);
+    }
+    String clean(String value) =>
+        normalizeDigits(value).replaceAll(',', '').replaceAll(' ', '');
+    final raw = clean(input);
+    if (!RegExp(r'^\d*(\.\d*)?$').hasMatch(raw)) return oldValue;
+    final decimal = raw.indexOf('.');
+    final integerLength = decimal < 0 ? raw.length : decimal;
+    final buffer = StringBuffer();
+    final offsets = <int>[0];
+    for (var i = 0; i < raw.length; i++) {
+      if (i > 0 && i < integerLength && (integerLength - i) % 3 == 0) {
+        buffer.write(',');
+      }
+      buffer.write(raw[i]);
+      offsets.add(buffer.length);
+    }
+    final text = buffer.toString();
+    int mapOffset(int offset) {
+      final count = clean(
+        input.substring(0, offset.clamp(0, input.length)),
+      ).length;
+      return offsets[count];
+    }
+
+    return TextEditingValue(
+      text: text,
+      selection: selection.isValid
+          ? TextSelection(
+              baseOffset: mapOffset(selection.baseOffset),
+              extentOffset: mapOffset(selection.extentOffset),
+              affinity: selection.affinity,
+              isDirectional: selection.isDirectional,
+            )
+          : TextSelection.collapsed(offset: text.length),
+    );
+  }
+}

@@ -84,6 +84,7 @@ class _FawryCashInputState extends State<FawryCashInput> {
                       inputFormatters: [
                         const ArabicDigitsFormatter(),
                         FilteringTextInputFormatter.digitsOnly,
+                        const MoneyInputFormatter(),
                       ],
                       onChanged: (_) => _notify(),
                       decoration: InputDecoration(

@@ -312,7 +312,7 @@ class _CreateVisaDialogState extends State<_CreateVisaDialog> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
-              inputFormatters: const [ArabicDigitsFormatter()],
+              inputFormatters: const [MoneyInputFormatter()],
             ),
           ),
         ],

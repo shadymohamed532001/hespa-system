@@ -503,7 +503,7 @@ class _TopUpFormCard extends StatelessWidget {
                                         decimal: true,
                                       ),
                                   inputFormatters: const [
-                                    ArabicDigitsFormatter(),
+                                    MoneyInputFormatter(),
                                   ],
                                   decoration: const InputDecoration(),
                                   validator: (value) {

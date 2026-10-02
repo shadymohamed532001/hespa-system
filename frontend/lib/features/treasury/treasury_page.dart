@@ -120,7 +120,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 decoration: const InputDecoration(labelText: 'الرصيد المعدود'),
               ),
               const SizedBox(height: 14),
@@ -699,7 +699,7 @@ class _WithdrawDialogState extends State<_WithdrawDialog> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                inputFormatters: const [ArabicDigitsFormatter()],
+                inputFormatters: const [MoneyInputFormatter()],
                 onChanged: (_) => setState(() {}),
               ),
             ),

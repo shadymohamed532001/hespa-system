@@ -114,10 +114,6 @@ class _CollectionsPageState extends State<CollectionsPage> {
 String _executionName(dynamic row) {
   final account = row['account'];
   if (account is Map && '${account['name']}'.trim().isNotEmpty) {
-    if ('${account['type']}' == 'profit' && row['withService'] != null) {
-      final service = row['withService'] == true ? 'بخدمة' : 'من غير خدمة';
-      return '${account['name']} · $service';
-    }
     return '${account['name']}';
   }
   final visa = row['purchaseVisa'];
