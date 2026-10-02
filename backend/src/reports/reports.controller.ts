@@ -1,11 +1,9 @@
 import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
-import { AppPermission, UserRole } from '../database/enums.js';
+import { AppPermission } from '../database/enums.js';
 import { ReportsService } from './reports.service.js';
 import { msg } from '../common/i18n/locale-context.js';
-import { Roles } from '../common/decorators/roles.decorator.js';
 
-@Roles(UserRole.ADMIN)
 @RequirePermissions(AppPermission.VIEW_BALANCES)
 @Controller('reports')
 export class ReportsController {

@@ -358,19 +358,23 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
             ],
             const SizedBox(height: 18),
             if (_visa) _serviceChoices(),
-            if (_profit)
+            if (_profit && widget.session.isAdmin)
               HesbaModalCallout(
                 child: Text(
                   'مبلغ التوريد ${money(_amount)}، وخصم مكسب ${money(profitCollectionCommission(_amount))} (٤ جنيه لكل ألف). هيتسحب إجمالي ${money(_requiredBalance)} من الحساب. الرصيد بعد التنفيذ ${money((_selectedBalance ?? 0) - _requiredBalance)}.',
                 ),
               ),
-            if (_profitQr)
+            if (_profitQr && widget.session.isAdmin)
               HesbaModalCallout(
                 child: Text(
                   'خصم مكسب عند التوريد ${money(profitCollectionCommission(_amount))} — ٤ جنيه لكل ألف، ويُخصم فوق مبلغ العملية.',
                 ),
               ),
-            if (!_visa && !_profit && !_profitQr && !_fawry)
+            if (widget.session.isAdmin &&
+                !_visa &&
+                !_profit &&
+                !_profitQr &&
+                !_fawry)
               HesbaModalField(
                 label: tr(ar: 'العمولة', en: 'Commission'),
                 child: TextFormField(
@@ -458,7 +462,9 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
           children: [
             Expanded(
               child: ChoiceChip(
-                label: const Text('من غير خدمة · ٢٠'),
+                label: Text(
+                  widget.session.isAdmin ? 'من غير خدمة · ٢٠' : 'من غير خدمة',
+                ),
                 selected: !_withService,
                 onSelected: _saving
                     ? null
@@ -468,7 +474,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
             const SizedBox(width: 8),
             Expanded(
               child: ChoiceChip(
-                label: const Text('بخدمة · ١٣'),
+                label: Text(widget.session.isAdmin ? 'بخدمة · ١٣' : 'بخدمة'),
                 selected: _withService,
                 onSelected: _saving
                     ? null
@@ -480,7 +486,9 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
         const SizedBox(height: 10),
         HesbaModalCallout(
           child: Text(
-            'المكسب ${money(value)} بيدخل الخزنة، والفيزا بتنقص بالمبلغ.',
+            widget.session.isAdmin
+                ? 'المكسب ${money(value)} بيدخل الخزنة، والفيزا بتنقص بالمبلغ.'
+                : 'الفيزا بتنقص بمبلغ العملية.',
           ),
         ),
         const SizedBox(height: 8),

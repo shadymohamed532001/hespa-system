@@ -19,6 +19,10 @@ const PROFIT_KEYS = new Set([
   'profit',
   'totalprofit',
   'unitcost',
+  'servicefee',
+  'providerfee',
+  'providerincomingfee',
+  'provideroutgoingfee',
 ]);
 
 export function isProfitLedgerEntry(value: unknown): boolean {
@@ -43,7 +47,7 @@ export function isProfitLedgerEntry(value: unknown): boolean {
 
 /** Removes profit amounts embedded in otherwise operational descriptions. */
 export function redactProfitText(value: string): string {
-  return value
+  const redacted = value
     .replace(
       /[،,]?\s*(?:و)?عمولت(?:ه|ها)\s*[:：]?\s*[-+]?\d+(?:[.,]\d+)?(?:\s*ج\.?\s*م\.?)?/giu,
       '',
@@ -65,6 +69,11 @@ export function redactProfitText(value: string): string {
     .replace(/([،,])\s*([،,])/gu, '$1')
     .replace(/\s{2,}/gu, ' ')
     .trim();
+  return /(?:عمول|المكسب|خصم مكسب|commission|profit|provider.?fee)/iu.test(
+    redacted,
+  ) && /[0-9٠-٩]/u.test(redacted)
+    ? 'تفاصيل مالية متاحة للأدمن فقط'
+    : redacted;
 }
 
 /**
@@ -85,7 +94,11 @@ export function redactProfitData(value: unknown): unknown {
 
   const output: Record<string, unknown> = {};
   for (const [key, item] of Object.entries(value)) {
-    if (PROFIT_KEYS.has(key.toLowerCase())) continue;
+    if (
+      PROFIT_KEYS.has(key.toLowerCase()) ||
+      /commission|profit|fee/i.test(key)
+    )
+      continue;
     output[key] = redactProfitData(item);
   }
   return output;

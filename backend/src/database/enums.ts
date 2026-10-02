@@ -24,14 +24,10 @@ export enum AppPermission {
 
 export const ALL_PERMISSIONS = Object.values(AppPermission);
 
-export const DEFAULT_EMPLOYEE_PERMISSIONS: AppPermission[] = [
-  AppPermission.VIEW_BALANCES,
-  AppPermission.RECEIVE_COLLECTIONS,
-  AppPermission.SELL_INVENTORY,
-  AppPermission.MANAGE_INVENTORY,
-  AppPermission.USE_MACHINES,
-  AppPermission.USE_WALLETS,
-];
+export const DEFAULT_EMPLOYEE_PERMISSIONS: AppPermission[] =
+  ALL_PERMISSIONS.filter(
+    (permission) => permission !== AppPermission.MANAGE_USERS,
+  );
 
 export type UserLimits = {
   /** Max amount for a single cash receive / collection execute. null = unlimited */

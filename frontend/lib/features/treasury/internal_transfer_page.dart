@@ -136,6 +136,7 @@ class _InternalTransferPageState extends State<InternalTransferPage> {
                 const _TransferNotice(),
                 const SizedBox(height: 20),
                 _TransferFormCard(
+                  showProfits: widget.session.isAdmin,
                   formKey: _formKey,
                   assets: _assets,
                   fromValue: _fromValue,
@@ -217,6 +218,7 @@ class _TransferNotice extends StatelessWidget {
 
 class _TransferFormCard extends StatelessWidget {
   const _TransferFormCard({
+    required this.showProfits,
     required this.formKey,
     required this.assets,
     required this.fromValue,
@@ -229,6 +231,7 @@ class _TransferFormCard extends StatelessWidget {
     required this.onSubmit,
   });
 
+  final bool showProfits;
   final GlobalKey<FormState> formKey;
   final List<_TransferAsset> assets;
   final String? fromValue;
@@ -347,9 +350,12 @@ class _TransferFormCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      if (assets
-                          .where((asset) => asset.value == fromValue)
-                          .any((asset) => asset.accountType == 'profit')) ...[
+                      if (showProfits &&
+                          assets
+                              .where((asset) => asset.value == fromValue)
+                              .any(
+                                (asset) => asset.accountType == 'profit',
+                              )) ...[
                         const SizedBox(height: 14),
                         const Text(
                           'التحويل من حساب مكسب عادي يخصم ٤ جنيه عمولة لكل ألف من رصيد العمولات، وأصل المبلغ يتحول كامل.',

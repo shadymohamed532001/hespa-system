@@ -100,7 +100,9 @@ class _AccountsPageState extends State<AccountsPage> {
           : isProfitQr
           ? 'حسابات مكسب QR'
           : 'حسابات مكسب عادي',
-      subtitle: isFawry
+      subtitle: !widget.session.isAdmin
+          ? 'إدارة الحسابات والشحن والتحويلات'
+          : isFawry
           ? widget.session.isAdmin
                 ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
                 : 'متابعة الرصيد والترحيل لكل حساب'
@@ -236,7 +238,10 @@ class _AccountsPageState extends State<AccountsPage> {
     final active = account['active'] == true;
     final balance = num.tryParse('${account['balance']}') ?? 0;
     final commission = num.tryParse('${account['commissionBalance']}') ?? 0;
-    final canDelete = widget.session.isAdmin && balance == 0 && commission == 0;
+    final canDelete =
+        widget.session.can(AppPermissions.manageAssets) &&
+        balance == 0 &&
+        commission == 0;
     final typeLabel = _accountType('${account['type']}');
 
     final result = await showHesbaModal<_ManageAction>(
@@ -537,7 +542,7 @@ class _AccountsPageState extends State<AccountsPage> {
                       onChanged: (_) => setLocal(() => formError = null),
                     ),
                   ),
-                if (!widget.isFawry) ...[
+                if (!widget.isFawry && widget.session.isAdmin) ...[
                   const SizedBox(height: 10),
                   Text(
                     'كل ألف شحن يضيف ٥ جنيه زيادة على رصيد الحساب نفسه، وتقدر تستخدم الزيادة.',
@@ -692,6 +697,8 @@ class _AccountsPageState extends State<AccountsPage> {
                   child: Text(
                     breakdown == null
                         ? 'اكتب المبلغ المحوّل لعرض حساب العملية.'
+                        : !widget.session.isAdmin
+                        ? 'العميل يحوّل ${money(breakdown.customerTransferAmount)}\nتسلّم العميل ${money(breakdown.cashAmount)} كاش'
                         : 'العميل يحوّل ${money(breakdown.customerTransferAmount)}\n'
                               'تسلّم العميل ${money(breakdown.cashAmount)} كاش\n'
                               'عمولتك في الخزنة ${money(breakdown.customerCommission)}\n'

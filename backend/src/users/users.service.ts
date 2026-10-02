@@ -68,7 +68,12 @@ export class UsersService implements OnModuleInit {
     const permissions =
       user.role === UserRole.ADMIN
         ? [...ALL_PERMISSIONS]
-        : [...(user.permissions ?? DEFAULT_EMPLOYEE_PERMISSIONS)];
+        : [
+            ...new Set([
+              ...DEFAULT_EMPLOYEE_PERMISSIONS,
+              ...(user.permissions ?? []),
+            ]),
+          ];
     return {
       id: user.id,
       username: user.username,
@@ -291,7 +296,10 @@ export class UsersService implements OnModuleInit {
   async hasPermissions(userId: string, required: AppPermission[]) {
     const user = await this.findActiveById(userId);
     if (user.role === UserRole.ADMIN) return true;
-    const owned = new Set(user.permissions ?? []);
+    const owned = new Set([
+      ...DEFAULT_EMPLOYEE_PERMISSIONS,
+      ...(user.permissions ?? []),
+    ]);
     return required.every((p) => owned.has(p));
   }
 

@@ -6,6 +6,27 @@ import {
 } from './profit-visibility.interceptor.js';
 
 describe('profit visibility redaction', () => {
+  it('removes commission and provider fee details from operation responses and metadata', () => {
+    expect(
+      redactProfitData({
+        balance: 998,
+        customerCommission: 10,
+        providerFee: 2,
+        netCommission: 8,
+        treasuryBalance: 500,
+        metadata: {
+          profitDepositCommission: 5,
+          providerIncomingFee: 2,
+          sourceId: 'source',
+        },
+      }),
+    ).toEqual({
+      balance: 998,
+      treasuryBalance: 500,
+      metadata: { sourceId: 'source' },
+    });
+  });
+
   it('removes profit fields recursively without changing operational values', () => {
     const result = redactProfitData({
       balance: 120,

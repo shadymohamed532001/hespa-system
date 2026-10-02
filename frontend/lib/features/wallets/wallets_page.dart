@@ -471,7 +471,9 @@ class _WalletsPageState extends State<WalletsPage> {
                         ? 'اكتب مبلغًا صحيحًا لعرض العمولة والكاش.'
                         : !canSubmit
                         ? 'المبلغ أقل من العمولة؛ اختر تحصيل العمولة منفصلة.'
-                        : 'العمولة ${money(fee)} · تستلم كاش ${money(cashToCollect)} · تسلّم كاش ${money(cashToPay)}',
+                        : widget.session.isAdmin
+                        ? 'العمولة ${money(fee)} · تستلم كاش ${money(cashToCollect)} · تسلّم كاش ${money(cashToPay)}'
+                        : 'تستلم كاش ${money(cashToCollect)} · تسلّم كاش ${money(cashToPay)}',
                   ),
                 ),
               ],
@@ -498,7 +500,10 @@ class _WalletsPageState extends State<WalletsPage> {
     final active = wallet['active'] == true;
     final balance = num.tryParse('${wallet['balance']}') ?? 0;
     final commission = num.tryParse('${wallet['commissionBalance']}') ?? 0;
-    final canDelete = widget.session.isAdmin && balance == 0 && commission == 0;
+    final canDelete =
+        widget.session.can(AppPermissions.manageAssets) &&
+        balance == 0 &&
+        commission == 0;
     final result = await showHesbaModal<_WalletAction>(
       context: context,
       builder: (ctx) => HesbaModalCard(

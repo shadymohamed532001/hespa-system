@@ -68,7 +68,10 @@ class SessionController extends ChangeNotifier {
   bool get isAdmin => role == 'admin';
 
   bool can(String permission) {
-    if (isAdmin) return true;
+    if (isAdmin ||
+        (role == 'employee' && permission != AppPermissions.manageUsers)) {
+      return true;
+    }
     return permissions.contains(permission);
   }
 

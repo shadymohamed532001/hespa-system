@@ -500,6 +500,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     }
     if (_selectedIsVisa) {
       final amount = parseNum(_amount.text.trim()) ?? 0;
+      if (!widget.session.isAdmin) {
+        return 'يتسحب ${money(amount)} من الفيزا ويدخل الكاش الخزنة.';
+      }
       final profit = purchaseVisaCollectionProfit(amount, _withService);
       final service = _withService
           ? 'بخدمة، والمكسب ١٣ جنيه لكل ألف (${money(profit)}).'
@@ -513,6 +516,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       return _profitDebitMessage();
     }
     if (_selectedIsProfitQr) {
+      if (!widget.session.isAdmin) {
+        return 'يتسحب إجمالي ${money(_requiredBalance)} من حساب مكسب QR.';
+      }
       final amount = parseNum(_amount.text.trim()) ?? 0;
       final fee = profitCollectionCommission(amount);
       return 'يدخل الكاش الخزنة، ويُخصم من حساب مكسب QR المبلغ وخصم مكسب ${money(fee)} (٤ جنيه لكل ألف).';
@@ -589,7 +595,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                         width: constraints.maxWidth,
                         child: _profitDebitNotice(),
                       ),
-                    if (_isImmediate && _selectedIsProfitQr)
+                    if (_isImmediate &&
+                        _selectedIsProfitQr &&
+                        widget.session.isAdmin)
                       SizedBox(
                         width: width,
                         child: HesbaModalCallout(
@@ -599,6 +607,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                         ),
                       )
                     else if (_isImmediate &&
+                        widget.session.isAdmin &&
                         !_selectedIsFawry &&
                         !_selectedIsVisa &&
                         !_selectedIsProfit)
@@ -1030,7 +1039,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             Expanded(
               child: _ServiceChoice(
                 title: 'من غير خدمة',
-                subtitle: 'المكسب ٢٠ جنيه على كل ألف',
+                subtitle: widget.session.isAdmin
+                    ? 'المكسب ٢٠ جنيه على كل ألف'
+                    : 'تنفيذ من غير خدمة',
                 selected: !_withService,
                 onTap: _saving
                     ? null
@@ -1041,7 +1052,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             Expanded(
               child: _ServiceChoice(
                 title: 'بخدمة ماكينة',
-                subtitle: 'الماكينة بتاخد ٧، والمكسب ١٣',
+                subtitle: widget.session.isAdmin
+                    ? 'الماكينة بتاخد ٧، والمكسب ١٣'
+                    : 'تنفيذ بخدمة ماكينة',
                 selected: _withService,
                 onTap: _saving
                     ? null
@@ -1053,7 +1066,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
         const SizedBox(height: 10),
         HesbaModalCallout(
           child: Text(
-            'هيتسحب ${money(amount)} من الفيزا، والمكسب ${money(profit)} هيدخل الخزنة مع الكاش.',
+            widget.session.isAdmin
+                ? 'هيتسحب ${money(amount)} من الفيزا، والمكسب ${money(profit)} هيدخل الخزنة مع الكاش.'
+                : 'هيتسحب ${money(amount)} من الفيزا.',
           ),
         ),
       ],
@@ -1061,6 +1076,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   String _profitDebitMessage() {
+    if (!widget.session.isAdmin) {
+      return 'هيتسحب إجمالي ${money(_requiredBalance)} من الحساب.';
+    }
     final amount = parseNum(_amount.text.trim()) ?? 0;
     final fee = profitCollectionCommission(amount);
     final remaining = (_selectedBalance ?? 0) - _requiredBalance;

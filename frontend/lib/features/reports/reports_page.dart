@@ -131,7 +131,7 @@ class _ReportsPageState extends State<ReportsPage> {
           else if (error != null)
             ErrorBox(message: error!, retry: load)
           else
-            _ReportContent(report: report),
+            _ReportContent(report: report, showProfits: widget.session.isAdmin),
         ],
       ),
     );
@@ -253,7 +253,9 @@ class _QuickButton extends StatelessWidget {
 }
 
 class _ReportContent extends StatelessWidget {
-  const _ReportContent({required this.report});
+  const _ReportContent({required this.report, required this.showProfits});
+
+  final bool showProfits;
 
   final Map<String, dynamic> report;
 
@@ -305,14 +307,15 @@ class _ReportContent extends StatelessWidget {
                   value: money(summary['net']),
                   note: 'الإيداعات ناقص السحب',
                 ),
-                MetricCard(
-                  label: tr(ar: 'العمولات', en: 'Commissions'),
-                  value: money(summary['commissions']),
-                  note: tr(
-                    ar: 'مسجلة منفصلة عن أصل المبالغ',
-                    en: 'Recorded separately from principal amounts',
+                if (showProfits)
+                  MetricCard(
+                    label: tr(ar: 'العمولات', en: 'Commissions'),
+                    value: money(summary['commissions']),
+                    note: tr(
+                      ar: 'مسجلة منفصلة عن أصل المبالغ',
+                      en: 'Recorded separately from principal amounts',
+                    ),
                   ),
-                ),
                 MetricCard(
                   label: 'مبيعات المخزن',
                   value: money(summary['salesAmount']),
@@ -352,7 +355,7 @@ class _ReportContent extends StatelessWidget {
             tr(ar: 'الرصيد الحالي', en: 'Current balance'),
             'إيداعات',
             'سحب / استخدام',
-            'عمولات',
+            if (showProfits) 'عمولات',
             tr(ar: 'صافي الحركة', en: 'Net movement'),
             'الحركات',
           ],
@@ -364,7 +367,7 @@ class _ReportContent extends StatelessWidget {
                   money(row['currentBalance']),
                   money(row['deposits']),
                   money(row['withdrawals']),
-                  money(row['commissions']),
+                  if (showProfits) money(row['commissions']),
                   money(row['net']),
                   '${row['operationCount'] ?? 0}',
                 ],
@@ -385,7 +388,7 @@ class _ReportContent extends StatelessWidget {
             'السحب / الاستخدام',
             tr(ar: 'صافي الحركة', en: 'Net movement'),
             'المبيعات',
-            tr(ar: 'العمولات', en: 'Commissions'),
+            if (showProfits) tr(ar: 'العمولات', en: 'Commissions'),
             'عدد الحركات',
           ],
           rows: daily
@@ -396,7 +399,7 @@ class _ReportContent extends StatelessWidget {
                   money(row['withdrawals']),
                   money(row['net']),
                   money(row['sales']),
-                  money(row['commissions']),
+                  if (showProfits) money(row['commissions']),
                   '${row['operationCount'] ?? 0}',
                 ],
               )
