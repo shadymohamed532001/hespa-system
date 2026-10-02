@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
   IsDefined,
@@ -8,6 +8,7 @@ import {
   Max,
   MaxLength,
   Min,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 
@@ -44,8 +45,16 @@ export class FawryCashCountsDto {
 }
 
 export class RecordFawryDepositDto {
+  @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @IsString()
+  @MinLength(1)
+  @MaxLength(120)
+  depositorName?: string;
+
+  @IsOptional()
   @IsUUID()
-  depositorUserId: string;
+  depositorUserId?: string;
 
   @IsDefined()
   @ValidateNested()

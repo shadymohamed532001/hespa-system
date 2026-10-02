@@ -23,9 +23,10 @@ export function walletCommission(
     return commissionCents / 100;
   }
 
-  if (direction === 'receive') {
+  if (direction === 'send') {
     if (cents <= 20_000) return 5;
-    return 10;
+    if (cents <= 100_000) return 10;
+    return Math.round(cents / 100) / 100;
   }
 
   const completeThousands = Math.floor((cents - 1) / 100_000);

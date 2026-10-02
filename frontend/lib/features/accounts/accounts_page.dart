@@ -32,7 +32,6 @@ class AccountsPage extends StatefulWidget {
 
 class _AccountsPageState extends State<AccountsPage> {
   List<dynamic> data = [];
-  List<dynamic> fawryDepositors = [];
   Map<String, num> todayDrops = {};
   String? dropsError;
   bool loading = true;
@@ -52,11 +51,6 @@ class _AccountsPageState extends State<AccountsPage> {
           includeInactive: widget.session.can(AppPermissions.manageAssets),
         ),
       );
-      if (widget.session.can(AppPermissions.topUpAssets)) {
-        fawryDepositors = await widget.session.api.list(
-          ApiEndpoints.fawryDepositors,
-        );
-      }
       final drops = await _loadTodayDrops();
       todayDrops = drops.amounts;
       dropsError = drops.error;
@@ -443,9 +437,7 @@ class _AccountsPageState extends State<AccountsPage> {
     var id = '${active.first['id']}';
     final amount = TextEditingController();
     final reference = TextEditingController();
-    var depositorId = fawryDepositors.isEmpty
-        ? null
-        : '${fawryDepositors.first['id']}';
+    final depositorName = TextEditingController();
     var cashCounts = emptyFawryCashCounts();
     String? formError;
     bool selectedIsFawry() =>
@@ -460,10 +452,10 @@ class _AccountsPageState extends State<AccountsPage> {
             title: isFawry ? 'تسجيل إيداع فوري' : 'شحن الحساب',
             subtitle: tr(
               ar: isFawry
-                  ? 'اختار الشخص واكتب عدد الورقات، والإجمالي هيتحسب تلقائيًا.'
+                  ? 'اكتب اسم الشخص وعدد الورقات، والإجمالي هيتحسب تلقائيًا.'
                   : 'أضف رصيدًا مباشرًا للحساب المحدد.',
               en: isFawry
-                  ? 'Choose the depositor and enter the banknote counts.'
+                  ? 'Enter the depositor name and the banknote counts.'
                   : 'Add balance directly to the selected account.',
             ),
             actions: HesbaModalActions(
@@ -471,8 +463,10 @@ class _AccountsPageState extends State<AccountsPage> {
                   ? 'تسجيل الإيداع'
                   : tr(ar: 'إضافة الرصيد', en: 'Add balance'),
               onPrimary: () {
-                if (isFawry && depositorId == null) {
-                  setLocal(() => formError = 'لا يوجد موظف نشط لاختياره');
+                if (isFawry && depositorName.text.trim().isEmpty) {
+                  setLocal(
+                    () => formError = 'اكتب اسم الشخص الذي قام بالإيداع',
+                  );
                   return;
                 }
                 if (isFawry && fawryCashTotal(cashCounts) <= 0) {
@@ -513,21 +507,13 @@ class _AccountsPageState extends State<AccountsPage> {
                 if (isFawry) ...[
                   HesbaModalField(
                     label: 'مين عمل الإيداع؟ *',
-                    child: DropdownButtonFormField<String>(
-                      initialValue: depositorId,
-                      isExpanded: true,
-                      decoration: const InputDecoration(),
-                      items: [
-                        for (final person in fawryDepositors)
-                          DropdownMenuItem(
-                            value: '${person['id']}',
-                            child: Text('${person['displayName']}'),
-                          ),
-                      ],
-                      onChanged: (value) => setLocal(() {
-                        depositorId = value;
-                        formError = null;
-                      }),
+                    child: TextField(
+                      controller: depositorName,
+                      maxLength: 120,
+                      decoration: const InputDecoration(
+                        hintText: 'اكتب اسم اللي عمل الإيداع',
+                      ),
+                      onChanged: (_) => setLocal(() => formError = null),
                     ),
                   ),
                   const SizedBox(height: 18),
@@ -593,7 +579,7 @@ class _AccountsPageState extends State<AccountsPage> {
               : ApiEndpoints.accountTopUp(id),
           isFawry
               ? {
-                  'depositorUserId': depositorId,
+                  'depositorName': depositorName.text.trim(),
                   'cashCounts': cashCounts,
                   if (referenceText.isNotEmpty) 'reference': referenceText,
                 }
@@ -605,6 +591,7 @@ class _AccountsPageState extends State<AccountsPage> {
       );
     }
     amount.dispose();
+    depositorName.dispose();
     reference.dispose();
   }
 

@@ -197,17 +197,7 @@ describe('financial operations (e2e)', () => {
     expect(account?.balance).toBe(1100);
   });
 
-  it('records a Fawry deposit from banknote counts and the selected depositor', async () => {
-    const depositors = await request(app.getHttpServer())
-      .get('/api/accounts/fawry-depositors')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-    expect(depositors.body.length).toBeGreaterThan(0);
-    const depositor = depositors.body[0] as {
-      id: string;
-      displayName: string;
-    };
-
+  it('records a Fawry deposit from banknote counts and a typed external name', async () => {
     const created = await request(app.getHttpServer())
       .post('/api/accounts')
       .set(mutation(`create-fawry-deposit-${randomUUID()}`))
@@ -223,7 +213,7 @@ describe('financial operations (e2e)', () => {
       .post(`/api/accounts/${created.body.id}/fawry-deposit`)
       .set(mutation(`record-fawry-deposit-${randomUUID()}`))
       .send({
-        depositorUserId: depositor.id,
+        depositorName: '  أحمد عميل خارجي  ',
         cashCounts: {
           count200: 2,
           count100: 1,
@@ -237,8 +227,8 @@ describe('financial operations (e2e)', () => {
       .expect(201);
     expect(recorded.body.deposit).toMatchObject({
       accountId: created.body.id,
-      depositorUserId: depositor.id,
-      depositorName: depositor.displayName,
+      depositorUserId: null,
+      depositorName: 'أحمد عميل خارجي',
       amount: 550,
       reference,
     });
@@ -253,7 +243,7 @@ describe('financial operations (e2e)', () => {
           expect.arrayContaining([
             expect.objectContaining({
               id: recorded.body.deposit.id,
-              depositorName: depositor.displayName,
+              depositorName: 'أحمد عميل خارجي',
               amount: 550,
             }),
           ]),

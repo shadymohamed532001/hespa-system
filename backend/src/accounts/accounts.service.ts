@@ -397,14 +397,21 @@ export class AccountsService implements OnModuleInit {
     }
 
     return this.dataSource.transaction(async (manager) => {
-      const depositor = await manager.getRepository(User).findOne({
-        where: { id: dto.depositorUserId, active: true },
-        lock: { mode: 'pessimistic_read' },
-      });
-      if (!depositor) {
+      const depositor =
+        !dto.depositorName?.trim() && dto.depositorUserId
+          ? await manager.getRepository(User).findOne({
+              where: { id: dto.depositorUserId, active: true },
+              lock: { mode: 'pessimistic_read' },
+            })
+          : null;
+      const depositorName =
+        dto.depositorName?.trim() ||
+        depositor?.displayName ||
+        depositor?.username;
+      if (!depositorName) {
         throw new NotFoundException(
           msg({
-            ar: 'الشخص الذي قام بالإيداع غير موجود أو غير نشط',
+            ar: 'اكتب اسم الشخص الذي قام بالإيداع',
             en: 'The depositor was not found or is inactive',
           }),
         );
@@ -448,13 +455,12 @@ export class AccountsService implements OnModuleInit {
       );
       await accounts.save(account);
 
-      const depositorName = depositor.displayName || depositor.username;
       const reference = dto.reference?.trim() || null;
       const depositRepo = manager.getRepository(FawryDeposit);
       const deposit = await depositRepo.save(
         depositRepo.create({
           accountId: account.id,
-          depositorUserId: depositor.id,
+          depositorUserId: depositor?.id ?? null,
           depositorName,
           cashCounts,
           amount,
@@ -475,7 +481,7 @@ export class AccountsService implements OnModuleInit {
         metadata: {
           fawryDeposit: true,
           fawryDepositId: deposit.id,
-          depositorUserId: depositor.id,
+          depositorUserId: depositor?.id ?? null,
           depositorName,
           cashCounts,
         },

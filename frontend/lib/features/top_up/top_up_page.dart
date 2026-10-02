@@ -33,9 +33,8 @@ class _TopUpPageState extends State<TopUpPage> {
   );
 
   List<_TopUpTarget> _targets = [];
-  List<dynamic> _fawryDepositors = [];
   String? _selected;
-  String? _depositorId;
+  final _depositorName = TextEditingController();
   Map<String, int> _cashCounts = emptyFawryCashCounts();
   int _cashInputRevision = 0;
   String _additionType = 'direct';
@@ -53,6 +52,7 @@ class _TopUpPageState extends State<TopUpPage> {
 
   @override
   void dispose() {
+    _depositorName.dispose();
     _amount.dispose();
     _reference.dispose();
     _note.dispose();
@@ -66,12 +66,10 @@ class _TopUpPageState extends State<TopUpPage> {
         widget.session.api.list(ApiEndpoints.accounts),
         widget.session.api.list(ApiEndpoints.wallets),
         widget.session.api.list(ApiEndpoints.ledgerList(limit: 200)),
-        widget.session.api.list(ApiEndpoints.fawryDepositors),
       ]);
       final accounts = values[0];
       final wallets = values[1];
       final ledger = values[2];
-      final depositors = values[3];
 
       final targets = <_TopUpTarget>[
         ...accounts
@@ -107,12 +105,6 @@ class _TopUpPageState extends State<TopUpPage> {
       _nextSequence =
           ledger.where((entry) => entry['category'] == 'top_up').length + 1;
       _targets = targets;
-      _fawryDepositors = depositors;
-      _depositorId ??= depositors.isEmpty ? null : '${depositors.first['id']}';
-      if (_depositorId != null &&
-          depositors.every((item) => '${item['id']}' != _depositorId)) {
-        _depositorId = depositors.isEmpty ? null : '${depositors.first['id']}';
-      }
       _selected ??= targets.isEmpty ? null : targets.first.value;
       if (_selected != null &&
           targets.every((item) => item.value != _selected)) {
@@ -175,8 +167,7 @@ class _TopUpPageState extends State<TopUpPage> {
                   date: _date,
                   reference: _reference,
                   note: _note,
-                  depositors: _fawryDepositors,
-                  depositorId: _depositorId,
+                  depositorName: _depositorName,
                   cashInputRevision: _cashInputRevision,
                   saving: _saving,
                   onSelectedChanged: (value) => setState(() {
@@ -184,8 +175,6 @@ class _TopUpPageState extends State<TopUpPage> {
                     _cashCounts = emptyFawryCashCounts();
                     _cashInputRevision += 1;
                   }),
-                  onDepositorChanged: (value) =>
-                      setState(() => _depositorId = value),
                   onCashCountsChanged: (value) => _cashCounts = value,
                   onAdditionTypeChanged: (value) =>
                       setState(() => _additionType = value ?? 'direct'),
@@ -241,7 +230,7 @@ class _TopUpPageState extends State<TopUpPage> {
     }
 
     final target = _targets.firstWhere((item) => item.value == _selected);
-    if (target.isFawry && _depositorId == null) {
+    if (target.isFawry && _depositorName.text.trim().isEmpty) {
       showAppSnack(context, 'اختر الشخص الذي قام بالإيداع', error: true);
       return;
     }
@@ -267,7 +256,7 @@ class _TopUpPageState extends State<TopUpPage> {
         path,
         target.isFawry
             ? {
-                'depositorUserId': _depositorId,
+                'depositorName': _depositorName.text.trim(),
                 'cashCounts': _cashCounts,
                 if (combinedReference.isNotEmpty)
                   'reference': combinedReference,
@@ -359,12 +348,10 @@ class _TopUpFormCard extends StatelessWidget {
     required this.date,
     required this.reference,
     required this.note,
-    required this.depositors,
-    required this.depositorId,
+    required this.depositorName,
     required this.cashInputRevision,
     required this.saving,
     required this.onSelectedChanged,
-    required this.onDepositorChanged,
     required this.onCashCountsChanged,
     required this.onAdditionTypeChanged,
     required this.onSubmit,
@@ -378,12 +365,10 @@ class _TopUpFormCard extends StatelessWidget {
   final TextEditingController date;
   final TextEditingController reference;
   final TextEditingController note;
-  final List<dynamic> depositors;
-  final String? depositorId;
+  final TextEditingController depositorName;
   final int cashInputRevision;
   final bool saving;
   final ValueChanged<String?> onSelectedChanged;
-  final ValueChanged<String?> onDepositorChanged;
   final ValueChanged<Map<String, int>> onCashCountsChanged;
   final ValueChanged<String?> onAdditionTypeChanged;
   final VoidCallback onSubmit;
@@ -466,23 +451,16 @@ class _TopUpFormCard extends StatelessWidget {
                               width: fieldWidth,
                               child: _LabeledField(
                                 label: 'مين عمل الإيداع؟ *',
-                                child: DropdownButtonFormField<String>(
-                                  initialValue: depositorId,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(),
-                                  items: [
-                                    for (final person in depositors)
-                                      DropdownMenuItem(
-                                        value: '${person['id']}',
-                                        child: Text(
-                                          '${person['displayName']}',
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                  ],
-                                  onChanged: saving ? null : onDepositorChanged,
-                                  validator: (value) => value == null
-                                      ? 'اختر الشخص الذي قام بالإيداع'
+                                child: TextFormField(
+                                  controller: depositorName,
+                                  enabled: !saving,
+                                  maxLength: 120,
+                                  decoration: const InputDecoration(
+                                    hintText: 'اكتب اسم اللي عمل الإيداع',
+                                  ),
+                                  validator: (value) =>
+                                      value == null || value.trim().isEmpty
+                                      ? 'اكتب اسم الشخص الذي قام بالإيداع'
                                       : null,
                                 ),
                               ),
