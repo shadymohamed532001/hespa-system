@@ -44,6 +44,35 @@ void main() {
     );
   });
 
+  testWidgets('pulling the page runs the refresh callback', (tester) async {
+    var refreshed = 0;
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(800, 900);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: PageFrame(
+            title: 'لوحة المتابعة',
+            subtitle: 'ملخص',
+            onRefresh: () async {
+              refreshed += 1;
+            },
+            child: const SizedBox(height: 400, child: Text('محتوى الصفحة')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.fling(find.text('لوحة المتابعة'), const Offset(0, 300), 1000);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+
+    expect(refreshed, greaterThan(0));
+  });
+
   testWidgets('keeps page header and actions visible on desktop', (
     tester,
   ) async {

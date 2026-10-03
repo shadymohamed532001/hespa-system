@@ -37,8 +37,8 @@ class _FawryTodayOperationsPageState extends State<FawryTodayOperationsPage> {
     _load();
   }
 
-  Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
+  Future<void> _load({bool silent = false}) async {
+    if (mounted && !silent) setState(() => _loading = true);
     try {
       _payload = await widget.session.api.getMap(
         ApiEndpoints.fawryTodayOperations(accountId: _accountId),
@@ -78,6 +78,7 @@ class _FawryTodayOperationsPageState extends State<FawryTodayOperationsPage> {
     final reversed = operations.length - done;
 
     return PageFrame(
+      onRefresh: () => _load(silent: true),
       title: 'عمليات فوري النهارده',
       subtitle: 'مراجعة معاملات حسابات فوري اللي حصلت النهارده',
       actions: [

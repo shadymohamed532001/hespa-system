@@ -119,6 +119,7 @@ class _InternalTransferPageState extends State<InternalTransferPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: _load,
       title: tr(ar: 'تحويل داخلي', en: 'Internal transfer'),
       subtitle: 'نقل الأموال بين أصول المحل دون تسجيل مصروف',
       child: _loading

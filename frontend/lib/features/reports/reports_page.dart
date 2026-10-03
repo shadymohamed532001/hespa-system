@@ -40,11 +40,16 @@ class _ReportsPageState extends State<ReportsPage> {
     load();
   }
 
-  Future<void> load({bool preserveChannels = true}) async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
+  Future<void> load({
+    bool preserveChannels = true,
+    bool silent = false,
+  }) async {
+    if (!silent) {
+      setState(() {
+        loading = true;
+        error = null;
+      });
+    }
 
     final parts = selectedScope.split(':');
     final type = parts.first;
@@ -95,6 +100,7 @@ class _ReportsPageState extends State<ReportsPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: () => load(silent: true),
       title: 'التقارير الشاملة',
       subtitle: 'تحليل السحب والإيداع والمبيعات والتحصيلات لكل جزء في النظام',
       actions: [

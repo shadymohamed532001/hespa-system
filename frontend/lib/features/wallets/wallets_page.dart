@@ -72,6 +72,7 @@ class _WalletsPageState extends State<WalletsPage> {
 
   @override
   Widget build(BuildContext context) => PageFrame(
+    onRefresh: load,
     title: 'المحافظ الإلكترونية وInstaPay',
     subtitle: tr(
       ar: 'أضف كل رقم أو حساب بشكل مستقل، وسجّل تحويلات العملاء وعمولتها تلقائيًا',

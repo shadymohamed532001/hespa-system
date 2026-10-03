@@ -32,8 +32,8 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
     load();
   }
 
-  Future<void> load() async {
-    if (mounted) {
+  Future<void> load({bool silent = false}) async {
+    if (mounted && !silent) {
       setState(() {
         loading = true;
         error = null;
@@ -74,6 +74,7 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
   Widget build(BuildContext context) {
     final canCreate = widget.session.can(AppPermissions.manageAssets);
     return PageFrame(
+      onRefresh: () => load(silent: true),
       title: 'فيزا المشتريات',
       subtitle:
           'توريد الرصيد لمندوب، والمكسب ٢٠ جنيه لكل ألف أو ١٣ لو فيه خدمة',

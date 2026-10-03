@@ -149,6 +149,7 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
 
   @override
   Widget build(BuildContext context) => PageFrame(
+    onRefresh: load,
     title: widget.title,
     subtitle: widget.subtitle,
     actions: [

@@ -45,11 +45,13 @@ class _DashboardPageState extends State<DashboardPage> {
     load();
   }
 
-  Future<void> load() async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
+  Future<void> load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        loading = true;
+        error = null;
+      });
+    }
 
     try {
       final values = await Future.wait([
@@ -77,6 +79,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: () => load(silent: true),
       title: 'لوحة المتابعة',
       subtitle: 'ملخص الأرصدة والحركات الحالية',
       actions: [

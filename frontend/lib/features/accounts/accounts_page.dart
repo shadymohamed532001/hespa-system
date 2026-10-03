@@ -103,6 +103,7 @@ class _AccountsPageState extends State<AccountsPage> {
     final isFawry = widget.isFawry;
     final isProfitQr = widget.isProfitQr;
     return PageFrame(
+      onRefresh: load,
       title: isFawry
           ? 'حسابات فوري'
           : isProfitQr

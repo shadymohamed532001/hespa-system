@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart' show DateFormat;
 
+import '../core/settings/app_flavor.dart';
 import '../core/settings/app_settings.dart';
 import '../core/settings/app_strings.dart';
 import '../core/theme/app_theme.dart';
@@ -453,8 +454,10 @@ class _ContextBar extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const FlavorBadge(),
-                const SizedBox(width: 10),
+                if (!isProductionFlavor) ...[
+                  const FlavorBadge(),
+                  const SizedBox(width: 10),
+                ],
                 Flexible(
                   child: Text(
                     DateFormat(

@@ -34,11 +34,13 @@ class _AdminPageState extends State<AdminPage> {
     load();
   }
 
-  Future<void> load() async {
-    setState(() {
-      loading = true;
-      error = null;
-    });
+  Future<void> load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        loading = true;
+        error = null;
+      });
+    }
     try {
       final results = await Future.wait([
         widget.session.api.list(ApiEndpoints.users),
@@ -62,6 +64,7 @@ class _AdminPageState extends State<AdminPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: () => load(silent: true),
       title: 'المستخدمون والصلاحيات',
       subtitle: tr(
         ar: 'أضف حسابات للموظفين وحدد صلاحياتهم وحدود المبالغ',

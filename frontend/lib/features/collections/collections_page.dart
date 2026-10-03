@@ -54,6 +54,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: load,
       title: 'التحصيل والمعلّقات',
       subtitle: 'استلام المندوب يمكن تنفيذه فورًا أو حفظه كمعلّق',
       actions: [

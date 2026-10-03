@@ -32,8 +32,8 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
     _load();
   }
 
-  Future<void> _load() async {
-    if (mounted) setState(() => _loading = true);
+  Future<void> _load({bool silent = false}) async {
+    if (mounted && !silent) setState(() => _loading = true);
     try {
       _rows = await widget.session.api.list(ApiEndpoints.agentCredits);
       _error = null;
@@ -51,6 +51,7 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: () => _load(silent: true),
       title: 'آجل المندوبين',
       actions: [
         if (widget.session.can(AppPermissions.receiveCollections))

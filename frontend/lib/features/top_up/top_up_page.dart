@@ -128,6 +128,7 @@ class _TopUpPageState extends State<TopUpPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: _load,
       title: 'شحن حساب أو محفظة',
       subtitle:
           'يُضاف الرصيد مع الإبقاء على المبلغ المرحّل من اليوم السابق دون تصفيره',

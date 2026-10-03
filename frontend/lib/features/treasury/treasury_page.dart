@@ -40,8 +40,8 @@ class _TreasuryPageState extends State<TreasuryPage> {
     load();
   }
 
-  Future<void> load() async {
-    if (mounted) {
+  Future<void> load({bool silent = false}) async {
+    if (mounted && !silent) {
       setState(() {
         loading = true;
         error = null;
@@ -167,6 +167,7 @@ class _TreasuryPageState extends State<TreasuryPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: () => load(silent: true),
       title: 'الخزنة المركزية',
       subtitle: 'الرصيد الفعلي والمتاح والالتزامات',
       actions: [

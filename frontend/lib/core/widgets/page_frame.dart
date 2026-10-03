@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -9,11 +10,13 @@ class PageFrame extends StatelessWidget {
     required this.subtitle,
     required this.child,
     this.actions = const [],
+    this.onRefresh,
   });
   final String title;
   final String subtitle;
   final Widget child;
   final List<Widget> actions;
+  final Future<void> Function()? onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -67,7 +70,10 @@ class PageFrame extends StatelessWidget {
                 ],
               );
 
-        return SingleChildScrollView(
+        final scroll = SingleChildScrollView(
+          physics: onRefresh == null
+              ? null
+              : const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
             horizontalPadding,
             isCompact ? 24 : 34,
@@ -79,7 +85,24 @@ class PageFrame extends StatelessWidget {
             children: [header, const SizedBox(height: 25), child],
           ),
         );
+        if (onRefresh == null) return scroll;
+        return ScrollConfiguration(
+          behavior: const _PullRefreshScrollBehavior(),
+          child: RefreshIndicator(onRefresh: onRefresh!, child: scroll),
+        );
       },
     );
   }
+}
+
+class _PullRefreshScrollBehavior extends MaterialScrollBehavior {
+  const _PullRefreshScrollBehavior();
+
+  @override
+  Set<PointerDeviceKind> get dragDevices => const {
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.trackpad,
+  };
 }

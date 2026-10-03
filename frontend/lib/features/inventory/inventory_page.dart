@@ -45,8 +45,8 @@ class _InventoryPageState extends State<InventoryPage> {
     await load();
   }
 
-  Future<void> load() async {
-    if (mounted) {
+  Future<void> load({bool silent = false}) async {
+    if (mounted && !silent) {
       setState(() {
         loading = true;
         error = null;
@@ -70,6 +70,7 @@ class _InventoryPageState extends State<InventoryPage> {
   @override
   Widget build(BuildContext context) {
     return PageFrame(
+      onRefresh: () => load(silent: true),
       title: 'مخزن الموبايلات والإكسسوارات',
       subtitle:
           'متابعة المخزون والمبيعات — فلوس المخزن في خزنة منفصلة عن خزنة الكاش',

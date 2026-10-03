@@ -57,6 +57,7 @@ class _SimpleResourcePageState extends State<SimpleResourcePage> {
 
   @override
   Widget build(BuildContext context) => PageFrame(
+    onRefresh: load,
     title: widget.title,
     subtitle: widget.subtitle,
     actions:
