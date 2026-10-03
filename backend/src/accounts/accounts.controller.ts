@@ -6,6 +6,7 @@ import {
   Param,
   ParseBoolPipe,
   ParseIntPipe,
+  ParseUUIDPipe,
   Patch,
   Post,
   Query,
@@ -37,6 +38,14 @@ export class AccountsController {
   @Get('fawry-daily-drops')
   todayDrops() {
     return this.accounts.todayDrops();
+  }
+
+  @Get('fawry-today-operations')
+  todayFawryOperations(
+    @Query('accountId', new ParseUUIDPipe({ optional: true }))
+    accountId?: string,
+  ) {
+    return this.accounts.todayFawryOperations(accountId);
   }
 
   @RequirePermissions(AppPermission.TOP_UP_ASSETS)

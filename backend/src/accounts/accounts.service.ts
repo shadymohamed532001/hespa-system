@@ -7,7 +7,7 @@ import {
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, Repository } from 'typeorm';
+import { Brackets, DataSource, In, Repository } from 'typeorm';
 import { FawryDailyDrop } from '../database/entities/fawry-daily-drop.entity.js';
 import {
   FawryDeposit,
@@ -493,6 +493,101 @@ export class AccountsService implements OnModuleInit {
     });
   }
 
+  async todayFawryOperations(accountId?: string, now = new Date()) {
+    const date = cairoParts(now).date;
+    const accounts = await this.accounts.find({
+      where: { type: AccountType.FAWRY },
+      select: { id: true, name: true },
+      order: { name: 'ASC' },
+    });
+    const listed = accounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+    }));
+    if (accountId && !accounts.some((account) => account.id === accountId)) {
+      throw new NotFoundException(
+        msg({
+          ar: 'حساب فوري غير موجود',
+          en: 'Fawry account not found',
+        }),
+      );
+    }
+    const ids = accountId ? [accountId] : accounts.map((account) => account.id);
+    if (!ids.length) {
+      return {
+        date,
+        accountId: accountId ?? null,
+        accounts: listed,
+        count: 0,
+        operations: [],
+      };
+    }
+    const nameById = new Map(
+      accounts.map((account) => [account.id, account.name]),
+    );
+    const entries = await this.ledger
+      .createQueryBuilder('entry')
+      .where(`(entry.created_at AT TIME ZONE 'Africa/Cairo')::date = :today`, {
+        today: date,
+      })
+      .andWhere(
+        new Brackets((query) => {
+          query
+            .where(
+              `entry.entity_type = 'account' AND entry.entity_id IN (:...entityIds)`,
+              { entityIds: ids },
+            )
+            .orWhere(
+              `entry.source_type = 'account' AND entry.source_id IN (:...sourceIds)`,
+              { sourceIds: ids },
+            )
+            .orWhere(
+              `entry.target_type = 'account' AND entry.target_id IN (:...targetIds)`,
+              { targetIds: ids },
+            );
+        }),
+      )
+      .orderBy('entry.created_at', 'DESC')
+      .getMany();
+
+    const reversedIds = new Set<string>();
+    const entryIds = entries.map((entry) => entry.id);
+    if (entryIds.length) {
+      const reversals = await this.ledger.find({
+        where: { reversesEntryId: In(entryIds) },
+        select: { reversesEntryId: true },
+      });
+      for (const reversal of reversals) {
+        if (reversal.reversesEntryId) reversedIds.add(reversal.reversesEntryId);
+      }
+    }
+
+    const operations = entries.map((entry) => {
+      const matchedAccountId = matchingFawryAccountId(entry, ids);
+      return {
+        id: entry.id,
+        createdAt: entry.createdAt,
+        description: entry.description,
+        amount: Number(entry.amount),
+        reference: entry.reference,
+        accountId: matchedAccountId,
+        accountName: matchedAccountId
+          ? (nameById.get(matchedAccountId) ?? null)
+          : null,
+        category: entry.category,
+        status: fawryOperationStatus(entry, reversedIds),
+        performedBy: entry.performedBy,
+      };
+    });
+    return {
+      date,
+      accountId: accountId ?? null,
+      accounts: listed,
+      count: operations.length,
+      operations,
+    };
+  }
+
   async todayDrops(now = new Date()) {
     const date = cairoParts(now).date;
     const drops = await this.drops.find({
@@ -648,6 +743,57 @@ export class AccountsService implements OnModuleInit {
       message: `تم الحذف النهائي للحساب «${name}» بنجاح`,
     };
   }
+}
+
+export function matchingFawryAccountId(
+  entry: Pick<
+    LedgerEntry,
+    | 'entityType'
+    | 'entityId'
+    | 'sourceType'
+    | 'sourceId'
+    | 'targetType'
+    | 'targetId'
+  >,
+  accountIds: string[],
+): string | null {
+  const ids = new Set(accountIds);
+  if (
+    entry.entityType === 'account' &&
+    entry.entityId &&
+    ids.has(entry.entityId)
+  ) {
+    return entry.entityId;
+  }
+  if (
+    entry.sourceType === 'account' &&
+    entry.sourceId &&
+    ids.has(entry.sourceId)
+  ) {
+    return entry.sourceId;
+  }
+  if (
+    entry.targetType === 'account' &&
+    entry.targetId &&
+    ids.has(entry.targetId)
+  ) {
+    return entry.targetId;
+  }
+  return null;
+}
+
+export function fawryOperationStatus(
+  entry: Pick<LedgerEntry, 'id' | 'category' | 'reversesEntryId'>,
+  reversedIds: Set<string>,
+): 'done' | 'reversed' {
+  if (
+    entry.category === LedgerCategory.REVERSAL ||
+    entry.reversesEntryId != null ||
+    reversedIds.has(entry.id)
+  ) {
+    return 'reversed';
+  }
+  return 'done';
 }
 
 export function fawryCashTotal(counts: FawryCashCounts): number {

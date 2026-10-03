@@ -62,8 +62,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('طلبات'), findsOneWidget);
-    expect(find.text('إيديتا'), findsOneWidget);
-    expect(find.text('إيجبت فود'), findsOneWidget);
+    expect(find.text('ايديتا'), findsOneWidget);
+    expect(find.text('ايجيبت فودز'), findsOneWidget);
     expect(find.text('شركة اليسر'), findsOneWidget);
     expect(find.text('ياسين للتجارة'), findsOneWidget);
     expect(find.text('جهينة'), findsOneWidget);

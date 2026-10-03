@@ -15,6 +15,7 @@ import '../../core/widgets/soft_badge.dart';
 import '../auth/session_controller.dart';
 import '../../core/settings/tr.dart';
 import 'fawry_cash_input.dart';
+import 'fawry_today_operations_page.dart';
 import 'profit_qr_commission.dart';
 
 class AccountsPage extends StatefulWidget {
@@ -36,6 +37,7 @@ class _AccountsPageState extends State<AccountsPage> {
   String? dropsError;
   bool loading = true;
   String? error;
+  bool _reviewingToday = false;
 
   @override
   void initState() {
@@ -91,6 +93,12 @@ class _AccountsPageState extends State<AccountsPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isFawry && _reviewingToday) {
+      return FawryTodayOperationsPage(
+        session: widget.session,
+        onBack: () => setState(() => _reviewingToday = false),
+      );
+    }
     final rows = _rows;
     final isFawry = widget.isFawry;
     final isProfitQr = widget.isProfitQr;
@@ -110,6 +118,12 @@ class _AccountsPageState extends State<AccountsPage> {
           ? 'العميل يحوّل على QR ثم يستلم كاش: عمولة العميل ٥ جنيه لحد ٥٠٠، و١٠ جنيه لحد ألف، وفوق ألف ١٠ جنيه لكل ألف، وخصم مكسب ٢ جنيه لكل ألف. التوريد من الحساب عليه خصم ٤ جنيه لكل ألف.'
           : 'حساب مكسب عادي. حد الرصيد قبل زيادة الشحن مليون جنيه. الشحن يضيف ٥ جنيه لكل ألف إلى رصيد الحساب، والتحويل يخصم ٤ جنيه لكل ألف من العمولات.',
       actions: [
+        if (isFawry)
+          IconButton.filledTonal(
+            tooltip: 'عمليات فوري النهارده',
+            onPressed: () => setState(() => _reviewingToday = true),
+            icon: const Icon(Icons.receipt_long_outlined),
+          ),
         if (widget.session.can(AppPermissions.manageAssets))
           OutlinedButton.icon(
             onPressed: () => _accountDialog(context),

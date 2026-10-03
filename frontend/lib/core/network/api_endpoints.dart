@@ -22,6 +22,16 @@ abstract final class ApiEndpoints {
   static String fawryDailyDrop(String id) => '${account(id)}/fawry-daily-drop';
   static const String fawryDepositors = '$accounts/fawry-depositors';
   static const String fawryDeposits = '$accounts/fawry-deposits';
+  static String fawryTodayOperations({String? accountId}) {
+    if (accountId == null || accountId.isEmpty) {
+      return '$accounts/fawry-today-operations';
+    }
+    return Uri(
+      path: '$accounts/fawry-today-operations',
+      queryParameters: {'accountId': accountId},
+    ).toString();
+  }
+
   static String fawryDeposit(String id) => '${account(id)}/fawry-deposit';
 
   // Notifications
