@@ -71,11 +71,8 @@ class _FawryTodayOperationsPageState extends State<FawryTodayOperationsPage> {
         : (_payload?['operations'] as List? ?? const [])
               .whereType<Map>()
               .map((item) => Map<String, dynamic>.from(item))
+              .where((item) => item['status'] != 'reversed')
               .toList();
-    final done = operations
-        .where((item) => item['status'] != 'reversed')
-        .length;
-    final reversed = operations.length - done;
 
     return PageFrame(
       onRefresh: () => _load(silent: true),
@@ -117,11 +114,7 @@ class _FawryTodayOperationsPageState extends State<FawryTodayOperationsPage> {
                 message: 'اختار حساب فوري عشان تشوف عملياته النهارده',
               )
             else ...[
-              _SummaryBar(
-                count: operations.length,
-                done: done,
-                reversed: reversed,
-              ),
+              _SummaryBar(count: operations.length),
               const SizedBox(height: 16),
               if (operations.isEmpty)
                 const _EmptyOperations(
@@ -183,15 +176,9 @@ class _AccountPicker extends StatelessWidget {
 }
 
 class _SummaryBar extends StatelessWidget {
-  const _SummaryBar({
-    required this.count,
-    required this.done,
-    required this.reversed,
-  });
+  const _SummaryBar({required this.count});
 
   final int count;
-  final int done;
-  final int reversed;
 
   @override
   Widget build(BuildContext context) {
@@ -206,42 +193,8 @@ class _SummaryBar extends StatelessWidget {
         children: [
           Text('عدد العمليات', style: HesbaText.sectionTitle),
           const Spacer(),
-          _CountChip(label: 'تمت', value: done, color: const Color(0xFF1F9D55)),
-          const SizedBox(width: 8),
-          _CountChip(label: 'اتعكست', value: reversed, color: HesbaColors.red),
-          const SizedBox(width: 14),
           Text('$count', style: HesbaText.pageTitle.copyWith(fontSize: 28)),
         ],
-      ),
-    );
-  }
-}
-
-class _CountChip extends StatelessWidget {
-  const _CountChip({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final int value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        '$label $value',
-        style: HesbaText.body.copyWith(
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
       ),
     );
   }
@@ -277,8 +230,6 @@ class _OperationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reversed = operation['status'] == 'reversed';
-    final color = reversed ? HesbaColors.red : const Color(0xFF1F9D55);
     final reference = '${operation['reference'] ?? ''}'.trim();
     final account = '${operation['accountName'] ?? ''}'.trim();
 
@@ -292,11 +243,7 @@ class _OperationTile extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Icon(
-            reversed ? Icons.cancel : Icons.check_circle,
-            color: color,
-            size: 28,
-          ),
+          const Icon(Icons.check_circle, color: Color(0xFF1F9D55), size: 28),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
