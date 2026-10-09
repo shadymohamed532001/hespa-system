@@ -21,6 +21,7 @@ import {
 } from '../database/enums.js';
 import {
   REGULAR_PROFIT_LIMIT,
+  isOpenProfitAccount,
   profitQrOutgoingFee,
   regularProfitWithdrawCommission,
 } from '../accounts/profit-commission.js';
@@ -262,6 +263,7 @@ export class TreasuryService {
         }
         if (
           destination?.type === AccountType.PROFIT &&
+          !isOpenProfitAccount(destination) &&
           Number(target.balance) + dto.amount > REGULAR_PROFIT_LIMIT
         ) {
           throw new BadRequestException({

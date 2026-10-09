@@ -14,6 +14,7 @@ import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import {
   CreatePurchaseVisaDto,
+  TopUpPurchaseVisaDto,
   WithdrawPurchaseVisaDto,
 } from './dto/purchase-visa.dto.js';
 import {
@@ -50,6 +51,18 @@ export class PurchaseVisasController {
     @Request() request: UserRequest,
   ) {
     const visa = await this.visas.create(dto, request.user.username);
+    return redactCardNumbers(visa, await this.revealCards(request.user.userId));
+  }
+
+  @RequirePermissions(AppPermission.TOP_UP_ASSETS)
+  @Idempotent()
+  @Post(':id/top-up')
+  async topUp(
+    @Param('id') id: string,
+    @Body() dto: TopUpPurchaseVisaDto,
+    @Request() request: UserRequest,
+  ) {
+    const visa = await this.visas.topUp(id, dto, request.user.username);
     return redactCardNumbers(visa, await this.revealCards(request.user.userId));
   }
 

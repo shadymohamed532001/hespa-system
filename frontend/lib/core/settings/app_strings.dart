@@ -28,6 +28,9 @@ class AppStrings {
 
   String get branchPath =>
       _ar ? 'الفرع الرئيسي  /  الإدارة المالية' : 'Main branch  /  Finance';
+  String get homeSubtitle =>
+      _ar ? 'اختر القسم للدخول' : 'Choose a section to open';
+  String get backHome => _ar ? 'العودة للرئيسية' : 'Back to home';
 
   String get dashboard => _ar ? 'لوحة المتابعة' : 'Dashboard';
   String get treasury => _ar ? 'الخزنة المركزية' : 'Central treasury';

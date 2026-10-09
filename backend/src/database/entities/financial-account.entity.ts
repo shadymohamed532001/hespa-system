@@ -61,6 +61,10 @@ export class FinancialAccount {
   })
   commissionBalance: number;
 
+  /** Basic profit account: no balance ceiling. Other regular profit accounts stay at 1,000,000. */
+  @Column({ name: 'open_limit', default: false })
+  openLimit: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

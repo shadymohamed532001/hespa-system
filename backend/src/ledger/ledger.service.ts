@@ -180,6 +180,30 @@ export class LedgerService {
       await manager.save(wallet);
       return;
     }
+    if (entry.entityType === 'purchase_visa') {
+      const visa = await manager.getRepository(PurchaseVisa).findOne({
+        where: { id: entry.entityId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!visa) {
+        throw new NotFoundException(
+          msg({ ar: 'الفيزا غير موجودة', en: 'Visa not found' }),
+        );
+      }
+      if (Number(visa.balance) < Number(entry.amount)) {
+        throw new BadRequestException(
+          msg({
+            ar: 'الرصيد المشحون تم استخدامه ولا يمكن عكسه',
+            en: 'Topped-up balance was used and cannot be reversed',
+          }),
+        );
+      }
+      visa.balance = Number(
+        (Number(visa.balance) - Number(entry.amount)).toFixed(2),
+      );
+      await manager.save(visa);
+      return;
+    }
     if (entry.entityType === 'machine') {
       const machine = await manager.getRepository(Machine).findOne({
         where: { id: entry.entityId },

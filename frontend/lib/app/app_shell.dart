@@ -23,8 +23,8 @@ import '../features/treasury/treasury_page.dart';
 import '../features/purchase_visas/purchase_visas_page.dart';
 import '../features/wallets/wallets_page.dart';
 
-/// Width at/under which the shell switches from persistent sidebar to drawer.
-const double kHesbaMobileBreakpoint = 900;
+/// Width at/under which the top bar switches to its compact layout.
+const double kHesbaCompactBreakpoint = 760;
 
 class AppShell extends StatefulWidget {
   const AppShell({super.key, required this.session, required this.settings});
@@ -37,12 +37,13 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
-  int selected = 0;
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  /// `null` is the home launcher. A value opens that section full screen.
+  int? selected;
 
   List<_NavItem> _items(AppStrings t) => [
     _NavItem(
       t.dashboard,
+      Icons.dashboard_outlined,
       () => DashboardPage(
         session: widget.session,
         onOpenCollections: () => _selectLabel(t.collections),
@@ -51,6 +52,7 @@ class _AppShellState extends State<AppShell> {
     ),
     _NavItem(
       t.treasury,
+      Icons.account_balance_outlined,
       () => TreasuryPage(
         session: widget.session,
         onOpenTransfer: () => _selectLabel(t.transfer),
@@ -58,135 +60,137 @@ class _AppShellState extends State<AppShell> {
     ),
     _NavItem(
       t.fawryAccounts,
+      Icons.payments_outlined,
       () => AccountsPage(session: widget.session, kind: 'fawry'),
     ),
     _NavItem(
       t.profitAccounts,
+      Icons.trending_up,
       () => AccountsPage(session: widget.session, kind: 'profit'),
     ),
     _NavItem(
       t.profitQrAccounts,
+      Icons.qr_code_2,
       () => AccountsPage(session: widget.session, kind: 'profit_qr'),
     ),
     if (widget.session.can(AppPermissions.topUpAssets))
-      _NavItem(t.topUp, () => TopUpPage(session: widget.session)),
+      _NavItem(
+        t.topUp,
+        Icons.bolt_outlined,
+        () => TopUpPage(session: widget.session),
+      ),
     _NavItem(
       t.wallets,
+      Icons.account_balance_wallet_outlined,
       () => WalletsPage(
         session: widget.session,
         onOpenLedger: () => _selectLabel(t.ledger),
       ),
     ),
-    _NavItem(t.purchaseVisas, () => PurchaseVisasPage(session: widget.session)),
+    _NavItem(
+      t.purchaseVisas,
+      Icons.credit_card_outlined,
+      () => PurchaseVisasPage(session: widget.session),
+    ),
     if (widget.session.can(AppPermissions.receiveCollections))
-      _NavItem(t.collections, () => CollectionsPage(session: widget.session)),
+      _NavItem(
+        t.collections,
+        Icons.receipt_long_outlined,
+        () => CollectionsPage(session: widget.session),
+      ),
     if (widget.session.can(AppPermissions.receiveCollections))
-      _NavItem(t.agentCredits, () => AgentCreditsPage(session: widget.session)),
-    _NavItem(t.inventory, () => InventoryPage(session: widget.session)),
+      _NavItem(
+        t.agentCredits,
+        Icons.schedule_outlined,
+        () => AgentCreditsPage(session: widget.session),
+      ),
+    _NavItem(
+      t.inventory,
+      Icons.inventory_2_outlined,
+      () => InventoryPage(session: widget.session),
+    ),
     if (widget.session.can(AppPermissions.internalTransfer))
-      _NavItem(t.transfer, () => InternalTransferPage(session: widget.session)),
-    _NavItem(t.ledger, () => LedgerPage(session: widget.session)),
+      _NavItem(
+        t.transfer,
+        Icons.swap_horiz,
+        () => InternalTransferPage(session: widget.session),
+      ),
+    _NavItem(
+      t.ledger,
+      Icons.history,
+      () => LedgerPage(session: widget.session),
+    ),
     if (widget.session.can(AppPermissions.viewBalances))
-      _NavItem(t.reports, () => ReportsPage(session: widget.session)),
+      _NavItem(
+        t.reports,
+        Icons.bar_chart_outlined,
+        () => ReportsPage(session: widget.session),
+      ),
     if (widget.session.can(AppPermissions.manageUsers))
-      _NavItem(t.users, () => AdminPage(session: widget.session)),
+      _NavItem(
+        t.users,
+        Icons.people_outline,
+        () => AdminPage(session: widget.session),
+      ),
   ];
 
-  void _selectPage(int index, {bool closeDrawer = false}) {
+  void _openPage(int index) {
     final items = _items(AppStrings.of(widget.settings.locale));
     if (index < 0 || index >= items.length) return;
     setState(() => selected = index);
-    if (closeDrawer && _scaffoldKey.currentState?.isDrawerOpen == true) {
-      Navigator.of(context).pop();
-    }
   }
+
+  void _goHome() => setState(() => selected = null);
 
   void _selectLabel(String label) {
     final items = _items(AppStrings.of(widget.settings.locale));
     final index = items.indexWhere((item) => item.label == label);
-    _selectPage(index, closeDrawer: true);
+    if (index >= 0) _openPage(index);
   }
 
   @override
   Widget build(BuildContext context) {
     final t = AppStrings.of(widget.settings.locale);
     final items = _items(t);
-    final safeSelected = selected.clamp(0, items.length - 1);
+    final safeSelected = selected != null && selected! < items.length
+        ? selected
+        : null;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final page = KeyedSubtree(
-      key: ValueKey(
-        '$safeSelected-${widget.settings.locale}-${isDark ? 'd' : 'l'}',
-      ),
-      child: items[safeSelected].builder(),
-    );
+    final onHome = safeSelected == null;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isMobile = constraints.maxWidth < kHesbaMobileBreakpoint;
-
-        if (isMobile) {
-          return Scaffold(
-            key: _scaffoldKey,
-            drawer: Drawer(
-              backgroundColor: HesbaColors.navy,
-              child: _Sidebar(
+        final compact = constraints.maxWidth < kHesbaCompactBreakpoint;
+        final page = onHome
+            ? _HomeLauncher(
                 session: widget.session,
                 strings: t,
                 items: items,
-                selected: safeSelected,
-                onSelected: (index) => _selectPage(index, closeDrawer: true),
-              ),
-            ),
-            body: ColoredBox(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              child: Column(
-                children: [
-                  _ContextBar(
-                    session: widget.session,
-                    settings: widget.settings,
-                    strings: t,
-                    compact: true,
-                    title: items[safeSelected].label,
-                    onMenuPressed: () =>
-                        _scaffoldKey.currentState?.openDrawer(),
-                  ),
-                  Expanded(child: page),
-                ],
-              ),
-            ),
-          );
-        }
+                onOpen: _openPage,
+              )
+            : KeyedSubtree(
+                key: ValueKey(
+                  '$safeSelected-${widget.settings.locale}-${isDark ? 'd' : 'l'}',
+                ),
+                child: items[safeSelected].builder(),
+              );
 
-        final sidebarWidth = constraints.maxWidth <= 1180 ? 245.0 : 300.0;
         return Scaffold(
-          body: Row(
-            children: [
-              SizedBox(
-                width: sidebarWidth,
-                child: _Sidebar(
+          body: ColoredBox(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: Column(
+              children: [
+                _ContextBar(
                   session: widget.session,
+                  settings: widget.settings,
                   strings: t,
-                  items: items,
-                  selected: safeSelected,
-                  onSelected: _selectPage,
+                  compact: compact,
+                  title: onHome ? t.brand : items[safeSelected].label,
+                  onBack: onHome ? null : _goHome,
                 ),
-              ),
-              Expanded(
-                child: ColoredBox(
-                  color: Theme.of(context).scaffoldBackgroundColor,
-                  child: Column(
-                    children: [
-                      _ContextBar(
-                        session: widget.session,
-                        settings: widget.settings,
-                        strings: t,
-                      ),
-                      Expanded(child: page),
-                    ],
-                  ),
-                ),
-              ),
-            ],
+                Expanded(child: page),
+              ],
+            ),
           ),
         );
       },
@@ -194,95 +198,152 @@ class _AppShellState extends State<AppShell> {
   }
 }
 
-class _Sidebar extends StatelessWidget {
-  const _Sidebar({
+class _HomeLauncher extends StatelessWidget {
+  const _HomeLauncher({
     required this.session,
     required this.strings,
     required this.items,
-    required this.selected,
-    required this.onSelected,
+    required this.onOpen,
   });
 
   final SessionController session;
   final AppStrings strings;
   final List<_NavItem> items;
-  final int selected;
-  final ValueChanged<int> onSelected;
+  final ValueChanged<int> onOpen;
 
   @override
   Widget build(BuildContext context) {
-    return ColoredBox(
-      color: HesbaColors.navy,
-      child: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(22, 34, 22, 25),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(8, 0, 8, 23),
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? const Color(0xFFE6EEF2) : HesbaColors.ink;
+    final muted = isDark ? const Color(0xFF9AADB8) : HesbaColors.muted;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final pad = width < 600 ? 16.0 : 36.0;
+        final columns = width >= 1280
+            ? 5
+            : width >= 980
+            ? 4
+            : width >= 680
+            ? 3
+            : 2;
+
+        return CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(pad, 32, pad, 0),
+              sliver: SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(strings.brand, style: HesbaText.brand),
-                    const SizedBox(height: 5),
-                    Text(strings.brandSub, style: HesbaText.brandSub),
+                    Text(
+                      strings.brand,
+                      style: HesbaText.pageTitle.copyWith(
+                        color: ink,
+                        fontSize: width < 600 ? 32 : 38,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      strings.homeSubtitle,
+                      style: HesbaText.bodyMuted.copyWith(color: muted),
+                    ),
                   ],
                 ),
               ),
-              const Divider(height: 1, color: Color(0x1AFFFFFF)),
-              const SizedBox(height: 21),
-              Expanded(
-                child: ListView.separated(
-                  padding: EdgeInsets.zero,
-                  itemCount: items.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 5),
-                  itemBuilder: (context, index) => _NavigationItem(
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(pad, 28, pad, 0),
+              sliver: SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: columns,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  childAspectRatio: 1,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) => _ModuleTile(
                     label: items[index].label,
-                    active: index == selected,
-                    onTap: () => onSelected(index),
+                    icon: items[index].icon,
+                    onTap: () => onOpen(index),
                   ),
+                  childCount: items.length,
                 ),
               ),
-              const SizedBox(height: 18),
-              _UserCard(session: session, strings: strings),
-            ],
-          ),
-        ),
-      ),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(pad, 28, pad, 40),
+              sliver: SliverToBoxAdapter(
+                child: _HomeUserCard(session: session, strings: strings),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
-class _NavigationItem extends StatelessWidget {
-  const _NavigationItem({
+class _ModuleTile extends StatelessWidget {
+  const _ModuleTile({
     required this.label,
-    required this.active,
+    required this.icon,
     required this.onTap,
   });
 
   final String label;
-  final bool active;
+  final IconData icon;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF152833) : Colors.white;
+    final border = isDark ? const Color(0xFF2A4050) : HesbaColors.border;
+    final ink = isDark ? const Color(0xFFE6EEF2) : HesbaColors.ink;
+    final iconBg = isDark ? const Color(0xFF163E3A) : HesbaColors.tealLight;
+
     return Material(
-      color: active ? HesbaColors.teal : Colors.transparent,
-      borderRadius: BorderRadius.circular(9),
+      color: card,
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(9),
-        child: SizedBox(
-          height: 45,
+        borderRadius: BorderRadius.circular(18),
+        hoverColor: HesbaColors.teal.withValues(alpha: 0.06),
+        splashColor: HesbaColors.teal.withValues(alpha: 0.12),
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: border),
+          ),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 15),
-            child: Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: Text(
-                label,
-                style: active ? HesbaText.navActive : HesbaText.nav,
-              ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: iconBg,
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(icon, color: HesbaColors.teal, size: 26),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: HesbaText.fieldLabel.copyWith(
+                    color: ink,
+                    fontSize: 15,
+                    height: 1.35,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -291,48 +352,55 @@ class _NavigationItem extends StatelessWidget {
   }
 }
 
-class _UserCard extends StatelessWidget {
-  const _UserCard({required this.session, required this.strings});
+class _HomeUserCard extends StatelessWidget {
+  const _HomeUserCard({required this.session, required this.strings});
 
   final SessionController session;
   final AppStrings strings;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final card = isDark ? const Color(0xFF152833) : Colors.white;
+    final border = isDark ? const Color(0xFF2A4050) : HesbaColors.border;
+    final ink = isDark ? const Color(0xFFE6EEF2) : HesbaColors.ink;
+    final muted = isDark ? const Color(0xFF9AADB8) : HesbaColors.muted;
     final role = session.isAdmin ? strings.adminRole : strings.staffRole;
 
     return Container(
-      padding: const EdgeInsets.all(15),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: const Color(0x12FFFFFF),
-        borderRadius: BorderRadius.circular(12),
+        color: card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+      child: Row(
         children: [
-          Text(strings.currentUser, style: HesbaText.sideMeta),
-          const SizedBox(height: 5),
-          Text('${session.username ?? '—'} — $role', style: HesbaText.sideUser),
-          const SizedBox(height: 5),
-          Text(
-            session.isAdmin ? strings.adminHint : strings.staffHint,
-            style: HesbaText.sideTiny,
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 40,
-            child: OutlinedButton(
-              onPressed: session.logout,
-              style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xB8FFFFFF),
-                side: const BorderSide(color: Color(0x29FFFFFF)),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  strings.currentUser,
+                  style: HesbaText.caption.copyWith(color: muted),
                 ),
-                textStyle: HesbaText.button,
-              ),
-              child: Text(strings.logout),
+                const SizedBox(height: 4),
+                Text(
+                  '${session.username ?? '—'} — $role',
+                  style: HesbaText.fieldLabel.copyWith(color: ink),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  session.isAdmin ? strings.adminHint : strings.staffHint,
+                  style: HesbaText.help.copyWith(color: muted),
+                ),
+              ],
             ),
+          ),
+          const SizedBox(width: 16),
+          OutlinedButton(
+            onPressed: session.logout,
+            child: Text(strings.logout),
           ),
         ],
       ),
@@ -347,7 +415,7 @@ class _ContextBar extends StatelessWidget {
     required this.strings,
     this.compact = false,
     this.title,
-    this.onMenuPressed,
+    this.onBack,
   });
 
   final SessionController session;
@@ -355,7 +423,7 @@ class _ContextBar extends StatelessWidget {
   final AppStrings strings;
   final bool compact;
   final String? title;
-  final VoidCallback? onMenuPressed;
+  final VoidCallback? onBack;
 
   @override
   Widget build(BuildContext context) {
@@ -368,20 +436,29 @@ class _ContextBar extends StatelessWidget {
     final dateLocale = settings.locale.languageCode;
     final topInset = MediaQuery.paddingOf(context).top;
 
+    final backButton = onBack == null
+        ? null
+        : HeaderIconButton(
+            tooltip: strings.backHome,
+            onPressed: onBack!,
+            icon: Icons.arrow_back,
+          );
+    final logoutButton = HeaderIconButton(
+      tooltip: strings.logout,
+      onPressed: session.logout,
+      icon: Icons.logout_rounded,
+    );
+
     if (compact) {
       return Container(
-        padding: EdgeInsets.fromLTRB(8, topInset + 6, 12, 10),
+        padding: EdgeInsets.fromLTRB(12, topInset + 6, 12, 10),
         decoration: BoxDecoration(
           color: surface,
           border: Border(bottom: BorderSide(color: border)),
         ),
         child: Row(
           children: [
-            IconButton(
-              tooltip: MaterialLocalizations.of(context).openAppDrawerTooltip,
-              onPressed: onMenuPressed,
-              icon: Icon(Icons.menu_rounded, color: ink),
-            ),
+            if (backButton != null) ...[backButton, const SizedBox(width: 8)],
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -429,6 +506,8 @@ class _ContextBar extends StatelessWidget {
             ),
             const SizedBox(width: 4),
             NotificationsBell(session: session, strings: strings),
+            const SizedBox(width: 4),
+            logoutButton,
           ],
         ),
       );
@@ -443,6 +522,7 @@ class _ContextBar extends StatelessWidget {
       ),
       child: Row(
         children: [
+          if (backButton != null) ...[backButton, const SizedBox(width: 14)],
           Expanded(
             child: Text(
               strings.branchPath,
@@ -510,6 +590,8 @@ class _ContextBar extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 NotificationsBell(session: session, strings: strings),
+                const SizedBox(width: 8),
+                logoutButton,
               ],
             ),
           ),
@@ -520,8 +602,9 @@ class _ContextBar extends StatelessWidget {
 }
 
 class _NavItem {
-  const _NavItem(this.label, this.builder);
+  const _NavItem(this.label, this.icon, this.builder);
 
   final String label;
+  final IconData icon;
   final Widget Function() builder;
 }

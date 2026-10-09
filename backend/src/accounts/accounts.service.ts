@@ -27,6 +27,8 @@ import { shouldSeedDemoData } from '../config/demo-data.js';
 import { UsersService } from '../users/users.service.js';
 import {
   REGULAR_PROFIT_LIMIT,
+  isBasicProfitName,
+  isOpenProfitAccount,
   profitQrCustomerCommission,
   profitQrIncomingFee,
   regularProfitDepositCommission,
@@ -51,6 +53,7 @@ export class AccountsService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
+    await this.markBasicProfitAccountsOpen();
     if (!shouldSeedDemoData(this.config)) return;
     if (await this.accounts.count()) return;
     await this.accounts.save([
@@ -67,6 +70,16 @@ export class AccountsService implements OnModuleInit {
         balance: 36500,
       }),
     ]);
+  }
+
+  private async markBasicProfitAccountsOpen() {
+    const profits = await this.accounts.find({
+      where: { type: AccountType.PROFIT, openLimit: false },
+    });
+    const basic = profits.filter((account) => isBasicProfitName(account.name));
+    if (!basic.length) return;
+    for (const account of basic) account.openLimit = true;
+    await this.accounts.save(basic);
   }
 
   findAll(includeInactive = false) {
@@ -99,8 +112,11 @@ export class AccountsService implements OnModuleInit {
         }),
       );
     }
+    const openLimit =
+      dto.type === AccountType.PROFIT && isBasicProfitName(dto.name);
     if (
       dto.type === AccountType.PROFIT &&
+      !openLimit &&
       dto.openingBalance > REGULAR_PROFIT_LIMIT
     ) {
       throw new BadRequestException(
@@ -118,6 +134,7 @@ export class AccountsService implements OnModuleInit {
           type: dto.type,
           openingBalance: dto.openingBalance,
           balance: dto.openingBalance,
+          openLimit,
         }),
       );
       if (dto.openingBalance > 0) {
@@ -175,6 +192,7 @@ export class AccountsService implements OnModuleInit {
       }
       if (
         account.type === AccountType.PROFIT &&
+        !isOpenProfitAccount(account) &&
         nextBalance > REGULAR_PROFIT_LIMIT
       ) {
         throw new BadRequestException({

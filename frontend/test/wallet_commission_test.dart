@@ -23,23 +23,30 @@ void main() {
     }
   });
 
-  test('customer wallet send fees are ten per thousand', () {
-    expect(
-      customerWalletCommission(
-        type: 'orange_cash',
-        direction: 'send',
-        amount: 200,
-      ),
-      5,
-    );
-    expect(
-      customerWalletCommission(
-        type: 'orange_cash',
-        direction: 'send',
-        amount: 2000,
-      ),
-      20,
-    );
+  test('customer wallet send fees step at 1200 and 1550', () {
+    for (final (amount, fee) in <(num, int)>[
+      (200, 5),
+      (1000, 10),
+      (1199.99, 10),
+      (1200, 15),
+      (1500, 15),
+      (1550, 15),
+      (1550.01, 20),
+      (1700, 20),
+      (1800, 20),
+      (2000, 20),
+      (2000.01, 40),
+      (3000, 40),
+    ]) {
+      expect(
+        customerWalletCommission(
+          type: 'orange_cash',
+          direction: 'send',
+          amount: amount,
+        ),
+        fee,
+      );
+    }
   });
 
   test(

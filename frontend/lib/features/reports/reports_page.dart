@@ -40,10 +40,7 @@ class _ReportsPageState extends State<ReportsPage> {
     load();
   }
 
-  Future<void> load({
-    bool preserveChannels = true,
-    bool silent = false,
-  }) async {
+  Future<void> load({bool preserveChannels = true, bool silent = false}) async {
     if (!silent) {
       setState(() {
         loading = true;

@@ -22,9 +22,8 @@ class PageFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        // The content area can still be narrow on a desktop window because the
-        // persistent sidebar occupies part of the viewport. Base the header on
-        // the space PageFrame actually receives instead of the device type.
+        // Base the header on the space PageFrame actually receives. A desktop
+        // window can still be narrow even when the device itself is wide.
         final isCompact = constraints.maxWidth < 800;
         final horizontalPadding = constraints.maxWidth < 600 ? 16.0 : 34.0;
         final titleBlock = Column(

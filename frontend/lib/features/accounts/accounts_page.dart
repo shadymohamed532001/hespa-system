@@ -117,7 +117,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 : 'متابعة الرصيد والترحيل لكل حساب'
           : isProfitQr
           ? 'العميل يحوّل على QR ثم يستلم كاش: عمولة العميل ٥ جنيه لحد ٥٠٠، و١٠ جنيه لحد ألف، وفوق ألف ١٠ جنيه لكل ألف، وخصم مكسب ٢ جنيه لكل ألف. التوريد من الحساب عليه خصم ٤ جنيه لكل ألف.'
-          : 'حساب مكسب عادي. حد الرصيد قبل زيادة الشحن مليون جنيه. الشحن يضيف ٥ جنيه لكل ألف إلى رصيد الحساب، والتحويل يخصم ٤ جنيه لكل ألف من العمولات.',
+          : 'حساب المكسب الأساسي من غير حد أقصى. باقي حسابات المكسب العادي حدها مليون جنيه قبل زيادة الشحن. الشحن يضيف ٥ جنيه لكل ألف إلى رصيد الحساب، والتحويل يخصم ٤ جنيه لكل ألف من العمولات.',
       actions: [
         if (isFawry)
           IconButton.filledTonal(
@@ -169,6 +169,11 @@ class _AccountsPageState extends State<AccountsPage> {
                         : constraints.maxWidth >= 760
                         ? 2
                         : 1;
+                    final basicOpen =
+                        !isFawry &&
+                        rows.isNotEmpty &&
+                        rows.every(_isOpenProfitAccount);
+                    final hasBasic = !isFawry && rows.any(_isOpenProfitAccount);
                     return GridView.count(
                       crossAxisCount: columns,
                       shrinkWrap: true,
@@ -222,10 +227,20 @@ class _AccountsPageState extends State<AccountsPage> {
                           MetricCard(
                             label: isFawry
                                 ? 'الحد الأقصى لفوري'
+                                : basicOpen
+                                ? 'حد المكسب الأساسي'
                                 : 'الحد الأقصى للمكسب',
-                            value: isFawry ? '5,000,000 ج.م' : '1,000,000 ج.م',
+                            value: isFawry
+                                ? '5,000,000 ج.م'
+                                : basicOpen
+                                ? 'مفتوح'
+                                : '1,000,000 ج.م',
                             note: isFawry
                                 ? 'لكل حساب فوري'
+                                : basicOpen
+                                ? 'بدون حد أقصى للرصيد'
+                                : hasBasic
+                                ? 'الحساب الأساسي من غير حد. باقي الحسابات قبل زيادة الشحن'
                                 : 'قبل إضافة زيادة الشحن',
                           ),
                       ],
@@ -1000,9 +1015,13 @@ class _AccountsTable extends StatelessWidget {
                         if (limit != null)
                           DataCell(
                             Text(
-                              money(
-                                limit! - (num.tryParse('${e['balance']}') ?? 0),
-                              ),
+                              _isOpenProfitAccount(e)
+                                  ? 'مفتوح'
+                                  : money(
+                                      limit! -
+                                          (num.tryParse('${e['balance']}') ??
+                                              0),
+                                    ),
                               style: HesbaText.tableCell,
                             ),
                           ),
@@ -1053,6 +1072,15 @@ class _AccountsTable extends StatelessWidget {
 
 const _fawryLimit = 5000000;
 const _profitLimit = 1000000;
+
+bool _isOpenProfitAccount(dynamic account) {
+  if (account is! Map) return false;
+  if (account['openLimit'] == true) return true;
+  final name = '${account['name']}'
+      .replaceAll(RegExp(r'[\u064B-\u0652\u0670\u0640\s]'), '')
+      .replaceAll(RegExp('[أإآ]'), 'ا');
+  return name.contains('اساسي');
+}
 
 const _headerStyle = HesbaText.tableHeader;
 

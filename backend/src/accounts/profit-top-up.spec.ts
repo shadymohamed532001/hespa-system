@@ -9,6 +9,7 @@ function fixture(balance = 100000) {
     id: 'account',
     type: AccountType.PROFIT,
     name: 'test',
+    openLimit: false,
     active: true,
     balance,
     commissionBalance: 0,
@@ -70,6 +71,13 @@ describe('Regular profit top-ups credited to spendable balance', () => {
     await expect(
       f.service.topUp('account', { amount: 1 }, 'test'),
     ).rejects.toThrow();
+  });
+  it('leaves the basic profit account uncapped', async () => {
+    const f = fixture(1_000_000);
+    f.account.name = 'حساب مكسب أساسي';
+    f.account.openLimit = true;
+    await f.service.topUp('account', { amount: 1_000_000 }, 'test');
+    expect(f.account.balance).toBe(2_005_000);
   });
   it('reverses both the principal and bonus without touching commissions', async () => {
     const f = fixture();

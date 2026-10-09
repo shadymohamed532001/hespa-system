@@ -12,11 +12,7 @@ num? customerWalletCommission({
     final commissionCents = (cents / 100).round();
     return commissionCents / 100;
   }
-  if (direction == 'send') {
-    if (cents <= 20000) return 5;
-    if (cents <= 100000) return 10;
-    return (cents / 100).round() / 100;
-  }
+  if (direction == 'send') return _sendWalletCommission(cents);
 
   final completeThousands = (cents - 1) ~/ 100000;
   final remainder = cents - completeThousands * 100000;
@@ -26,4 +22,11 @@ num? customerWalletCommission({
       ? 10
       : 20;
   return completeThousands * 20 + remainderCommission;
+}
+
+num _sendWalletCommission(int cents) {
+  if (cents <= 20000) return 5;
+  if (cents < 120000) return 10;
+  if (cents <= 155000) return 15;
+  return (cents / 100000).ceil() * 20 - 20;
 }

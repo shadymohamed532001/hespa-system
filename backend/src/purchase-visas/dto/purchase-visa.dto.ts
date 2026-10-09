@@ -31,6 +31,17 @@ export class CreatePurchaseVisaDto {
   openingBalance = 0;
 }
 
+export class TopUpPurchaseVisaDto {
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0.01)
+  amount: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  reference?: string;
+}
+
 export class WithdrawPurchaseVisaDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)

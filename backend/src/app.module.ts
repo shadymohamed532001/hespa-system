@@ -23,6 +23,7 @@ import { OwnerWithdrawal1790087699432 } from './database/migrations/179008769943
 import { PurchaseVisa1790087699433 } from './database/migrations/1790087699433-PurchaseVisa.js';
 import { PurchaseVisaDetails1790087699434 } from './database/migrations/1790087699434-PurchaseVisaDetails.js';
 import { CollectionPurchaseVisa1790087699435 } from './database/migrations/1790087699435-CollectionPurchaseVisa.js';
+import { ProfitBasicOpenLimit1790087699437 } from './database/migrations/1790087699437-ProfitBasicOpenLimit.js';
 import { AccountsModule } from './accounts/accounts.module.js';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
@@ -135,6 +136,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           PurchaseVisa1790087699433,
           PurchaseVisaDetails1790087699434,
           CollectionPurchaseVisa1790087699435,
+          ProfitBasicOpenLimit1790087699437,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

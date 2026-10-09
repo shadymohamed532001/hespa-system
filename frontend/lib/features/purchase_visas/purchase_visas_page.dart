@@ -47,6 +47,29 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
     if (mounted) setState(() => loading = false);
   }
 
+  Future<void> _topUp(Object visa) async {
+    final row = visa as Map<String, dynamic>;
+    final result = await showHesbaModal<_TopUpVisaInput>(
+      context: context,
+      maxWidth: 480,
+      builder: (context) => _TopUpVisaDialog(visaName: '${row['name']}'),
+    );
+    if (result == null || !mounted) return;
+    try {
+      await widget.session.api
+          .post(ApiEndpoints.purchaseVisaTopUp('${row['id']}'), {
+            'amount': result.amount,
+            if (result.reference.isNotEmpty) 'reference': result.reference,
+          });
+      await load();
+      if (mounted) showAppSnack(context, 'تم شحن الفيزا');
+    } catch (exception) {
+      if (mounted) {
+        showAppSnack(context, ApiClient.errorMessage(exception), error: true);
+      }
+    }
+  }
+
   Future<void> _create() async {
     final result = await showHesbaModal<_CreateVisaInput>(
       context: context,
@@ -73,6 +96,7 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
   @override
   Widget build(BuildContext context) {
     final canCreate = widget.session.can(AppPermissions.manageAssets);
+    final canTopUp = widget.session.can(AppPermissions.topUpAssets);
     return PageFrame(
       onRefresh: () => load(silent: true),
       title: 'فيزا المشتريات',
@@ -103,18 +127,21 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
           : LayoutBuilder(
               builder: (context, constraints) {
                 final wide = constraints.maxWidth >= 760;
+                final tileWidth = wide
+                    ? (constraints.maxWidth - 15) / 2
+                    : constraints.maxWidth;
                 return Wrap(
                   spacing: 15,
                   runSpacing: 15,
                   children: [
                     for (final raw in visas)
                       SizedBox(
-                        width: wide
-                            ? (constraints.maxWidth - 15) / 2
-                            : constraints.maxWidth,
+                        width: tileWidth,
                         child: _VisaCard(
                           visa: raw as Map<String, dynamic>,
                           showProfit: widget.session.isAdmin,
+                          canTopUp: canTopUp,
+                          onTopUp: () => _topUp(raw),
                         ),
                       ),
                   ],
@@ -126,10 +153,17 @@ class _PurchaseVisasPageState extends State<PurchaseVisasPage> {
 }
 
 class _VisaCard extends StatelessWidget {
-  const _VisaCard({required this.visa, required this.showProfit});
+  const _VisaCard({
+    required this.visa,
+    required this.showProfit,
+    required this.canTopUp,
+    required this.onTopUp,
+  });
 
   final Map<String, dynamic> visa;
   final bool showProfit;
+  final bool canTopUp;
+  final VoidCallback onTopUp;
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +204,87 @@ class _VisaCard extends StatelessWidget {
               style: const TextStyle(color: HesbaColors.tealDark),
             ),
           ],
+          if (canTopUp) ...[
+            const SizedBox(height: 16),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: FilledButton.icon(
+                onPressed: onTopUp,
+                icon: const Icon(Icons.add_card_outlined, size: 18),
+                label: const Text('شحن الفيزا'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TopUpVisaInput {
+  const _TopUpVisaInput({required this.amount, required this.reference});
+
+  final num amount;
+  final String reference;
+}
+
+class _TopUpVisaDialog extends StatefulWidget {
+  const _TopUpVisaDialog({required this.visaName});
+
+  final String visaName;
+
+  @override
+  State<_TopUpVisaDialog> createState() => _TopUpVisaDialogState();
+}
+
+class _TopUpVisaDialogState extends State<_TopUpVisaDialog> {
+  final amount = TextEditingController();
+  final reference = TextEditingController();
+
+  @override
+  void dispose() {
+    amount.dispose();
+    reference.dispose();
+    super.dispose();
+  }
+
+  num? get _parsed => parseNum(amount.text.trim());
+
+  @override
+  Widget build(BuildContext context) {
+    final parsed = _parsed;
+    return HesbaModalCard(
+      title: 'شحن الفيزا',
+      subtitle: 'إضافة رصيد جديد إلى ${widget.visaName}.',
+      actions: HesbaModalActions(
+        primaryLabel: 'شحن',
+        primaryEnabled: parsed != null && parsed > 0,
+        onPrimary: () => Navigator.pop(
+          context,
+          _TopUpVisaInput(amount: parsed!, reference: reference.text.trim()),
+        ),
+        onCancel: () => Navigator.pop(context),
+      ),
+      child: Column(
+        children: [
+          HesbaModalField(
+            label: 'مبلغ الشحن *',
+            child: TextField(
+              controller: amount,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              inputFormatters: const [MoneyInputFormatter()],
+              textDirection: TextDirection.ltr,
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          const SizedBox(height: 16),
+          HesbaModalField(
+            label: 'رقم المرجع (اختياري)',
+            child: TextField(controller: reference),
+          ),
         ],
       ),
     );

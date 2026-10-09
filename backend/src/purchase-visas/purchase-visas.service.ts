@@ -14,6 +14,7 @@ import { Treasury } from '../database/entities/treasury.entity.js';
 import { LedgerCategory } from '../database/enums.js';
 import {
   CreatePurchaseVisaDto,
+  TopUpPurchaseVisaDto,
   WithdrawPurchaseVisaDto,
 } from './dto/purchase-visa.dto.js';
 import { parsePurchaseVisaCard } from './purchase-visa-card.js';
@@ -108,6 +109,37 @@ export class PurchaseVisasService {
           performedBy: username,
         });
       }
+      return visa;
+    });
+  }
+
+  async topUp(id: string, dto: TopUpPurchaseVisaDto, username: string) {
+    const amount = Number(Number(dto.amount).toFixed(2));
+    return this.dataSource.transaction(async (manager) => {
+      const visa = await manager.getRepository(PurchaseVisa).findOne({
+        where: { id, active: true },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!visa) {
+        throw new NotFoundException(
+          msg({
+            ar: 'الفيزا غير موجودة أو موقوفة',
+            en: 'Visa not found or inactive',
+          }),
+        );
+      }
+      visa.balance = Number((Number(visa.balance) + amount).toFixed(2));
+      await manager.save(visa);
+      const reference = dto.reference?.trim() || null;
+      await manager.getRepository(LedgerEntry).save({
+        category: LedgerCategory.TOP_UP,
+        amount,
+        entityType: 'purchase_visa',
+        entityId: visa.id,
+        reference,
+        description: `شحن فيزا المشتريات ${visa.name}`,
+        performedBy: username,
+      });
       return visa;
     });
   }

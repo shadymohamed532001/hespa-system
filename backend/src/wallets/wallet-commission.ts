@@ -23,15 +23,19 @@ export function walletCommission(
     return commissionCents / 100;
   }
 
-  if (direction === 'send') {
-    if (cents <= 20_000) return 5;
-    if (cents <= 100_000) return 10;
-    return Math.round(cents / 100) / 100;
-  }
+  if (direction === 'send') return sendWalletCommission(cents);
 
   const completeThousands = Math.floor((cents - 1) / 100_000);
   const remainder = cents - completeThousands * 100_000;
   const remainderCommission =
     remainder <= 20_000 ? 5 : remainder <= 50_000 ? 10 : 20;
   return completeThousands * 20 + remainderCommission;
+}
+
+/** Send: 5 to 200, 10 until 1,200, 15 from 1,200 through 1,550, then 20 per thousand. */
+function sendWalletCommission(cents: number): number {
+  if (cents <= 20_000) return 5;
+  if (cents < 120_000) return 10;
+  if (cents <= 155_000) return 15;
+  return Math.ceil(cents / 100_000) * 20 - 20;
 }

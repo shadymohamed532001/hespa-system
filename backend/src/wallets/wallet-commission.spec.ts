@@ -22,8 +22,16 @@ describe('customer wallet commissions', () => {
     [200, 5],
     [200.01, 10],
     [1000, 10],
-    [1000.01, 10],
+    [1199.99, 10],
+    [1200, 15],
+    [1500, 15],
+    [1550, 15],
+    [1550.01, 20],
+    [1700, 20],
+    [1800, 20],
     [2000, 20],
+    [2000.01, 40],
+    [3000, 40],
   ])('charges %i EGP send as %i EGP', (amount, expected) => {
     expect(walletCommission('orange_cash', 'send', amount)).toBe(expected);
   });

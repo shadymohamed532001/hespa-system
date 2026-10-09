@@ -458,11 +458,11 @@ describe('financial operations (e2e)', () => {
       .send({ direction: 'send', amount: 1200, reference: `SEND-${suffix}` })
       .expect(201);
     expect(send.body).toMatchObject({
-      commission: 25,
-      cashToCollect: 1225,
+      commission: 15,
+      cashToCollect: 1215,
       cashToPay: 0,
-      wallet: { balance: 1800, commissionBalance: 25 },
-      treasuryBalance: startingCash + 1225,
+      wallet: { balance: 1800, commissionBalance: 15 },
+      treasuryBalance: startingCash + 1215,
     });
 
     const deducted = await request(app.getHttpServer())
@@ -474,8 +474,8 @@ describe('financial operations (e2e)', () => {
       commission: 5,
       cashToCollect: 0,
       cashToPay: 195,
-      wallet: { balance: 2000, commissionBalance: 30 },
-      treasuryBalance: startingCash + 1030,
+      wallet: { balance: 2000, commissionBalance: 20 },
+      treasuryBalance: startingCash + 1020,
     });
 
     const separate = await request(app.getHttpServer())
@@ -487,8 +487,8 @@ describe('financial operations (e2e)', () => {
       commission: 10,
       cashToCollect: 10,
       cashToPay: 500,
-      wallet: { balance: 2500, commissionBalance: 40 },
-      treasuryBalance: startingCash + 540,
+      wallet: { balance: 2500, commissionBalance: 30 },
+      treasuryBalance: startingCash + 530,
     });
 
     for (const operation of [separate, deducted, send]) {

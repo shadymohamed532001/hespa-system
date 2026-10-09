@@ -139,9 +139,7 @@ class PushNotificationsService {
       requestBadgePermission: true,
       requestSoundPermission: true,
     );
-    const androidSettings = AndroidInitializationSettings(
-      'ic_stat_hesba',
-    );
+    const androidSettings = AndroidInitializationSettings('ic_stat_hesba');
     await _local.initialize(
       settings: const InitializationSettings(
         android: androidSettings,
