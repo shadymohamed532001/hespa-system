@@ -19,20 +19,20 @@ describe('customer wallet commissions', () => {
 
   it.each([
     [1, 5],
-    [200, 5],
-    [200.01, 10],
+    [500, 5],
+    [500.01, 10],
     [1000, 10],
-    [1199.99, 10],
+    [1000.01, 15],
     [1200, 15],
     [1500, 15],
-    [1550, 15],
-    [1550.01, 20],
-    [1700, 20],
-    [1800, 20],
+    [1500.01, 20],
     [2000, 20],
-    [2000.01, 40],
-    [3000, 40],
+    [2000.01, 25],
+    [2500, 25],
+    [3000, 30],
+    [3000.01, 35],
   ])('charges %i EGP send as %i EGP', (amount, expected) => {
+    expect(walletCommission('vodafone_cash', 'send', amount)).toBe(expected);
     expect(walletCommission('orange_cash', 'send', amount)).toBe(expected);
   });
 

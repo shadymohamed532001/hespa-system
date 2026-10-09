@@ -25,8 +25,5 @@ num? customerWalletCommission({
 }
 
 num _sendWalletCommission(int cents) {
-  if (cents <= 20000) return 5;
-  if (cents < 120000) return 10;
-  if (cents <= 155000) return 15;
-  return (cents / 100000).ceil() * 20 - 20;
+  return (cents / 50000).ceil() * 5;
 }

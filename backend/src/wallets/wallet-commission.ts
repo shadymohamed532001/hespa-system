@@ -32,10 +32,7 @@ export function walletCommission(
   return completeThousands * 20 + remainderCommission;
 }
 
-/** Send: 5 to 200, 10 until 1,200, 15 from 1,200 through 1,550, then 20 per thousand. */
+/** Send: 5 EGP per 500 EGP. 1–500 → 5, then 10, 15, 20, 25… The exact boundary stays in the lower step. */
 function sendWalletCommission(cents: number): number {
-  if (cents <= 20_000) return 5;
-  if (cents < 120_000) return 10;
-  if (cents <= 155_000) return 15;
-  return Math.ceil(cents / 100_000) * 20 - 20;
+  return Math.ceil(cents / 50_000) * 5;
 }
