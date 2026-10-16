@@ -1,3 +1,4 @@
+import { buildAgentCreditDays } from './agent-credit-days.js';
 import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
 import {
   BadRequestException,
@@ -81,6 +82,29 @@ export class CollectionsService implements OnModuleInit {
       relations: { account: true, purchaseVisa: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  async findAgentCreditDays() {
+    const rows = await this.dataSource.query(`
+      WITH movements AS (
+        SELECT agent_name AS name,
+          (received_at AT TIME ZONE 'Africa/Cairo')::date AS day,
+          GREATEST(agent_credit_change, 0) AS credit,
+          GREATEST(-agent_credit_change, 0) AS paid
+        FROM collections WHERE status <> 'reversed' AND agent_credit_change <> 0
+        UNION ALL
+        SELECT metadata->>'agentName',
+          (created_at AT TIME ZONE 'Africa/Cairo')::date, amount, 0
+        FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'
+        UNION ALL
+        SELECT agent_name, (created_at AT TIME ZONE 'Africa/Cairo')::date, 0, amount
+        FROM agent_credit_payments
+      )
+      SELECT MIN(name) AS "agentName", TO_CHAR(day, 'YYYY-MM-DD') AS date,
+        SUM(credit) AS credit, SUM(paid) AS paid, COUNT(*) AS "movementsCount"
+      FROM movements GROUP BY LOWER(TRIM(name)), day ORDER BY day
+    `);
+    return buildAgentCreditDays(rows);
   }
 
   async findAgentCredits() {
@@ -378,33 +402,12 @@ export class CollectionsService implements OnModuleInit {
         assertNoFawryOperationCommission(account, dto.commission);
       }
 
-      const credited = new Map<string, CollectionIncomingSplit>();
-      const orderedParts = [...incoming.parts].sort((left, right) =>
-        left.walletId.localeCompare(right.walletId),
+      const splits = await creditIncomingDestinations(
+        manager,
+        incoming.parts,
+        account,
+        dailyNotices,
       );
-      for (const part of orderedParts) {
-        const wallet = await manager.getRepository(Wallet).findOne({
-          where: { id: part.walletId, active: true },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!wallet) {
-          throw new NotFoundException(
-            msg({
-              ar: 'المحفظة غير موجودة أو موقوفة',
-              en: 'Wallet not found or inactive',
-            }),
-          );
-        }
-        const usage = recordWalletIncoming(wallet, part.amount);
-        if (usage.crossedDailyNotice) dailyNotices.push(wallet);
-        await manager.getRepository(Wallet).save(wallet);
-        credited.set(wallet.id, {
-          walletId: wallet.id,
-          walletName: wallet.name,
-          amount: part.amount,
-        });
-      }
-      const splits = incoming.parts.map((part) => credited.get(part.walletId)!);
 
       if (incoming.cashAmount > 0) {
         treasury.balance = Number(
@@ -491,17 +494,19 @@ export class CollectionsService implements OnModuleInit {
         });
       }
       for (const split of splits) {
+        const target = incomingSplitTarget(split);
         await ledger.save({
           category: LedgerCategory.TOP_UP,
           amount: split.amount,
-          entityType: 'wallet',
-          entityId: split.walletId,
+          entityType: target.entityType,
+          entityId: target.entityId,
           reference,
-          description: `استلام ${split.amount} على محفظة ${split.walletName} من مندوب ${dto.agentName} لصالح ${dto.companyName}`,
+          description: `استلام ${split.amount} على ${target.label} من مندوب ${dto.agentName} لصالح ${dto.companyName}`,
           performedBy: username,
           metadata: {
             collectionReceipt: true,
             collectionId: collection.id,
+            ...(split.accountId ? { profitQrIncoming: true } : {}),
           },
         });
       }
@@ -832,15 +837,130 @@ function moneyCents(value: number): number {
   return Math.round(Number(value) * 100);
 }
 
+type IncomingDestination = {
+  walletId?: string;
+  accountId?: string;
+  amount: number;
+};
+
+function destinationKey(part: {
+  walletId?: string;
+  accountId?: string;
+}): string {
+  const hasWallet = Boolean(part.walletId);
+  const hasAccount = Boolean(part.accountId);
+  if (hasWallet === hasAccount) {
+    throw new BadRequestException(
+      msg({
+        ar: 'كل جزء لازم يكون محفظة أو حساب مكسب QR',
+        en: 'Each portion must be either a wallet or a QR profit account',
+      }),
+    );
+  }
+  return hasAccount ? `account:${part.accountId}` : `wallet:${part.walletId}`;
+}
+
+function incomingSplitTarget(split: CollectionIncomingSplit): {
+  entityType: 'account' | 'wallet';
+  entityId: string;
+  label: string;
+} {
+  if (split.accountId) {
+    return {
+      entityType: 'account',
+      entityId: split.accountId,
+      label: `حساب مكسب QR ${split.walletName}`,
+    };
+  }
+  return {
+    entityType: 'wallet',
+    entityId: split.walletId!,
+    label: `محفظة ${split.walletName}`,
+  };
+}
+
+async function creditIncomingDestinations(
+  manager: EntityManager,
+  parts: IncomingDestination[],
+  pendingAccount: FinancialAccount | null,
+  dailyNotices: Wallet[],
+): Promise<CollectionIncomingSplit[]> {
+  const credited = new Map<string, CollectionIncomingSplit>();
+  const ordered = [...parts].sort((left, right) =>
+    destinationKey(left).localeCompare(destinationKey(right)),
+  );
+  for (const part of ordered) {
+    if (part.accountId) {
+      const sameExecution = pendingAccount?.id === part.accountId;
+      const account = sameExecution
+        ? pendingAccount
+        : await manager.getRepository(FinancialAccount).findOne({
+            where: { id: part.accountId, active: true },
+            lock: { mode: 'pessimistic_write' },
+          });
+      if (!account) {
+        throw new NotFoundException(
+          msg({
+            ar: 'حساب مكسب QR غير موجود أو موقوف',
+            en: 'QR profit account not found or inactive',
+          }),
+        );
+      }
+      if (account.type !== AccountType.PROFIT_QR) {
+        throw new BadRequestException(
+          msg({
+            ar: 'المبلغ الداخل يتضاف على محفظة أو حساب مكسب QR فقط',
+            en: 'Incoming portions can be added only to a wallet or a QR profit account',
+          }),
+        );
+      }
+      account.balance = Number(
+        (Number(account.balance) + part.amount).toFixed(2),
+      );
+      account.todayTopUp = Number(
+        (Number(account.todayTopUp) + part.amount).toFixed(2),
+      );
+      await manager.getRepository(FinancialAccount).save(account);
+      credited.set(destinationKey(part), {
+        accountId: account.id,
+        walletName: account.name,
+        amount: part.amount,
+      });
+      continue;
+    }
+    const wallet = await manager.getRepository(Wallet).findOne({
+      where: { id: part.walletId, active: true },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!wallet) {
+      throw new NotFoundException(
+        msg({
+          ar: 'المحفظة غير موجودة أو موقوفة',
+          en: 'Wallet not found or inactive',
+        }),
+      );
+    }
+    const usage = recordWalletIncoming(wallet, part.amount);
+    if (usage.crossedDailyNotice) dailyNotices.push(wallet);
+    await manager.getRepository(Wallet).save(wallet);
+    credited.set(destinationKey(part), {
+      walletId: wallet.id,
+      walletName: wallet.name,
+      amount: part.amount,
+    });
+  }
+  return parts.map((part) => credited.get(destinationKey(part))!);
+}
+
 function resolveIncoming(dto: {
   amount: number;
   executionMode: ExecutionMode;
   cashAmount?: number | null;
-  incomingParts?: Array<{ walletId: string; amount: number }>;
+  incomingParts?: IncomingDestination[];
   useAgentCredit?: boolean;
 }): {
   cashAmount: number;
-  parts: Array<{ walletId: string; amount: number }>;
+  parts: IncomingDestination[];
   totalReceived: number;
 } {
   const parts = dto.incomingParts ?? [];
@@ -873,17 +993,18 @@ function resolveIncoming(dto: {
       }),
     );
   }
-  const ids = parts.map((part) => part.walletId);
+  const ids = parts.map((part) => destinationKey(part));
   if (new Set(ids).size !== ids.length) {
     throw new BadRequestException(
       msg({
-        ar: 'المحفظة متكررة. اجمع مبلغها في سطر واحد',
-        en: 'The same wallet is listed twice. Combine its amount on one line',
+        ar: 'المحفظة أو حساب مكسب QR متكرر. اجمع المبلغ في سطر واحد',
+        en: 'The same wallet or QR profit account is listed twice. Combine its amount on one line',
       }),
     );
   }
   const normalized = parts.map((part) => ({
     walletId: part.walletId,
+    accountId: part.accountId,
     amount: moneyCents(part.amount) / 100,
   }));
   const cashAmount = cashSpecified ? moneyCents(dto.cashAmount!) / 100 : 0;
@@ -994,33 +1115,12 @@ async function applyHeldIncoming(
     }
   }
 
-  const credited = new Map<string, CollectionIncomingSplit>();
-  const orderedParts = [...incoming.parts].sort((left, right) =>
-    left.walletId.localeCompare(right.walletId),
+  const splits = await creditIncomingDestinations(
+    manager,
+    incoming.parts,
+    null,
+    dailyNotices,
   );
-  for (const part of orderedParts) {
-    const wallet = await manager.getRepository(Wallet).findOne({
-      where: { id: part.walletId, active: true },
-      lock: { mode: 'pessimistic_write' },
-    });
-    if (!wallet) {
-      throw new NotFoundException(
-        msg({
-          ar: 'المحفظة غير موجودة أو موقوفة',
-          en: 'Wallet not found or inactive',
-        }),
-      );
-    }
-    const usage = recordWalletIncoming(wallet, part.amount);
-    if (usage.crossedDailyNotice) dailyNotices.push(wallet);
-    await manager.getRepository(Wallet).save(wallet);
-    credited.set(wallet.id, {
-      walletId: wallet.id,
-      walletName: wallet.name,
-      amount: part.amount,
-    });
-  }
-  const splits = incoming.parts.map((part) => credited.get(part.walletId)!);
 
   const ledger = manager.getRepository(LedgerEntry);
   if (treasuryDelta !== 0) {
@@ -1065,18 +1165,20 @@ async function applyHeldIncoming(
     });
   }
   for (const split of splits) {
+    const target = incomingSplitTarget(split);
     await ledger.save({
       category: LedgerCategory.TOP_UP,
       amount: split.amount,
-      entityType: 'wallet',
-      entityId: split.walletId,
+      entityType: target.entityType,
+      entityId: target.entityId,
       reference: collection.reference,
-      description: `تنفيذ المعلّق ${collection.reference}: ${split.amount} على محفظة ${split.walletName}`,
+      description: `تنفيذ المعلّق ${collection.reference}: ${split.amount} على ${target.label}`,
       performedBy: username,
       metadata: {
         collectionReceipt: true,
         collectionId: collection.id,
         heldIncomingAdjustment: true,
+        ...(split.accountId ? { profitQrIncoming: true } : {}),
       },
     });
   }

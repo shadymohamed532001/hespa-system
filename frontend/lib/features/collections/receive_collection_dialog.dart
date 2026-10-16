@@ -64,6 +64,12 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   bool get _selectedIsProfitQr => _selectedAccountType == 'profit_qr';
 
+  List<dynamic> get _qrAccounts =>
+      _accounts.where((item) => item['type'] == 'profit_qr').toList();
+
+  bool get _hasSplitDestinations =>
+      _wallets.isNotEmpty || _qrAccounts.isNotEmpty;
+
   bool get _selectedIsVisa => _accountId?.startsWith('visa:') ?? false;
 
   num get _requiredBalance {
@@ -397,6 +403,38 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     return null;
   }
 
+  Map<String, dynamic>? _destinationByKey(String? key) {
+    if (key == null) return null;
+    if (key.startsWith('qr:')) {
+      final id = key.substring(3);
+      for (final account in _qrAccounts) {
+        if ('${account['id']}' == id) return account as Map<String, dynamic>;
+      }
+      return null;
+    }
+    final id = key.startsWith('wallet:') ? key.substring(7) : key;
+    return _walletById(id);
+  }
+
+  String _destinationName(String? key) {
+    final destination = _destinationByKey(key);
+    if (destination == null) {
+      return key != null && key.startsWith('qr:') ? 'حساب مكسب QR' : 'المحفظة';
+    }
+    if (key!.startsWith('qr:')) return 'حساب مكسب QR ${destination['name']}';
+    return '${destination['name']}';
+  }
+
+  Map<String, dynamic> _incomingPart(_WalletPart part) {
+    final key = part.walletId!;
+    final amount = parseNum(part.amount.text.trim())!;
+    if (key.startsWith('qr:')) {
+      return {'accountId': key.substring(3), 'amount': amount};
+    }
+    final walletId = key.startsWith('wallet:') ? key.substring(7) : key;
+    return {'walletId': walletId, 'amount': amount};
+  }
+
   String _walletLabel(Map<String, dynamic> wallet) {
     final type = _walletTypeLabel('${wallet['type']}');
     final name = '${wallet['name']}';
@@ -429,8 +467,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   String? _splitError() {
     if (!_splitIncoming) return null;
-    if (_wallets.isEmpty) {
-      return 'أضف محفظة نشطة زي فودافون كاش قبل تقسيم الداخل.';
+    if (!_hasSplitDestinations) {
+      return 'أضف محفظة نشطة أو حساب مكسب QR قبل تقسيم الداخل.';
     }
     final total = parseNum(_amount.text.trim());
     if (total == null || total <= 0) return 'أدخل المبلغ الكلي.';
@@ -438,12 +476,12 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
     for (final part in _parts) {
       final walletId = part.walletId;
       final amount = parseNum(part.amount.text.trim());
-      if (walletId == null || _walletById(walletId) == null) {
-        return 'اختر المحفظة اللي هتستلم الجزء.';
+      if (walletId == null || _destinationByKey(walletId) == null) {
+        return 'اختر المحفظة أو حساب مكسب QR اللي هيتضاف له المبلغ.';
       }
       if (amount == null || amount <= 0) return 'أدخل مبلغ المحفظة.';
       if (ids.contains(walletId)) {
-        return 'المحفظة متكررة. اجمع مبلغها في سطر واحد.';
+        return 'المحفظة أو حساب مكسب QR متكرر. اجمع المبلغ في سطر واحد.';
       }
       ids.add(walletId);
     }
@@ -458,13 +496,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   Map<String, dynamic> _splitPayload() {
     return {
       'cashAmount': _treasuryCash(),
-      'incomingParts': [
-        for (final part in _parts)
-          {
-            'walletId': part.walletId,
-            'amount': parseNum(part.amount.text.trim())!,
-          },
-      ],
+      'incomingParts': [for (final part in _parts) _incomingPart(part)],
     };
   }
 
@@ -487,11 +519,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       final total = parseNum(_amount.text.trim())!;
       final cash = _treasuryCash()!;
       final wallets = _parts
-          .map((part) {
-            final wallet = _walletById(part.walletId);
-            final name = wallet == null ? 'المحفظة' : '${wallet['name']}';
-            return '$name ${money(part.amount.text.trim())}';
-          })
+          .map(
+            (part) =>
+                '${_destinationName(part.walletId)} ${money(part.amount.text.trim())}',
+          )
           .join('، ');
       final treasury = cash == 0
           ? 'مفيش كاش يدخل الخزنة.'
@@ -809,11 +840,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   Widget _splitSection() {
-    if (_wallets.isEmpty) {
+    if (!_hasSplitDestinations) {
       return const HesbaModalCallout(
-        child: Text(
-          'عشان تقسّم الداخل بين الخزنة ومحفظة، أضف محفظة نشطة زي فودافون كاش.',
-        ),
+        child: Text('عشان تقسّم الداخل، أضف محفظة نشطة أو حساب مكسب QR.'),
       );
     }
     return Column(
@@ -828,7 +857,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             value: _splitIncoming,
             title: const Text('تقسيم المبلغ الداخل'),
             subtitle: const Text(
-              'اكتب جزء المحفظة بس. الباقي من المبلغ يدخل الخزنة، والمبلغ كله يتسحب من حساب التنفيذ.',
+              'اكتب كل حساب في سطر. مثال: 10,000 على فودافون QR و10,000 على InstaPay، والباقي كاش يدخل الخزنة. المبلغ كله يتسحب من حساب التنفيذ.',
             ),
             onChanged: _saving ? null : (value) => _setSplit(value ?? false),
           ),
@@ -841,10 +870,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 cash < 0
-                    ? 'جزء المحفظة أكبر من المبلغ.'
+                    ? 'مجموع الحسابات أكبر من المبلغ.'
                     : cash == 0
-                    ? 'المبلغ كله يدخل المحفظة.'
-                    : 'الباقي ${money(cash)} يدخل الخزنة.',
+                    ? 'المبلغ كله متقسم على الحسابات، ومفيش كاش يدخل الخزنة.'
+                    : 'الباقي ${money(cash)} كاش يدخل الخزنة.',
                 style: TextStyle(
                   color: cash < 0 ? HesbaColors.red : HesbaColors.teal,
                   fontWeight: FontWeight.w400,
@@ -856,7 +885,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             child: TextButton.icon(
               onPressed: _saving || _parts.length >= 5 ? null : _addPart,
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('إضافة محفظة'),
+              label: const Text('إضافة حساب'),
             ),
           ),
         ],
@@ -874,19 +903,27 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
           Expanded(
             flex: 3,
             child: HesbaModalField(
-              label: 'المحفظة *',
+              label: 'الحساب ${index + 1} *',
               child: DropdownButtonFormField<String>(
                 key: ValueKey('wallet-$index-${part.walletId}'),
                 initialValue: part.walletId,
                 isExpanded: true,
                 decoration: const InputDecoration(),
-                hint: const Text('اختر المحفظة'),
+                hint: const Text('اختر المحفظة أو حساب QR'),
                 items: [
                   for (final wallet in _wallets)
                     DropdownMenuItem(
-                      value: '${wallet['id']}',
+                      value: 'wallet:${wallet['id']}',
                       child: Text(
                         _walletLabel(wallet as Map<String, dynamic>),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  for (final account in _qrAccounts)
+                    DropdownMenuItem(
+                      value: 'qr:${account['id']}',
+                      child: Text(
+                        'حساب مكسب QR · ${account['name']} — ${money(account['balance'])}',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -894,7 +931,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                 onChanged: _saving
                     ? null
                     : (value) => setState(() => part.walletId = value),
-                validator: (_) => part.walletId == null ? 'اختر المحفظة' : null,
+                validator: (_) =>
+                    part.walletId == null ? 'اختر المحفظة أو حساب QR' : null,
               ),
             ),
           ),
@@ -902,7 +940,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
           Expanded(
             flex: 2,
             child: _textField(
-              label: 'مبلغ المحفظة *',
+              label: 'المبلغ *',
               controller: part.amount,
               numeric: true,
               validator: (value) {

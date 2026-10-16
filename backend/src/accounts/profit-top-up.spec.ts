@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AccountsService } from './accounts.service.js';
 import { LedgerService } from '../ledger/ledger.service.js';
+import { Treasury } from '../database/entities/treasury.entity.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { AccountType, LedgerCategory } from '../database/enums.js';
 
@@ -15,6 +16,8 @@ function fixture(balance = 100000) {
     commissionBalance: 0,
     todayTopUp: 0,
   };
+  const treasury = { id: 'main', balance: 5_000_000 };
+  const treasuryRepo = { findOne: async () => treasury, save: async (v) => v };
   const entries: any[] = [];
   const accountRepo = {
     findOne: vi.fn(async () => account),
@@ -37,7 +40,11 @@ function fixture(balance = 100000) {
   };
   const manager: any = {
     getRepository: (entity) =>
-      entity === FinancialAccount ? accountRepo : ledgerRepo,
+      entity === FinancialAccount
+        ? accountRepo
+        : entity === Treasury
+          ? treasuryRepo
+          : ledgerRepo,
     save: async (a) => a,
   };
   const dataSource: any = { transaction: async (fn) => fn(manager) };

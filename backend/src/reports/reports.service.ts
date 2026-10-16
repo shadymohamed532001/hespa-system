@@ -218,6 +218,13 @@ export class ReportsService {
     const operations: ReportOperation[] = [];
     for (const entry of ledger) {
       if (
+        (entry.category === LedgerCategory.TOP_UP &&
+          entry.sourceType === 'treasury' &&
+          entry.targetType === 'account') ||
+        (entry.category === LedgerCategory.REVERSAL &&
+          entry.metadata?.originalCategory === LedgerCategory.TOP_UP &&
+          entry.sourceType === 'account' &&
+          entry.targetType === 'treasury') ||
         entry.category === LedgerCategory.INTERNAL_TRANSFER ||
         (entry.category === LedgerCategory.REVERSAL &&
           entry.metadata?.originalCategory === LedgerCategory.INTERNAL_TRANSFER)

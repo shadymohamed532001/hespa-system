@@ -15,7 +15,8 @@ import { FinancialAccount } from './financial-account.entity.js';
 import { PurchaseVisa } from './purchase-visa.entity.js';
 
 export type CollectionIncomingSplit = {
-  walletId: string;
+  walletId?: string;
+  accountId?: string;
   walletName: string;
   amount: number;
 };

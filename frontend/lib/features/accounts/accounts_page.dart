@@ -487,11 +487,11 @@ class _AccountsPageState extends State<AccountsPage> {
             title: isFawry ? 'تسجيل إيداع فوري' : 'شحن الحساب',
             subtitle: tr(
               ar: isFawry
-                  ? 'اكتب اسم الشخص وعدد الورقات، والإجمالي هيتحسب تلقائيًا.'
-                  : 'أضف رصيدًا مباشرًا للحساب المحدد.',
+                  ? 'اكتب اسم الشخص وعدد الورقات؛ إجمالي الإيداع هيتخصم من الخزنة.'
+                  : 'مبلغ الشحن هيتخصم من الخزنة لحسابات مكسب وفوري.',
               en: isFawry
-                  ? 'Enter the depositor name and the banknote counts.'
-                  : 'Add balance directly to the selected account.',
+                  ? 'Enter the depositor name and banknote counts. The total is deducted from treasury.'
+                  : 'Profit and Fawry top-ups are deducted from treasury.',
             ),
             actions: HesbaModalActions(
               primaryLabel: isFawry

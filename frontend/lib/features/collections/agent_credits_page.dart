@@ -25,6 +25,73 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
   List<dynamic> _rows = [];
   bool _loading = true;
   String? _error;
+  DateTime? _from = DateUtils.dateOnly(DateTime.now());
+  DateTime? _to = DateUtils.dateOnly(DateTime.now());
+  String _agent = '';
+  String _status = 'all';
+
+  String _dayKey(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+  List<dynamic> get _visible => _rows.where((row) {
+    final date = '${row['date']}';
+    if (_from != null && date.compareTo(_dayKey(_from!)) < 0) return false;
+    if (_to != null && date.compareTo(_dayKey(_to!)) > 0) return false;
+    if (_agent.isNotEmpty && row['agentName'] != _agent) return false;
+    final closing = num.tryParse('${row['closingBalance']}') ?? 0;
+    if (_status == 'outstanding' && closing <= 0) return false;
+    if (_status == 'settled' && closing > 0) return false;
+    return true;
+  }).toList();
+
+  num _sum(String field) => _visible.fold<num>(
+    0,
+    (sum, row) => sum + (num.tryParse('${row[field]}') ?? 0),
+  );
+
+  num get _currentTotal {
+    final balances = <String, num>{};
+    for (final row in _rows) {
+      if (_agent.isNotEmpty && row['agentName'] != _agent) continue;
+      balances['${row['agentName']}'.trim().toLowerCase()] =
+          num.tryParse('${row['balance']}') ?? 0;
+    }
+    return balances.values.fold<num>(0, (sum, value) => sum + value);
+  }
+
+  Future<void> _pickDay() async {
+    final day = await showDatePicker(
+      context: context,
+      initialDate: _from ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      helpText: 'اختار يوم الآجل',
+    );
+    if (day != null && mounted) {
+      setState(() {
+        _from = day;
+        _to = day;
+      });
+    }
+  }
+
+  Future<void> _pickRange() async {
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      initialDateRange: _from != null && _to != null
+          ? DateTimeRange(start: _from!, end: _to!)
+          : null,
+      helpText: 'اختار فترة مراجعة الآجل',
+    );
+    if (range != null && mounted) {
+      setState(() {
+        _from = range.start;
+        _to = range.end;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -35,18 +102,15 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
   Future<void> _load({bool silent = false}) async {
     if (mounted && !silent) setState(() => _loading = true);
     try {
-      _rows = await widget.session.api.list(ApiEndpoints.agentCredits);
+      _rows = await widget.session.api.list(
+        '${ApiEndpoints.agentCredits}/days',
+      );
       _error = null;
     } catch (exception) {
       _error = ApiClient.errorMessage(exception);
     }
     if (mounted) setState(() => _loading = false);
   }
-
-  num get _total => _rows.fold<num>(
-    0,
-    (sum, row) => sum + (num.tryParse('${row['balance']}') ?? 0),
-  );
 
   @override
   Widget build(BuildContext context) {
@@ -74,10 +138,12 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                _filters(),
+                const SizedBox(height: 16),
                 LayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.maxWidth >= 700
-                        ? (constraints.maxWidth - 16) / 2
+                        ? (constraints.maxWidth - 32) / 3
                         : constraints.maxWidth;
                     return Wrap(
                       spacing: 16,
@@ -86,20 +152,29 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                         SizedBox(
                           width: width,
                           child: _CreditMetric(
-                            label: 'إجمالي الآجل المستحق',
-                            value: money(_total),
-                            note: 'المبلغ اللي لسه هيدخل الخزنة',
-                            warning: _rows.isNotEmpty,
+                            label: 'إجمالي الآجل الحالي',
+                            value: money(_currentTotal),
+                            note:
+                                'الرصيد الحالي للمندوب المحدد أو كل المندوبين، عبر كل الأيام',
+                            warning: _currentTotal > 0,
                           ),
                         ),
                         SizedBox(
                           width: width,
                           child: _CreditMetric(
-                            label: 'عدد المندوبين',
-                            value: '${_rows.length}',
-                            note: _rows.isEmpty
-                                ? 'مفيش آجل حاليًا'
-                                : 'اضغط على المندوب لتسجيل السداد',
+                            label: 'آجل جديد في الفترة',
+                            value: money(_sum('credit')),
+                            note: 'إجمالي الآجل المضاف في الأيام المعروضة',
+                            warning: _sum('credit') > 0,
+                          ),
+                        ),
+                        SizedBox(
+                          width: width,
+                          child: _CreditMetric(
+                            label: 'المسدّد في الفترة',
+                            value: money(_sum('paid')),
+                            note:
+                                '${_visible.map((row) => row['agentName']).toSet().length} مندوب · ${_visible.length} سجل يومي',
                           ),
                         ),
                       ],
@@ -107,12 +182,118 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                   },
                 ),
                 const SizedBox(height: 18),
-                if (_rows.isEmpty)
+                if (_visible.isEmpty)
                   const _EmptyCredits()
                 else
-                  _CreditsTable(rows: _rows, onPay: _pay),
+                  _CreditsTable(
+                    rows: _visible,
+                    onPay: _pay,
+                    canPay: widget.session.can(
+                      AppPermissions.receiveCollections,
+                    ),
+                  ),
               ],
             ),
+    );
+  }
+
+  Widget _filters() {
+    final agents = _rows.map((row) => '${row['agentName']}').toSet().toList()
+      ..sort();
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 10,
+              runSpacing: 12,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _pickDay,
+                  icon: const Icon(Icons.calendar_month),
+                  label: Text(
+                    _from != null && _from == _to
+                        ? formatDate(_from!.toIso8601String())
+                        : 'اختيار يوم',
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: _pickRange,
+                  icon: const Icon(Icons.date_range),
+                  label: const Text('اختيار فترة'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() {
+                    _from = DateUtils.dateOnly(DateTime.now());
+                    _to = _from;
+                  }),
+                  child: const Text('النهارده'),
+                ),
+                TextButton(
+                  onPressed: () => setState(() {
+                    _from = null;
+                    _to = null;
+                  }),
+                  child: const Text('كل الأيام'),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    key: ValueKey('agent-$_agent'),
+                    initialValue: agents.contains(_agent) ? _agent : '',
+                    decoration: const InputDecoration(labelText: 'المندوب'),
+                    items: [
+                      const DropdownMenuItem(
+                        value: '',
+                        child: Text('كل المندوبين'),
+                      ),
+                      for (final name in agents)
+                        DropdownMenuItem(value: name, child: Text(name)),
+                    ],
+                    onChanged: (value) => setState(() => _agent = value ?? ''),
+                  ),
+                ),
+                SizedBox(
+                  width: 220,
+                  child: DropdownButtonFormField<String>(
+                    isExpanded: true,
+                    initialValue: _status,
+                    decoration: const InputDecoration(
+                      labelText: 'رصيد نهاية اليوم',
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'all', child: Text('كل الحالات')),
+                      DropdownMenuItem(
+                        value: 'outstanding',
+                        child: Text('عليه آجل'),
+                      ),
+                      DropdownMenuItem(value: 'settled', child: Text('مسدد')),
+                    ],
+                    onChanged: (value) =>
+                        setState(() => _status = value ?? 'all'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _from == null
+                  ? 'عرض كل الأيام'
+                  : 'من ${formatDate(_from!.toIso8601String())} إلى ${formatDate(_to!.toIso8601String())}',
+              style: HesbaText.bodyMuted,
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'كل صف يمثل حركة مندوب في يوم. رصيد نهاية اليوم يشمل الآجل السابق، والسداد يتم من إجمالي الآجل الحالي للمندوب.',
+              style: HesbaText.caption,
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -378,7 +559,13 @@ class _CreditMetric extends StatelessWidget {
 }
 
 class _CreditsTable extends StatelessWidget {
-  const _CreditsTable({required this.rows, required this.onPay});
+  const _CreditsTable({
+    required this.rows,
+    required this.onPay,
+    required this.canPay,
+  });
+
+  final bool canPay;
 
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onPay;
@@ -403,17 +590,21 @@ class _CreditsTable extends StatelessWidget {
               horizontalMargin: 18,
               columnSpacing: 34,
               columns: const [
+                DataColumn(label: Text('اليوم')),
                 DataColumn(label: Text('المندوب')),
-                DataColumn(label: Text('المتبقي عليه')),
-                DataColumn(label: Text('آخر حركة')),
+                DataColumn(label: Text('رصيد أول اليوم')),
+                DataColumn(label: Text('آجل جديد')),
+                DataColumn(label: Text('المسدّد')),
+                DataColumn(label: Text('رصيد نهاية اليوم')),
+                DataColumn(label: Text('الآجل الحالي')),
                 DataColumn(label: Text('عدد الحركات')),
                 DataColumn(label: Text('السداد')),
               ],
               rows: [
                 for (final item in rows)
                   DataRow(
-                    onSelectChanged: (_) => onPay(item as Map<String, dynamic>),
                     cells: [
+                      DataCell(Text(formatDate(item['date']))),
                       DataCell(
                         Text(
                           '${item['agentName']}',
@@ -423,22 +614,21 @@ class _CreditsTable extends StatelessWidget {
                           ),
                         ),
                       ),
-                      DataCell(
-                        Text(
-                          money(item['balance']),
-                          style: HesbaText.tableCell.copyWith(
-                            color: HesbaColors.warning,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      DataCell(Text(formatDateTime(item['lastActivityAt']))),
+                      DataCell(Text(money(item['openingBalance']))),
+                      DataCell(Text(money(item['credit']))),
+                      DataCell(Text(money(item['paid']))),
+                      DataCell(Text(money(item['closingBalance']))),
+                      DataCell(Text(money(item['balance']))),
                       DataCell(Text('${item['movementsCount']}')),
                       DataCell(
                         FilledButton.icon(
-                          onPressed: () => onPay(item as Map<String, dynamic>),
+                          onPressed:
+                              canPay &&
+                                  (num.tryParse('${item['balance']}') ?? 0) > 0
+                              ? () => onPay(item as Map<String, dynamic>)
+                              : null,
                           icon: const Icon(Icons.payments_outlined, size: 18),
-                          label: const Text('تسديد'),
+                          label: const Text('سداد من الإجمالي الحالي'),
                         ),
                       ),
                     ],
@@ -468,9 +658,12 @@ class _EmptyCredits extends StatelessWidget {
         children: [
           Icon(Icons.verified_outlined, size: 44, color: HesbaColors.teal),
           SizedBox(height: 12),
-          Text('مفيش آجل على أي مندوب', style: HesbaText.sectionTitle),
+          Text('مفيش حركات آجل بالفلترة دي', style: HesbaText.sectionTitle),
           SizedBox(height: 5),
-          Text('أي آجل جديد هيتسجل هنا تلقائيًا.', style: HesbaText.bodyMuted),
+          Text(
+            'اختار يوم تاني من الكالندر أو اعرض كل الأيام.',
+            style: HesbaText.bodyMuted,
+          ),
         ],
       ),
     );

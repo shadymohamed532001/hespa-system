@@ -1293,6 +1293,258 @@ describe.sequential('full system lifecycle (e2e)', () => {
     ).toMatchObject({ balance: 10500 });
   });
 
+  it('adds an incoming split to a QR profit account and increases its balance', async () => {
+    const suffix = randomUUID();
+    const source = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(adminToken, 'qr-split-source'))
+      .send({
+        name: `فوري QR ${suffix}`,
+        type: 'fawry',
+        openingBalance: 100000,
+      })
+      .expect(201);
+    const qr = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(adminToken, 'qr-split-account'))
+      .send({
+        name: `مكسب QR ${suffix}`,
+        type: 'profit_qr',
+        openingBalance: 500,
+      })
+      .expect(201);
+    const company = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(adminToken, 'qr-split-company'))
+      .send({
+        name: `شركة QR ${suffix}`,
+        type: 'company',
+        openingBalance: 1000,
+      })
+      .expect(201);
+
+    await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'qr-split-reject'))
+      .send({
+        agentName: 'مندوب QR',
+        companyName: 'شركة QR',
+        amount: 1000,
+        executionMode: 'immediate',
+        accountId: source.body.id,
+        commission: 0,
+        cashAmount: 0,
+        incomingParts: [{ accountId: company.body.id, amount: 1000 }],
+      })
+      .expect(400);
+
+    const before = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
+
+    const received = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'qr-split-receive'))
+      .send({
+        agentName: 'مندوب QR',
+        companyName: 'شركة QR',
+        amount: 50000,
+        executionMode: 'immediate',
+        accountId: source.body.id,
+        commission: 0,
+        cashAmount: 40000,
+        incomingParts: [{ accountId: qr.body.id, amount: 10000 }],
+      })
+      .expect(201);
+    expect(received.body).toMatchObject({
+      amount: 50000,
+      cashAmount: 40000,
+      incomingSplits: [
+        {
+          accountId: qr.body.id,
+          walletName: qr.body.name,
+          amount: 10000,
+        },
+      ],
+    });
+
+    const after = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(after.body.actualBalance).toBe(before.body.actualBalance + 40000);
+
+    const accounts = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set(bearer(adminToken))
+      .expect(200);
+    const rows = accounts.body as Array<Record<string, unknown>>;
+    expect(rows.find((item) => item.id === source.body.id)).toMatchObject({
+      balance: 50000,
+    });
+    expect(rows.find((item) => item.id === qr.body.id)).toMatchObject({
+      balance: 10500,
+      todayTopUp: 10000,
+    });
+
+    const ledger = (await dataSource.query(
+      `SELECT category, amount::float AS amount, entity_type, entity_id
+       FROM ledger_entries WHERE reference = $1 AND category = 'top_up'`,
+      [received.body.reference],
+    )) as Array<{
+      category: string;
+      amount: number;
+      entity_type: string;
+      entity_id: string;
+    }>;
+    expect(ledger).toEqual([
+      expect.objectContaining({
+        category: 'top_up',
+        amount: 10000,
+        entity_type: 'account',
+        entity_id: qr.body.id,
+      }),
+    ]);
+
+    const hold = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'qr-split-hold'))
+      .send({
+        agentName: 'مندوب QR',
+        companyName: 'شركة QR',
+        amount: 20000,
+        executionMode: 'hold',
+      })
+      .expect(201);
+    await request(app.getHttpServer())
+      .post(`/api/collections/${hold.body.id}/execute`)
+      .set(mutation(adminToken, 'qr-split-execute'))
+      .send({
+        accountId: source.body.id,
+        commission: 0,
+        cashAmount: 12000,
+        incomingParts: [{ accountId: qr.body.id, amount: 8000 }],
+      })
+      .expect(201);
+
+    const settled = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (settled.body as Array<Record<string, unknown>>).find(
+        (item) => item.id === qr.body.id,
+      ),
+    ).toMatchObject({ balance: 18500, todayTopUp: 18000 });
+    expect(
+      (settled.body as Array<Record<string, unknown>>).find(
+        (item) => item.id === source.body.id,
+      ),
+    ).toMatchObject({ balance: 30000 });
+  });
+
+  it('splits one agent receipt across cash, a QR account, and InstaPay', async () => {
+    const suffix = randomUUID();
+    const source = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(adminToken, 'mixed-split-source'))
+      .send({
+        name: `فوري مختلط ${suffix}`,
+        type: 'fawry',
+        openingBalance: 100000,
+      })
+      .expect(201);
+    const qr = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(adminToken, 'mixed-split-qr'))
+      .send({
+        name: `فودافون QR ${suffix}`,
+        type: 'profit_qr',
+        openingBalance: 200,
+      })
+      .expect(201);
+    const instapay = await request(app.getHttpServer())
+      .post('/api/wallets')
+      .set(mutation(adminToken, 'mixed-split-instapay'))
+      .send({
+        name: `InstaPay ${suffix}`,
+        type: 'instapay',
+        openingBalance: 1000,
+      })
+      .expect(201);
+
+    const before = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
+
+    const received = await request(app.getHttpServer())
+      .post('/api/collections/receive')
+      .set(mutation(adminToken, 'mixed-split-receive'))
+      .send({
+        agentName: 'مندوب مختلط',
+        companyName: 'شركة مختلطة',
+        amount: 70000,
+        executionMode: 'immediate',
+        accountId: source.body.id,
+        commission: 0,
+        cashAmount: 50000,
+        incomingParts: [
+          { accountId: qr.body.id, amount: 10000 },
+          { walletId: instapay.body.id, amount: 10000 },
+        ],
+      })
+      .expect(201);
+    expect(received.body).toMatchObject({
+      amount: 70000,
+      cashAmount: 50000,
+      incomingSplits: [
+        {
+          accountId: qr.body.id,
+          walletName: qr.body.name,
+          amount: 10000,
+        },
+        {
+          walletId: instapay.body.id,
+          walletName: instapay.body.name,
+          amount: 10000,
+        },
+      ],
+    });
+
+    const after = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(after.body.actualBalance).toBe(before.body.actualBalance + 50000);
+
+    const accounts = await request(app.getHttpServer())
+      .get('/api/accounts')
+      .set(bearer(adminToken))
+      .expect(200);
+    const accountRows = accounts.body as Array<Record<string, unknown>>;
+    expect(
+      accountRows.find((item) => item.id === source.body.id),
+    ).toMatchObject({
+      balance: 30000,
+    });
+    expect(accountRows.find((item) => item.id === qr.body.id)).toMatchObject({
+      balance: 10200,
+      todayTopUp: 10000,
+    });
+
+    const wallets = await request(app.getHttpServer())
+      .get('/api/wallets')
+      .set(bearer(adminToken))
+      .expect(200);
+    expect(
+      (wallets.body as Array<Record<string, unknown>>).find(
+        (item) => item.id === instapay.body.id,
+      ),
+    ).toMatchObject({ balance: 11000 });
+  });
+
   it('tracks agent credit and settles it directly into treasury', async () => {
     const agentName = `مندوب آجل ${randomUUID().slice(0, 8)}`;
     const credit = await request(app.getHttpServer())
@@ -1410,7 +1662,11 @@ describe.sequential('full system lifecycle (e2e)', () => {
     const rows = (await dataSource.query(
       `SELECT balance, daily_top_up, monthly_top_up FROM wallets WHERE id = $1`,
       [wallet.body.id],
-    )) as Array<{ balance: string; daily_top_up: string; monthly_top_up: string }>;
+    )) as Array<{
+      balance: string;
+      daily_top_up: string;
+      monthly_top_up: string;
+    }>;
     expect(rows[0]).toMatchObject({
       balance: '0.00',
       daily_top_up: '1000.00',

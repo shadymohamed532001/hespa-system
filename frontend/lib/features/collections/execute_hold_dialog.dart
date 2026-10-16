@@ -188,19 +188,47 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
     return ((_amount - walletTotal) * 100).round() / 100;
   }
 
+  List<dynamic> get _qrAccounts => widget.accounts
+      .where((item) => item['type'] == 'profit_qr' && item['active'] != false)
+      .toList();
+
+  bool get _hasSplitDestinations =>
+      _wallets.isNotEmpty || _qrAccounts.isNotEmpty;
+
+  bool _knownDestination(String key) {
+    if (key.startsWith('qr:')) {
+      final id = key.substring(3);
+      return _qrAccounts.any((account) => '${account['id']}' == id);
+    }
+    final id = key.startsWith('wallet:') ? key.substring(7) : key;
+    return _wallets.any((wallet) => '${wallet['id']}' == id);
+  }
+
+  Map<String, dynamic> _incomingPart(_WalletPart part) {
+    final key = part.walletId!;
+    final amount = parseNum(part.amount.text.trim())!;
+    if (key.startsWith('qr:')) {
+      return {'accountId': key.substring(3), 'amount': amount};
+    }
+    final walletId = key.startsWith('wallet:') ? key.substring(7) : key;
+    return {'walletId': walletId, 'amount': amount};
+  }
+
   String? _splitError() {
     if (!_splitIncoming) return null;
-    if (_wallets.isEmpty) {
-      return 'أضف محفظة نشطة زي فودافون كاش قبل تقسيم الداخل.';
+    if (!_hasSplitDestinations) {
+      return 'أضف محفظة نشطة أو حساب مكسب QR قبل تقسيم الداخل.';
     }
     final ids = <String>[];
     for (final part in _parts) {
       final walletId = part.walletId;
       final amount = parseNum(part.amount.text.trim());
-      if (walletId == null) return 'اختر المحفظة اللي هتستلم الجزء.';
+      if (walletId == null || !_knownDestination(walletId)) {
+        return 'اختر المحفظة أو حساب مكسب QR اللي هيتضاف له المبلغ.';
+      }
       if (amount == null || amount <= 0) return 'أدخل مبلغ المحفظة.';
       if (ids.contains(walletId)) {
-        return 'المحفظة متكررة. اجمع مبلغها في سطر واحد.';
+        return 'المحفظة أو حساب مكسب QR متكرر. اجمع المبلغ في سطر واحد.';
       }
       ids.add(walletId);
     }
@@ -272,13 +300,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
       },
       if (_splitIncoming) ...{
         'cashAmount': _treasuryCash(),
-        'incomingParts': [
-          for (final part in _parts)
-            {
-              'walletId': part.walletId,
-              'amount': parseNum(part.amount.text.trim())!,
-            },
-        ],
+        'incomingParts': [for (final part in _parts) _incomingPart(part)],
       },
     };
     try {
@@ -561,11 +583,9 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
   }
 
   Widget _splitSection() {
-    if (!_loading && _wallets.isEmpty) {
+    if (!_loading && !_hasSplitDestinations) {
       return const HesbaModalCallout(
-        child: Text(
-          'عشان تقسّم الداخل بين الخزنة ومحفظة، أضف محفظة نشطة زي فودافون كاش.',
-        ),
+        child: Text('عشان تقسّم الداخل، أضف محفظة نشطة أو حساب مكسب QR.'),
       );
     }
     return Column(
@@ -578,7 +598,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
           value: _splitIncoming,
           title: const Text('تقسيم المبلغ الداخل'),
           subtitle: const Text(
-            'اكتب جزء المحفظة بس. الكاش دخل الخزنة وقت تسجيل المعلّق، وجزء المحفظة بيتحول من الخزنة للمحفظة.',
+            'اكتب كل حساب في سطر. مثال: 10,000 على فودافون QR و10,000 على InstaPay، والباقي يفضل كاش في الخزنة.',
           ),
           onChanged: _saving || _loading
               ? null
@@ -591,10 +611,10 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
               padding: const EdgeInsets.only(top: 8),
               child: Text(
                 cash < 0
-                    ? 'جزء المحفظة أكبر من المبلغ.'
+                    ? 'مجموع الحسابات أكبر من المبلغ.'
                     : cash == 0
-                    ? 'المبلغ كله يتحول للمحفظة ويخرج من الخزنة.'
-                    : 'الباقي ${money(cash)} يفضل في الخزنة.',
+                    ? 'المبلغ كله يتحول للحسابات ويخرج من الخزنة.'
+                    : 'الباقي ${money(cash)} يفضل كاش في الخزنة.',
                 style: TextStyle(
                   color: cash < 0 ? HesbaColors.red : HesbaColors.teal,
                   fontWeight: FontWeight.w400,
@@ -608,7 +628,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
                   ? null
                   : () => setState(() => _parts.add(_WalletPart())),
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('إضافة محفظة'),
+              label: const Text('إضافة حساب'),
             ),
           ),
         ],
@@ -626,19 +646,27 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
           Expanded(
             flex: 3,
             child: HesbaModalField(
-              label: 'المحفظة *',
+              label: 'الحساب ${index + 1} *',
               child: DropdownButtonFormField<String>(
                 key: ValueKey('hold-wallet-$index-${part.walletId}'),
                 initialValue: part.walletId,
                 isExpanded: true,
                 decoration: const InputDecoration(),
-                hint: const Text('اختر المحفظة'),
+                hint: const Text('اختر المحفظة أو حساب QR'),
                 items: [
                   for (final wallet in _wallets)
                     DropdownMenuItem(
-                      value: '${wallet['id']}',
+                      value: 'wallet:${wallet['id']}',
                       child: Text(
                         '${wallet['name']}',
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  for (final account in _qrAccounts)
+                    DropdownMenuItem(
+                      value: 'qr:${account['id']}',
+                      child: Text(
+                        'حساب مكسب QR · ${account['name']} — ${money(account['balance'])}',
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
@@ -646,7 +674,8 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
                 onChanged: _saving
                     ? null
                     : (value) => setState(() => part.walletId = value),
-                validator: (_) => part.walletId == null ? 'اختر المحفظة' : null,
+                validator: (_) =>
+                    part.walletId == null ? 'اختر المحفظة أو حساب QR' : null,
               ),
             ),
           ),
@@ -654,7 +683,7 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
           Expanded(
             flex: 2,
             child: HesbaModalField(
-              label: 'مبلغ المحفظة *',
+              label: 'المبلغ *',
               child: TextFormField(
                 controller: part.amount,
                 keyboardType: TextInputType.number,

@@ -747,6 +747,14 @@ export class LedgerService {
           );
         }
         await this.reverseTopUp(manager, entry);
+        if (entry.metadata?.treasuryFundedTopUp === true) {
+          const treasury = await this.asset(manager, 'treasury', 'main');
+          await treasury.save(
+            Number(
+              (Number(treasury.balance) + Number(entry.amount)).toFixed(2),
+            ),
+          );
+        }
         await this.reverseProfitCommission(
           manager,
           entry,

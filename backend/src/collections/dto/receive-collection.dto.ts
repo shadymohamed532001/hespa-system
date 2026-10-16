@@ -12,13 +12,19 @@ import {
   MaxLength,
   Min,
   MinLength,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { ExecutionMode } from '../../database/enums.js';
 
 export class IncomingPartDto {
+  @ValidateIf((part: IncomingPartDto) => part.accountId == null)
   @IsUUID()
-  walletId: string;
+  walletId?: string;
+
+  @ValidateIf((part: IncomingPartDto) => part.walletId == null)
+  @IsUUID()
+  accountId?: string;
 
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0.01)

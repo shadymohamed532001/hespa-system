@@ -29,6 +29,11 @@ export class CollectionsController {
     return redactCardNumbers(rows, await this.revealCards(request.user.userId));
   }
 
+  @Get('agent-credits/days')
+  findAgentCreditDays() {
+    return this.collections.findAgentCreditDays();
+  }
+
   @Get('agent-credits')
   findAgentCredits() {
     return this.collections.findAgentCredits();

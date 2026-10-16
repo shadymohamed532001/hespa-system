@@ -7,7 +7,7 @@ import {
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Brackets, DataSource, In, Repository } from 'typeorm';
+import { Brackets, DataSource, EntityManager, In, Repository } from 'typeorm';
 import { FawryDailyDrop } from '../database/entities/fawry-daily-drop.entity.js';
 import {
   FawryDeposit,
@@ -152,6 +152,29 @@ export class AccountsService implements OnModuleInit {
     });
   }
 
+  private async debitTopUpTreasury(manager: EntityManager, amount: number) {
+    const repo = manager.getRepository(Treasury);
+    const treasury = await repo.findOne({
+      where: { id: 'main' },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!treasury) {
+      throw new NotFoundException(
+        msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+      );
+    }
+    if (Number(treasury.balance) < amount) {
+      throw new BadRequestException(
+        msg({
+          ar: 'رصيد الخزنة لا يكفي لشحن الحساب',
+          en: 'Insufficient treasury balance to top up the account',
+        }),
+      );
+    }
+    treasury.balance = Number((Number(treasury.balance) - amount).toFixed(2));
+    await repo.save(treasury);
+  }
+
   async topUp(id: string, dto: TopUpAccountDto, username: string) {
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(FinancialAccount);
@@ -207,6 +230,10 @@ export class AccountsService implements OnModuleInit {
           ),
         });
       }
+      const treasuryFunded =
+        account.type === AccountType.PROFIT ||
+        account.type === AccountType.FAWRY;
+      if (treasuryFunded) await this.debitTopUpTreasury(manager, dto.amount);
       const depositCommission =
         account.type === AccountType.PROFIT
           ? regularProfitDepositCommission(dto.amount)
@@ -223,15 +250,23 @@ export class AccountsService implements OnModuleInit {
         entityType: 'account',
         entityId: account.id,
         reference: dto.reference ?? null,
-        description: `شحن مباشر للحساب ${account.name}`,
+        sourceType: treasuryFunded ? 'treasury' : null,
+        sourceId: treasuryFunded ? 'main' : null,
+        targetType: treasuryFunded ? 'account' : null,
+        targetId: treasuryFunded ? account.id : null,
+        description: treasuryFunded
+          ? `شحن الحساب ${account.name} من الخزنة`
+          : `شحن مباشر للحساب ${account.name}`,
         performedBy: username,
-        metadata:
-          depositCommission > 0
+        metadata: {
+          ...(treasuryFunded ? { treasuryFundedTopUp: true } : {}),
+          ...(depositCommission > 0
             ? {
                 profitDepositCommission: depositCommission,
                 profitDepositCreditedToBalance: true,
               }
-            : null,
+            : {}),
+        },
       });
       if (depositCommission > 0) {
         await ledger.save({
@@ -467,6 +502,7 @@ export class AccountsService implements OnModuleInit {
         });
       }
 
+      await this.debitTopUpTreasury(manager, amount);
       account.balance = Number((Number(account.balance) + amount).toFixed(2));
       account.todayTopUp = Number(
         (Number(account.todayTopUp) + amount).toFixed(2),
@@ -494,9 +530,14 @@ export class AccountsService implements OnModuleInit {
         entityType: 'account',
         entityId: account.id,
         reference,
-        description: `إيداع فوري بواسطة ${depositorName} لحساب ${account.name} (${breakdown})`,
+        sourceType: 'treasury',
+        sourceId: 'main',
+        targetType: 'account',
+        targetId: account.id,
+        description: `إيداع فوري من الخزنة بواسطة ${depositorName} لحساب ${account.name} (${breakdown})`,
         performedBy: username,
         metadata: {
+          treasuryFundedTopUp: true,
           fawryDeposit: true,
           fawryDepositId: deposit.id,
           depositorUserId: depositor?.id ?? null,

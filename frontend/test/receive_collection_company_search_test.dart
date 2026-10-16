@@ -228,8 +228,25 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('الكاش اللي يدخل الخزنة *'), findsNothing);
-      expect(find.text('المحفظة *'), findsOneWidget);
-      expect(find.text('مبلغ المحفظة *'), findsOneWidget);
+      expect(find.text('الحساب 1 *'), findsOneWidget);
+      expect(find.text('المبلغ *'), findsNWidgets(2));
+
+      final addAccount = find.text('إضافة حساب');
+      await tester.ensureVisible(addAccount);
+      await tester.tap(addAccount);
+      await tester.pumpAndSettle();
+
+      expect(find.text('الحساب 1 *'), findsOneWidget);
+      expect(find.text('الحساب 2 *'), findsOneWidget);
+      expect(find.text('المبلغ *'), findsNWidgets(3));
+
+      await tester.tap(find.byKey(const ValueKey('wallet-0-null')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('حساب مكسب QR · مكسب QR 01 — 8,500 ج.م'),
+        findsOneWidget,
+      );
     },
   );
 }
@@ -243,6 +260,16 @@ class _AccountsAdapter implements HttpClientAdapter {
   ) async {
     final body = options.path.endsWith('/collections/agent-credits')
         ? <dynamic>[]
+        : options.path.endsWith('/wallets')
+        ? [
+            {
+              'id': 'wallet-1',
+              'name': 'محفظة 01',
+              'type': 'vodafone_cash',
+              'active': true,
+              'balance': 11250,
+            },
+          ]
         : [
             {
               'id': '1',
@@ -268,6 +295,13 @@ class _AccountsAdapter implements HttpClientAdapter {
               'name': 'شركة ياسمين فوري',
               'type': 'fawry',
               'active': true,
+            },
+            {
+              'id': 'qr-1',
+              'name': 'مكسب QR 01',
+              'type': 'profit_qr',
+              'active': true,
+              'balance': 8500,
             },
           ];
     return ResponseBody.fromString(
