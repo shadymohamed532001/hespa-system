@@ -1,9 +1,48 @@
 import { describe, expect, it } from 'vitest';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { LedgerCategory, NotificationKind } from '../database/enums.js';
-import { notificationContent } from './notifications.service.js';
+import {
+  NotificationsService,
+  notificationContent,
+} from './notifications.service.js';
 
 describe('notificationContent', () => {
+  it('corrects existing stored deposit notifications when listing funded top-ups', async () => {
+    const notification = {
+      ledgerEntryId: 'funded',
+      kind: NotificationKind.DEPOSIT,
+      title: 'old deposit',
+      body: 'old',
+    };
+    const service = new NotificationsService(
+      { find: async () => [notification] } as any,
+      {
+        find: async () => [
+          {
+            id: 'funded',
+            category: LedgerCategory.TOP_UP,
+            sourceType: 'treasury',
+            description: 'account top-up from treasury',
+          },
+        ],
+      } as any,
+    );
+    const rows = await service.findAll();
+    expect(rows[0].kind).toBe(NotificationKind.WITHDRAWAL);
+    expect(rows[0].title).toContain('سحب من الخزنة');
+  });
+  it('labels treasury-funded account top-ups as cash withdrawals', () => {
+    const content = notificationContent({
+      category: LedgerCategory.TOP_UP,
+      sourceType: 'treasury',
+      targetType: 'account',
+      amount: 20000,
+      description: 'شحن حساب من الخزنة',
+    } as LedgerEntry);
+    expect(content.kind).toBe(NotificationKind.WITHDRAWAL);
+    expect(content.title).toContain('سحب من الخزنة');
+  });
+
   it('builds a detailed recharge alert when a machine balance reaches zero', () => {
     const entry = {
       category: LedgerCategory.MACHINE_USAGE,

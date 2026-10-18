@@ -495,7 +495,10 @@ class _TreasuryMovements extends StatelessWidget {
         ar: 'حركة بين الأصول',
         en: 'Movement between assets',
       ),
-      'top_up' => 'زيادة رصيد أصل تشغيلي',
+      'top_up' =>
+        entry['sourceType'] == 'treasury'
+            ? 'خرج الكاش من الخزنة لشحن الحساب'
+            : 'زيادة رصيد أصل تشغيلي',
       'machine_usage' => tr(
         ar: 'خفض رصيد الماكينة',
         en: 'Reduce machine balance',

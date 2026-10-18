@@ -37,6 +37,29 @@ export class NotificationsService implements OnModuleInit {
       order: { createdAt: 'DESC' },
       take: includeProfits ? take : 100,
     });
+    const fundedEntryIds = rows
+      .map((row) => row.ledgerEntryId)
+      .filter((id): id is string => !!id);
+    if (fundedEntryIds.length) {
+      const entries = await this.ledger.find({
+        where: { id: In(fundedEntryIds) },
+      });
+      const byId = new Map(entries.map((entry) => [entry.id, entry]));
+      for (const row of rows) {
+        const entry = row.ledgerEntryId
+          ? byId.get(row.ledgerEntryId)
+          : undefined;
+        if (
+          entry?.category === LedgerCategory.TOP_UP &&
+          entry.sourceType === 'treasury'
+        ) {
+          const content = notificationContent(entry, includeProfits);
+          row.kind = content.kind;
+          row.title = content.title;
+          row.body = content.body;
+        }
+      }
+    }
     if (includeProfits) return rows;
     const profitIds = await this.profitNotificationIds(rows);
     return rows
@@ -147,6 +170,22 @@ export function notificationContent(
   body: string;
 } {
   const metadata = entry.metadata ?? {};
+  if (
+    entry.category === LedgerCategory.TOP_UP &&
+    entry.sourceType === 'treasury'
+  ) {
+    return {
+      kind: NotificationKind.WITHDRAWAL,
+      title: msg({
+        ar: 'سحب من الخزنة — شحن حساب',
+        en: 'Treasury withdrawal — account top-up',
+      }),
+      body: includeProfits
+        ? entry.description
+        : (redactProfitData(entry.description) as string),
+    };
+  }
+
   if (
     entry.category === LedgerCategory.MACHINE_USAGE &&
     metadata['machineDepleted'] === true
