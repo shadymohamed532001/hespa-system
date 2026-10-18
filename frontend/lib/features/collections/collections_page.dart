@@ -25,6 +25,107 @@ class _CollectionsPageState extends State<CollectionsPage> {
   List<dynamic> data = [], accounts = [], visas = [];
   bool loading = true;
   String? error;
+  String _period = 'day';
+  DateTime _selectedDate = DateUtils.dateOnly(DateTime.now());
+
+  DateTime get _periodStart {
+    if (_period != 'week') return _selectedDate;
+    // Weeks run from Saturday through Friday.
+    return DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day - (_selectedDate.weekday + 1) % 7,
+    );
+  }
+
+  DateTime get _periodEnd => DateTime(
+    _periodStart.year,
+    _periodStart.month,
+    _periodStart.day + (_period == 'week' ? 7 : 1),
+  );
+
+  List<dynamic> get _filteredRows {
+    if (_period == 'all') return data;
+    final start = _periodStart;
+    final end = _periodEnd;
+    return data.where((row) {
+      final date = DateTime.tryParse(
+        '${row['receivedAt'] ?? row['createdAt']}',
+      )?.toLocal();
+      return date != null && !date.isBefore(start) && date.isBefore(end);
+    }).toList();
+  }
+
+  void _movePeriod(int direction) {
+    setState(() {
+      _selectedDate = DateTime(
+        _selectedDate.year,
+        _selectedDate.month,
+        _selectedDate.day + direction * (_period == 'week' ? 7 : 1),
+      );
+    });
+  }
+
+  Future<void> _pickDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(1900),
+      lastDate: DateTime(2100, 12, 31),
+    );
+    if (date != null && mounted) setState(() => _selectedDate = date);
+  }
+
+  Widget _dateFilters() {
+    final label = _period == 'week'
+        ? '${formatDate(_periodStart)} — ${formatDate(DateTime(_periodEnd.year, _periodEnd.month, _periodEnd.day - 1))}'
+        : formatDate(_selectedDate);
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(tr(ar: 'حسب تاريخ الاستلام:', en: 'By receipt date:')),
+        for (final option in [
+          ('all', tr(ar: 'الكل', en: 'All')),
+          ('day', tr(ar: 'يوم', en: 'Day')),
+          ('week', tr(ar: 'أسبوع', en: 'Week')),
+        ])
+          ChoiceChip(
+            label: Text(option.$2),
+            selected: _period == option.$1,
+            onSelected: (_) => setState(() => _period = option.$1),
+          ),
+        if (_period != 'all') ...[
+          IconButton(
+            tooltip: tr(ar: 'السابق', en: 'Previous'),
+            onPressed: () => _movePeriod(-1),
+            icon: const BackButtonIcon(),
+          ),
+          OutlinedButton.icon(
+            onPressed: _pickDate,
+            icon: const Icon(Icons.calendar_today_outlined, size: 18),
+            label: Text(label),
+          ),
+          IconButton(
+            tooltip: tr(ar: 'التالي', en: 'Next'),
+            onPressed: () => _movePeriod(1),
+            icon: Transform.flip(flipX: true, child: const BackButtonIcon()),
+          ),
+          TextButton(
+            onPressed: () => setState(() {
+              _selectedDate = DateUtils.dateOnly(DateTime.now());
+            }),
+            child: Text(
+              _period == 'week'
+                  ? tr(ar: 'الأسبوع الحالي', en: 'This week')
+                  : tr(ar: 'اليوم', en: 'Today'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
 
   @override
   void initState() {
@@ -72,10 +173,29 @@ class _CollectionsPageState extends State<CollectionsPage> {
             )
           : error != null
           ? ErrorBox(message: error!, retry: load)
-          : _CollectionsTable(
-              rows: data,
-              onExecute: (row) => _execute(row),
-              showProfits: widget.session.isAdmin,
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _dateFilters(),
+                const SizedBox(height: 16),
+                if (_filteredRows.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Text(
+                      tr(
+                        ar: 'لا توجد تحصيلات في الفترة المحددة',
+                        en: 'No collections in this period',
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                else
+                  _CollectionsTable(
+                    rows: _filteredRows,
+                    onExecute: (row) => _execute(row),
+                    showProfits: widget.session.isAdmin,
+                  ),
+              ],
             ),
     );
   }
