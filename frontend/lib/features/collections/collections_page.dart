@@ -223,9 +223,6 @@ class _CollectionsPageState extends State<CollectionsPage> {
                     rows: _filteredRows,
                     onExecute: (row) => _execute(row),
                     showProfits: widget.session.isAdmin,
-                    onEdit: widget.session.isAdmin
-                        ? (row) => _correct(row, cancel: false)
-                        : null,
                     onCancel: widget.session.isAdmin
                         ? (row) => _correct(row, cancel: true)
                         : null,
@@ -328,14 +325,12 @@ class _CollectionsTable extends StatelessWidget {
     required this.rows,
     required this.onExecute,
     required this.showProfits,
-    this.onEdit,
     this.onCancel,
   });
 
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onExecute;
   final bool showProfits;
-  final Future<void> Function(Map<String, dynamic>)? onEdit;
   final Future<void> Function(Map<String, dynamic>)? onCancel;
 
   @override
@@ -486,15 +481,11 @@ class _CollectionsTable extends StatelessWidget {
                                   onPressed: () => onExecute(e),
                                   child: const Text('تنفيذ'),
                                 )
-                              else if (onEdit == null ||
+                              else if (onCancel == null ||
                                   e['status'] == 'reversed')
                                 Text('—', style: HesbaText.tableCell),
                               if (e['status'] != 'reversed' &&
-                                  onEdit != null) ...[
-                                TextButton(
-                                  onPressed: () => onEdit!(e),
-                                  child: const Text('تعديل'),
-                                ),
+                                  onCancel != null) ...[
                                 TextButton(
                                   onPressed: () => onCancel!(e),
                                   child: const Text('إلغاء العملية'),

@@ -52,8 +52,11 @@ jobs:
         with: { channel: stable, cache: true }
       - run: flutter pub get
         working-directory: frontend
-      - run: flutter build windows --release --dart-define="API_BASE_URL=${{ vars.API_BASE_URL }}"
+      - shell: pwsh
         working-directory: frontend
+        run: |
+          $version = "${{ github.event.inputs.tag || github.ref_name }}" -replace '^v', ''
+          flutter build windows --release --build-name="$version" --build-number="${{ github.run_number }}" --dart-define="HESBA_APP_FLAVOR=prod" --dart-define="API_BASE_URL=${{ vars.API_BASE_URL || 'https://hesba.alien-fit.com/api' }}"
       - run: choco install innosetup --yes --no-progress
       - shell: pwsh
         run: |

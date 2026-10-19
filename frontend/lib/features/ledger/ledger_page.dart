@@ -214,11 +214,6 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
                               children: [
                                 TextButton(
                                   onPressed: () =>
-                                      _correct(entry, cancel: false),
-                                  child: const Text('تعديل'),
-                                ),
-                                TextButton(
-                                  onPressed: () =>
                                       _correct(entry, cancel: true),
                                   child: const Text('إلغاء العملية'),
                                 ),

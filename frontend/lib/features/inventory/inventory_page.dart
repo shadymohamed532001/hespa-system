@@ -172,9 +172,6 @@ class _InventoryPageState extends State<InventoryPage> {
                   onReverse: widget.session.isAdmin
                       ? (sale) => _correctSale(sale, cancel: true)
                       : _reverseSale,
-                  onEdit: widget.session.isAdmin
-                      ? (sale) => _correctSale(sale, cancel: false)
-                      : null,
                 ),
               ],
             ),
@@ -779,14 +776,12 @@ class _SalesCard extends StatelessWidget {
     required this.showProfits,
     required this.canReverse,
     required this.onReverse,
-    this.onEdit,
   });
 
   final List<dynamic> sales;
   final bool showProfits;
   final bool canReverse;
   final Future<void> Function(Map<String, dynamic>) onReverse;
-  final Future<void> Function(Map<String, dynamic>)? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -946,22 +941,11 @@ class _SalesCard extends StatelessWidget {
                                     ? Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          if (onEdit != null)
-                                            TextButton(
-                                              onPressed: () => onEdit!(
-                                                e as Map<String, dynamic>,
-                                              ),
-                                              child: const Text('تعديل'),
-                                            ),
                                           TextButton(
                                             onPressed: () => onReverse(
                                               e as Map<String, dynamic>,
                                             ),
-                                            child: Text(
-                                              onEdit != null
-                                                  ? 'إلغاء البيع'
-                                                  : 'عكس البيع',
-                                            ),
+                                            child: const Text('إلغاء البيع'),
                                           ),
                                         ],
                                       )
