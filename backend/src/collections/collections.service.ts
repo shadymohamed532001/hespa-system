@@ -1,3 +1,4 @@
+import { inTransaction } from '../common/in-transaction.js';
 import { buildAgentCreditDays } from './agent-credit-days.js';
 import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
 import {
@@ -95,10 +96,10 @@ export class CollectionsService implements OnModuleInit {
         UNION ALL
         SELECT metadata->>'agentName',
           (created_at AT TIME ZONE 'Africa/Cairo')::date, amount, 0
-        FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'
+        FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance' AND NOT EXISTS (SELECT 1 FROM ledger_entries cancelled WHERE cancelled.reverses_entry_id = ledger_entries.id)
         UNION ALL
         SELECT agent_name, (created_at AT TIME ZONE 'Africa/Cairo')::date, 0, amount
-        FROM agent_credit_payments
+        FROM agent_credit_payments WHERE NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = agent_credit_payments.id::text AND original.category = 'cash_receipt')
       )
       SELECT MIN(name) AS "agentName", TO_CHAR(day, 'YYYY-MM-DD') AS date,
         SUM(credit) AS credit, SUM(paid) AS paid, COUNT(*) AS "movementsCount"
@@ -137,7 +138,7 @@ export class CollectionsService implements OnModuleInit {
       SELECT MIN(metadata->>'agentName') AS "agentName",
         LOWER(TRIM(metadata->>'agentName')) AS "agentKey",
         SUM(amount) AS balance, MAX(created_at) AS "lastActivityAt", COUNT(*) AS "movementsCount"
-      FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'
+      FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance' AND NOT EXISTS (SELECT 1 FROM ledger_entries cancelled WHERE cancelled.reverses_entry_id = ledger_entries.id)
       GROUP BY LOWER(TRIM(metadata->>'agentName'))
     `);
     for (const opening of openings) {
@@ -162,6 +163,9 @@ export class CollectionsService implements OnModuleInit {
     }
     const payments = await this.agentCreditPayments
       .createQueryBuilder('payment')
+      .andWhere(
+        "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
+      )
       .select('LOWER(TRIM(payment.agentName))', 'agentKey')
       .addSelect('SUM(payment.amount)', 'paid')
       .addSelect('MAX(payment.createdAt)', 'lastPaymentAt')
@@ -200,8 +204,15 @@ export class CollectionsService implements OnModuleInit {
       .sort((left, right) => right.balance - left.balance);
   }
 
-  async openAgentCredit(dto: OpenAgentCreditDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async openAgentCredit(
+    dto: OpenAgentCreditDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const agentName = dto.agentName.trim();
       await lockAgentCredit(manager, agentName);
       const entry = await manager.getRepository(LedgerEntry).save({
@@ -226,8 +237,15 @@ export class CollectionsService implements OnModuleInit {
     });
   }
 
-  async payAgentCredit(dto: PayAgentCreditDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async payAgentCredit(
+    dto: PayAgentCreditDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const agentName = dto.agentName.trim();
       await lockAgentCredit(manager, agentName);
       const currentBalance = await agentCreditBalance(manager, agentName);
@@ -307,12 +325,19 @@ export class CollectionsService implements OnModuleInit {
     return collection;
   }
 
-  async receive(dto: ReceiveCollectionDto, username: string) {
+  async receive(
+    dto: ReceiveCollectionDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
     if (dto.executionMode === ExecutionMode.IMMEDIATE) {
       assertOneExecutionSource(dto.accountId, dto.purchaseVisaId);
     }
     const incoming = resolveIncoming(dto);
-    const outcome = await this.dataSource.transaction(async (manager) => {
+    const outcome = await inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const dailyNotices: Wallet[] = [];
       // Reference generation must be serialized. count()+1 outside the
       // transaction allowed two simultaneous receipts to choose the same
@@ -558,7 +583,7 @@ export class CollectionsService implements OnModuleInit {
       }
       return { collection, dailyNotices };
     });
-    for (const wallet of outcome.dailyNotices) {
+    for (const wallet of transactionManager ? [] : outcome.dailyNotices) {
       await this.walletLimitNotices.notifyDailyThreshold(wallet);
     }
     return outcome.collection;
@@ -1026,7 +1051,7 @@ function resolveIncoming(dto: {
   };
 }
 
-async function agentCreditBalance(
+export async function agentCreditBalance(
   manager: EntityManager,
   agentName: string,
 ): Promise<number> {
@@ -1045,6 +1070,7 @@ async function agentCreditBalance(
     `
     SELECT COALESCE(SUM(amount), 0) AS balance FROM ledger_entries
     WHERE entity_type = 'agent_credit' AND category = 'opening_balance'
+      AND NOT EXISTS (SELECT 1 FROM ledger_entries cancelled WHERE cancelled.reverses_entry_id = ledger_entries.id)
       AND LOWER(TRIM(metadata->>'agentName')) = LOWER(TRIM($1))
   `,
     [agentName],
@@ -1052,8 +1078,11 @@ async function agentCreditBalance(
   const paymentResult = await manager
     .getRepository(AgentCreditPayment)
     .createQueryBuilder('payment')
+    .andWhere(
+      "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
+    )
     .select('COALESCE(SUM(payment.amount), 0)', 'paid')
-    .where('LOWER(TRIM(payment.agentName)) = LOWER(TRIM(:agentName))', {
+    .andWhere('LOWER(TRIM(payment.agentName)) = LOWER(TRIM(:agentName))', {
       agentName,
     })
     .getRawOne<{ paid: string }>();
@@ -1066,7 +1095,7 @@ async function agentCreditBalance(
   );
 }
 
-function lockAgentCredit(manager: EntityManager, agentName: string) {
+export function lockAgentCredit(manager: EntityManager, agentName: string) {
   return manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
     `hesba:agent-credit:${agentName.trim().toLowerCase()}`,
   ]);

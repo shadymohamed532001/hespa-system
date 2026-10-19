@@ -8,6 +8,7 @@ import { MachinesService } from './machines.service.js';
 @Module({
   imports: [TypeOrmModule.forFeature([Machine, LedgerEntry])],
   controllers: [MachinesController],
+  exports: [MachinesService],
   providers: [MachinesService],
 })
 export class MachinesModule {}

@@ -9,6 +9,7 @@ import { PurchaseVisasService } from './purchase-visas.service.js';
 @Module({
   imports: [TypeOrmModule.forFeature([PurchaseVisa, Treasury, LedgerEntry])],
   controllers: [PurchaseVisasController],
+  exports: [PurchaseVisasService],
   providers: [PurchaseVisasService],
 })
 export class PurchaseVisasModule {}

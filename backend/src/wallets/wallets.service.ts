@@ -1,3 +1,4 @@
+import { inTransaction } from '../common/in-transaction.js';
 import {
   BadRequestException,
   ConflictException,
@@ -8,7 +9,7 @@ import {
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
@@ -94,13 +95,13 @@ function rollWalletPeriod(wallet: Wallet) {
   }
 }
 
-function cairoPeriod() {
+export function cairoPeriod(now = new Date()) {
   const day = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Africa/Cairo',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(new Date());
+  }).format(now);
   return { day, month: day.slice(0, 7) };
 }
 
@@ -184,8 +185,16 @@ export class WalletsService implements OnModuleInit {
     });
   }
 
-  async topUp(id: string, dto: TopUpWalletDto, username: string) {
-    const result = await this.dataSource.transaction(async (manager) => {
+  async topUp(
+    id: string,
+    dto: TopUpWalletDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    const result = await inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const repo = manager.getRepository(Wallet);
       const wallet = await repo.findOne({
         where: { id, active: true },
@@ -211,7 +220,7 @@ export class WalletsService implements OnModuleInit {
       });
       return { wallet, crossedDailyNotice: incoming.crossedDailyNotice };
     });
-    if (result.crossedDailyNotice) {
+    if (!transactionManager && result.crossedDailyNotice) {
       await this.limitNotices.notifyDailyThreshold(result.wallet);
     }
     return result.wallet;
@@ -221,8 +230,12 @@ export class WalletsService implements OnModuleInit {
     id: string,
     dto: CustomerWalletOperationDto,
     username: string,
+    transactionManager?: EntityManager,
   ) {
-    const result = await this.dataSource.transaction(async (manager) => {
+    const result = await inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       // Lock in the same order as internal-transfer reversals: treasury, wallet.
       const treasuryRepo = manager.getRepository(Treasury);
       const treasury = await treasuryRepo.findOne({
@@ -369,7 +382,7 @@ export class WalletsService implements OnModuleInit {
         crossedDailyNotice: received.crossedDailyNotice,
       };
     });
-    if (result.crossedDailyNotice) {
+    if (!transactionManager && result.crossedDailyNotice) {
       await this.limitNotices.notifyDailyThreshold(result.wallet);
     }
     const { crossedDailyNotice: _crossed, ...response } = result;

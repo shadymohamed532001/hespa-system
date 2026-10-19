@@ -1,3 +1,5 @@
+import { cairoPeriod } from '../wallets/wallets.service.js';
+import { inTransaction } from '../common/in-transaction.js';
 import {
   BadRequestException,
   Injectable,
@@ -5,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository, In } from 'typeorm';
 import { ReversalDto } from '../common/dto/reversal.dto.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
@@ -28,11 +30,20 @@ export class LedgerService {
     private readonly dataSource: DataSource,
   ) {}
 
-  findAll(limit = 100) {
-    return this.ledger.find({
+  async findAll(limit = 100) {
+    const entries = await this.ledger.find({
       order: { createdAt: 'DESC' },
       take: Math.min(Math.max(limit, 1), 500),
     });
+    if (!entries.length) return [];
+    const reversals = await this.ledger.find({
+      where: { reversesEntryId: In(entries.map((e) => e.id)) },
+      select: { reversesEntryId: true },
+    });
+    const reversed = new Set(reversals.map((e) => e.reversesEntryId));
+    return entries.map((e) =>
+      Object.assign(e, { isReversed: reversed.has(e.id) }),
+    );
   }
 
   private async asset(
@@ -122,6 +133,16 @@ export class LedgerService {
       throw new BadRequestException(
         msg({ ar: 'بيانات الشحن ناقصة', en: 'Top-up data is incomplete' }),
       );
+    if (entry.entityType === 'account' || entry.entityType === 'wallet') {
+      const [closed] = await manager.query(
+        'SELECT 1 FROM daily_closes WHERE closed_at >= (SELECT created_at FROM ledger_entries WHERE id = $1) LIMIT 1',
+        [entry.id],
+      );
+      if (closed)
+        throw new BadRequestException(
+          'تم إقفال يوم الشحن؛ لازم معالجة الإقفال المرتبط قبل إلغاء العملية',
+        );
+    }
     if (entry.entityType === 'account') {
       const account = await manager.getRepository(FinancialAccount).findOne({
         where: { id: entry.entityId },
@@ -159,6 +180,14 @@ export class LedgerService {
       if (!wallet)
         throw new NotFoundException(
           msg({ ar: 'المحفظة غير موجودة', en: 'Wallet not found' }),
+        );
+      const originalPeriod = cairoPeriod(new Date(entry.createdAt));
+      if (
+        wallet.counterDay !== originalPeriod.day ||
+        wallet.counterMonth !== originalPeriod.month
+      )
+        throw new BadRequestException(
+          'تم تغيير عدادات فترة الشحن؛ لا يمكن إلغاء العملية آليًا',
         );
       if (
         wallet.balance < entry.amount ||
@@ -402,6 +431,19 @@ export class LedgerService {
       (Number(wallet.commissionBalance) - Number(commission.amount)).toFixed(2),
     );
     await manager.save(treasury);
+    if (entry.metadata?.direction === 'receive') {
+      const period = cairoPeriod(new Date(entry.createdAt));
+      if (wallet.counterDay === period.day)
+        wallet.dailyTopUp = Number(
+          (Number(wallet.dailyTopUp) - Number(entry.amount)).toFixed(2),
+        );
+      if (wallet.counterMonth === period.month)
+        wallet.monthlyTopUp = Number(
+          (Number(wallet.monthlyTopUp) - Number(entry.amount)).toFixed(2),
+        );
+    }
+    if (wallet.dailyTopUp < 0 || wallet.monthlyTopUp < 0)
+      throw new BadRequestException('عدادات المحفظة لا تسمح بعكس العملية');
     await manager.save(wallet);
     for (const original of [cashFee, commission]) {
       await repo.save({
@@ -712,8 +754,16 @@ export class LedgerService {
     await item.save(expected);
   }
 
-  async reverse(id: string, dto: ReversalDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async reverse(
+    id: string,
+    dto: ReversalDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const repo = manager.getRepository(LedgerEntry);
       const entry = await repo.findOne({
         where: { id },

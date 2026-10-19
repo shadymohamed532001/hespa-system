@@ -1,3 +1,4 @@
+import { inTransaction } from '../common/in-transaction.js';
 import {
   BadRequestException,
   Injectable,
@@ -175,8 +176,16 @@ export class AccountsService implements OnModuleInit {
     await repo.save(treasury);
   }
 
-  async topUp(id: string, dto: TopUpAccountDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async topUp(
+    id: string,
+    dto: TopUpAccountDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const repo = manager.getRepository(FinancialAccount);
       const account = await repo.findOne({
         where: { id, active: true },
@@ -288,8 +297,16 @@ export class AccountsService implements OnModuleInit {
     });
   }
 
-  async profitQrCashOut(id: string, dto: ProfitQrCashOutDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async profitQrCashOut(
+    id: string,
+    dto: ProfitQrCashOutDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const treasury = await manager.getRepository(Treasury).findOne({
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
@@ -430,6 +447,7 @@ export class AccountsService implements OnModuleInit {
     id: string,
     dto: RecordFawryDepositDto,
     username: string,
+    transactionManager?: EntityManager,
   ) {
     const cashCounts: FawryCashCounts = {
       count200: dto.cashCounts.count200,
@@ -449,7 +467,10 @@ export class AccountsService implements OnModuleInit {
       );
     }
 
-    return this.dataSource.transaction(async (manager) => {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const depositor =
         !dto.depositorName?.trim() && dto.depositorUserId
           ? await manager.getRepository(User).findOne({
@@ -667,10 +688,14 @@ export class AccountsService implements OnModuleInit {
     amount: number,
     username: string,
     now = new Date(),
+    transactionManager?: EntityManager,
   ) {
     const date = cairoParts(now).date;
     const normalized = Number(Number(amount).toFixed(2));
-    return this.dataSource.transaction(async (manager) => {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
         `hesba:fawry-drop:${id}:${date}`,
       ]);

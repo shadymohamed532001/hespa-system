@@ -3,6 +3,8 @@ import {
   EntitySubscriberInterface,
   EventSubscriber,
   InsertEvent,
+  TransactionCommitEvent,
+  TransactionRollbackEvent,
 } from 'typeorm';
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
@@ -54,13 +56,37 @@ export class LedgerNotificationSubscriber
       }),
     );
 
+    const push = async () => this.pushEntry(entry, saved.id);
+    if (event.queryRunner.isTransactionActive) {
+      const queue = (event.queryRunner.data.ledgerPushAfterCommit ??=
+        []) as (() => Promise<void>)[];
+      queue.push(push);
+    } else {
+      await push();
+    }
+  }
+
+  async afterTransactionCommit(event: TransactionCommitEvent) {
+    if (event.queryRunner.isTransactionActive) return;
+    const queue = event.queryRunner.data.ledgerPushAfterCommit as
+      (() => Promise<void>)[] | undefined;
+    delete event.queryRunner.data.ledgerPushAfterCommit;
+    for (const push of queue ?? []) await push();
+  }
+
+  afterTransactionRollback(event: TransactionRollbackEvent) {
+    delete event.queryRunner.data.ledgerPushAfterCommit;
+  }
+
+  private async pushEntry(entry: LedgerEntry, notificationId: string) {
+    const mapped = notificationContent(entry);
     try {
       await this.fcm.sendPush(
         {
           title: mapped.title,
           body: mapped.body,
           data: {
-            notificationId: saved.id,
+            notificationId,
             kind: mapped.kind,
             ledgerEntryId: entry.id,
             category: entry.category,
@@ -75,7 +101,7 @@ export class LedgerNotificationSubscriber
             title: employeeContent.title,
             body: employeeContent.body,
             data: {
-              notificationId: saved.id,
+              notificationId,
               kind: employeeContent.kind,
               ledgerEntryId: entry.id,
               category: entry.category,

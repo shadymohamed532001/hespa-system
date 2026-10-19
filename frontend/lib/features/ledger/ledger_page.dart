@@ -1,3 +1,4 @@
+import 'operation_correction_dialog.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
@@ -32,6 +33,7 @@ class LedgerPage extends StatelessWidget {
       tr(ar: 'المبلغ', en: 'Amount'),
       tr(ar: 'المرجع', en: 'Reference'),
       tr(ar: 'المستخدم', en: 'User'),
+      tr(ar: 'الحالة', en: 'Status'),
     ],
     allowReversal: session.can(AppPermissions.reverseOperations),
     rowBuilder: (e) => [
@@ -41,6 +43,11 @@ class LedgerPage extends StatelessWidget {
       money(e['amount']),
       e['reference'] ?? '—',
       e['performedBy'] ?? '—',
+      e['category'] == 'reversal'
+          ? 'قيد إلغاء'
+          : e['isReversed'] == true
+          ? 'ملغية'
+          : 'مكتملة',
     ],
   );
 }
@@ -147,6 +154,29 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
     }
   }
 
+  Future<void> _correct(
+    Map<String, dynamic> entry, {
+    required bool cancel,
+  }) async {
+    final changed = await showOperationCorrection(
+      context,
+      widget.session,
+      '${entry['id']}',
+      cancel: cancel,
+    );
+    if (changed) {
+      await load();
+      if (mounted) {
+        showAppSnack(
+          context,
+          cancel
+              ? 'تم إلغاء العملية وإرجاع تأثيرها'
+              : 'تم تعديل العملية وتحديث الأرصدة',
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) => PageFrame(
     onRefresh: load,
@@ -168,13 +198,33 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
               return DataCard(
                 columns: [
                   ...widget.columns,
-                  if (widget.allowReversal) tr(ar: 'إجراء', en: 'Action'),
+                  if (widget.allowReversal || widget.session.isAdmin)
+                    tr(ar: 'إجراء', en: 'Action'),
                 ],
                 rows: data.map((raw) {
                   final entry = raw as Map<String, dynamic>;
                   return <Object>[
                     ...widget.rowBuilder(entry),
-                    if (widget.allowReversal)
+                    if (widget.session.isAdmin)
+                      entry['category'] == 'reversal' ||
+                              entry['isReversed'] == true
+                          ? const Text('—')
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                TextButton(
+                                  onPressed: () =>
+                                      _correct(entry, cancel: false),
+                                  child: const Text('تعديل'),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      _correct(entry, cancel: true),
+                                  child: const Text('إلغاء العملية'),
+                                ),
+                              ],
+                            )
+                    else if (widget.allowReversal)
                       _canReverse(entry, reversedIds)
                           ? TextButton(
                               onPressed: () => _reverse(entry),

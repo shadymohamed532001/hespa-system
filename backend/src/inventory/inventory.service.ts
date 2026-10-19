@@ -1,3 +1,4 @@
+import { inTransaction } from '../common/in-transaction.js';
 import {
   BadRequestException,
   Injectable,
@@ -7,7 +8,7 @@ import {
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { InventoryProduct } from '../database/entities/inventory-product.entity.js';
 import { InventorySale } from '../database/entities/inventory-sale.entity.js';
 import { InventoryStockMovement } from '../database/entities/inventory-stock-movement.entity.js';
@@ -109,7 +110,10 @@ export class InventoryService implements OnModuleInit {
           quantity: dto.openingStock,
           unitCost: dto.costPrice,
           supplier: null,
-          note: msg({ ar: 'رصيد افتتاحي للمخزون', en: 'Opening inventory balance' }),
+          note: msg({
+            ar: 'رصيد افتتاحي للمخزون',
+            en: 'Opening inventory balance',
+          }),
           performedBy: username,
         });
       }
@@ -124,7 +128,13 @@ export class InventoryService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!product) throw new NotFoundException(msg({ ar: 'الصنف غير موجود أو موقوف', en: 'Item not found or inactive' }));
+      if (!product)
+        throw new NotFoundException(
+          msg({
+            ar: 'الصنف غير موجود أو موقوف',
+            en: 'Item not found or inactive',
+          }),
+        );
       const previousQty = product.stockQty;
       const incomingCost = dto.unitCost ?? product.costPrice;
       const nextQty = previousQty + dto.quantity;
@@ -151,8 +161,17 @@ export class InventoryService implements OnModuleInit {
     });
   }
 
-  async sell(id: string, dto: SellProductDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async sell(
+    id: string,
+    dto: SellProductDto,
+    username: string,
+    transactionManager?: EntityManager,
+    costBasis?: number,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const productRepo = manager.getRepository(InventoryProduct);
       const saleRepo = manager.getRepository(InventorySale);
       const treasuryRepo = manager.getRepository(InventoryTreasury);
@@ -161,17 +180,27 @@ export class InventoryService implements OnModuleInit {
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!product) throw new NotFoundException(msg({ ar: 'الصنف غير موجود أو موقوف', en: 'Item not found or inactive' }));
+      if (!product)
+        throw new NotFoundException(
+          msg({
+            ar: 'الصنف غير موجود أو موقوف',
+            en: 'Item not found or inactive',
+          }),
+        );
       if (product.stockQty < dto.quantity) {
         throw new BadRequestException({
-          message: msg({ ar: 'الكمية المطلوبة أكبر من المتاح في المخزن', en: 'Requested quantity exceeds available stock' }),
+          message: msg({
+            ar: 'الكمية المطلوبة أكبر من المتاح في المخزن',
+            en: 'Requested quantity exceeds available stock',
+          }),
           available: product.stockQty,
         });
       }
 
+      const unitCost = costBasis ?? product.costPrice;
       const totalAmount = Number((dto.quantity * dto.unitPrice).toFixed(2));
       const grossProfit = Number(
-        (dto.quantity * (dto.unitPrice - product.costPrice)).toFixed(2),
+        (dto.quantity * (dto.unitPrice - unitCost)).toFixed(2),
       );
       product.stockQty -= dto.quantity;
       product.soldQty += dto.quantity;
@@ -183,7 +212,7 @@ export class InventoryService implements OnModuleInit {
           quantity: dto.quantity,
           unitPrice: dto.unitPrice,
           totalAmount,
-          unitCost: product.costPrice,
+          unitCost,
           grossProfit,
           note: dto.note ?? null,
           performedBy: username,
@@ -203,7 +232,7 @@ export class InventoryService implements OnModuleInit {
         productId: product.id,
         type: InventoryMovementType.SALE,
         quantity: -dto.quantity,
-        unitCost: product.costPrice,
+        unitCost,
         supplier: null,
         note: dto.note ?? null,
         performedBy: username,
@@ -225,8 +254,10 @@ export class InventoryService implements OnModuleInit {
         },
         product: this.serializeProduct(product),
         inventoryTreasuryBalance: box.balance,
-        message:
-          msg({ ar: 'تم تسجيل البيع وإضافة المبلغ إلى خزنة المخزن (منفصلة عن خزنة الكاش)', en: 'Sale recorded and amount added to inventory treasury (separate from cash treasury)' }),
+        message: msg({
+          ar: 'تم تسجيل البيع وإضافة المبلغ إلى خزنة المخزن (منفصلة عن خزنة الكاش)',
+          en: 'Sale recorded and amount added to inventory treasury (separate from cash treasury)',
+        }),
       };
     });
   }
@@ -326,7 +357,10 @@ export class InventoryService implements OnModuleInit {
       todaySalesCount: Number(todayTotals?.count ?? 0),
       todaySalesAmount: Number(todayTotals?.total ?? 0),
       isolatedFromCashTreasury: true,
-      note: msg({ ar: 'خزنة المخزن مستقلة تمامًا عن خزنة الكاش المركزية', en: 'Inventory treasury is completely separate from the central cash treasury' }),
+      note: msg({
+        ar: 'خزنة المخزن مستقلة تمامًا عن خزنة الكاش المركزية',
+        en: 'Inventory treasury is completely separate from the central cash treasury',
+      }),
     };
   }
 
@@ -346,15 +380,29 @@ export class InventoryService implements OnModuleInit {
     };
   }
 
-  async reverseSale(id: string, dto: ReversalDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async reverseSale(
+    id: string,
+    dto: ReversalDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const saleRepo = manager.getRepository(InventorySale);
       const sale = await saleRepo.findOne({
         where: { id },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!sale) throw new NotFoundException(msg({ ar: 'عملية البيع غير موجودة', en: 'Sale not found' }));
-      if (sale.reversedAt) throw new BadRequestException(msg({ ar: 'تم عكس البيع بالفعل', en: 'Sale already reversed' }));
+      if (!sale)
+        throw new NotFoundException(
+          msg({ ar: 'عملية البيع غير موجودة', en: 'Sale not found' }),
+        );
+      if (sale.reversedAt)
+        throw new BadRequestException(
+          msg({ ar: 'تم عكس البيع بالفعل', en: 'Sale already reversed' }),
+        );
 
       const product = await manager.getRepository(InventoryProduct).findOne({
         where: { id: sale.productId },
@@ -365,9 +413,16 @@ export class InventoryService implements OnModuleInit {
         lock: { mode: 'pessimistic_write' },
       });
       if (!product || !box)
-        throw new NotFoundException(msg({ ar: 'بيانات البيع غير مكتملة', en: 'Sale data is incomplete' }));
+        throw new NotFoundException(
+          msg({ ar: 'بيانات البيع غير مكتملة', en: 'Sale data is incomplete' }),
+        );
       if (box.balance < sale.totalAmount) {
-        throw new BadRequestException(msg({ ar: 'رصيد خزنة المخزن لا يكفي لعكس البيع', en: 'Inventory treasury balance is insufficient to reverse the sale' }));
+        throw new BadRequestException(
+          msg({
+            ar: 'رصيد خزنة المخزن لا يكفي لعكس البيع',
+            en: 'Inventory treasury balance is insufficient to reverse the sale',
+          }),
+        );
       }
 
       product.stockQty += sale.quantity;

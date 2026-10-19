@@ -39,6 +39,7 @@ function fixture(balance = 100000) {
     createQueryBuilder: () => query,
   };
   const manager: any = {
+    query: vi.fn().mockResolvedValue([]),
     getRepository: (entity) =>
       entity === FinancialAccount
         ? accountRepo
@@ -134,5 +135,15 @@ describe('Regular profit top-ups credited to spendable balance', () => {
     );
     expect(f.account.balance).toBe(0);
     expect(f.account.commissionBalance).toBe(0);
+  });
+  it('rejects cancelling a top-up whose daily counters have been closed', async () => {
+    const f = fixture();
+    await f.service.topUp('account', { amount: 1000 }, 'test');
+    f.manager.query.mockResolvedValue([{ closed: 1 }]);
+    await expect(
+      (f.ledger as any).reverseTopUp(f.manager, f.entries[0]),
+    ).rejects.toThrow('تم إقفال يوم الشحن');
+    expect(f.account.balance).toBe(101005);
+    expect(f.account.todayTopUp).toBe(1000);
   });
 });

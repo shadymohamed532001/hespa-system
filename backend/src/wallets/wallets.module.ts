@@ -16,6 +16,6 @@ import { WalletsService } from './wallets.service.js';
   ],
   controllers: [WalletsController],
   providers: [WalletsService, WalletLimitNoticeService],
-  exports: [WalletLimitNoticeService],
+  exports: [WalletsService, WalletLimitNoticeService],
 })
 export class WalletsModule {}

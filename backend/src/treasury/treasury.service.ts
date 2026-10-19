@@ -1,3 +1,4 @@
+import { inTransaction } from '../common/in-transaction.js';
 import {
   BadRequestException,
   Injectable,
@@ -72,10 +73,13 @@ export class TreasuryService {
       .getRawOne<{ total: string }>();
     const paymentResult = await this.agentCreditPayments
       .createQueryBuilder('payment')
+      .andWhere(
+        "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
+      )
       .select('COALESCE(SUM(payment.amount), 0)', 'total')
       .getRawOne<{ total: string }>();
     const [openingCredit] = await this.dataSource.query(
-      "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'",
+      "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance' AND NOT EXISTS (SELECT 1 FROM ledger_entries cancelled WHERE cancelled.reverses_entry_id = ledger_entries.id)",
     );
     const agentCreditBalance = Number(
       (
@@ -206,8 +210,15 @@ export class TreasuryService {
     );
   }
 
-  async transfer(dto: InternalTransferDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async transfer(
+    dto: InternalTransferDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const sourceKey = this.assetKey(dto.fromType, dto.fromId);
       const targetKey = this.assetKey(dto.toType, dto.toId);
       if (sourceKey === targetKey)
@@ -352,8 +363,15 @@ export class TreasuryService {
     });
   }
 
-  async withdraw(dto: WithdrawTreasuryDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async withdraw(
+    dto: WithdrawTreasuryDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const treasury = await manager.getRepository(Treasury).findOne({
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
@@ -442,8 +460,15 @@ export class TreasuryService {
     });
   }
 
-  async reconcile(dto: ReconcileDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async reconcile(
+    dto: ReconcileDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const item = await this.asset(manager, dto.assetType, dto.assetId);
       const expectedBalance = item.balance;
       const difference = Number(
@@ -491,8 +516,16 @@ export class TreasuryService {
     return `${value.year}-${value.month}-${value.day}`;
   }
 
-  async closeDay(dto: CloseDayDto, username: string) {
-    return this.dataSource.transaction('SERIALIZABLE', async (manager) => {
+  async closeDay(
+    dto: CloseDayDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+      'SERIALIZABLE',
+    )(async (manager) => {
       const day = this.cairoDay();
       await manager.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [
         `hesba:daily-close:${day}`,
@@ -549,10 +582,13 @@ export class TreasuryService {
       const agentCreditPaymentResult = await manager
         .getRepository(AgentCreditPayment)
         .createQueryBuilder('payment')
+        .andWhere(
+          "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
+        )
         .select('COALESCE(SUM(payment.amount), 0)', 'total')
         .getRawOne<{ total: string }>();
       const [openingCredit] = await manager.query(
-        "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance'",
+        "SELECT COALESCE(SUM(amount), 0) AS total FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance' AND NOT EXISTS (SELECT 1 FROM ledger_entries cancelled WHERE cancelled.reverses_entry_id = ledger_entries.id)",
       );
       const outstandingAgentCredit = Number(
         (
@@ -605,6 +641,20 @@ export class TreasuryService {
         closedBy: username,
         note: dto.note ?? null,
       });
+      const beforeCounters = {
+        accounts: accounts.map((a) => ({
+          id: a.id,
+          openingBalance: a.openingBalance,
+          todayTopUp: a.todayTopUp,
+        })),
+        wallets: wallets.map((w) => ({
+          id: w.id,
+          openingBalance: w.openingBalance,
+          todayTopUp: w.todayTopUp,
+          dailyTopUp: w.dailyTopUp,
+          counterDay: w.counterDay,
+        })),
+      };
       for (const account of accounts) {
         account.openingBalance = account.balance;
         account.todayTopUp = 0;
@@ -630,6 +680,8 @@ export class TreasuryService {
         performedBy: username,
         metadata: {
           dailyCloseId: close.id,
+          beforeCounters,
+          businessDate: day,
           totalAssets,
           pendingCollections,
           agentCreditBalance: outstandingAgentCredit,

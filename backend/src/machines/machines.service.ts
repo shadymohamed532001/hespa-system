@@ -1,3 +1,4 @@
+import { inTransaction } from '../common/in-transaction.js';
 import {
   BadRequestException,
   ConflictException,
@@ -8,7 +9,7 @@ import {
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Machine } from '../database/entities/machine.entity.js';
 import { LedgerCategory } from '../database/enums.js';
@@ -130,8 +131,16 @@ export class MachinesService implements OnModuleInit {
     return this.withRemaining(await this.machines.save(machine));
   }
 
-  async load(id: string, dto: LoadMachineDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async load(
+    id: string,
+    dto: LoadMachineDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const repo = manager.getRepository(Machine);
       const machine = await repo.findOne({
         where: { id, active: true },
@@ -161,8 +170,16 @@ export class MachinesService implements OnModuleInit {
     });
   }
 
-  async use(id: string, dto: UseMachineDto, username: string) {
-    return this.dataSource.transaction(async (manager) => {
+  async use(
+    id: string,
+    dto: UseMachineDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const repo = manager.getRepository(Machine);
       const machine = await repo.findOne({
         where: { id, active: true },

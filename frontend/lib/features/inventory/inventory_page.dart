@@ -1,3 +1,4 @@
+import '../ledger/operation_correction_dialog.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
@@ -168,7 +169,12 @@ class _InventoryPageState extends State<InventoryPage> {
                   canReverse: widget.session.can(
                     AppPermissions.reverseOperations,
                   ),
-                  onReverse: _reverseSale,
+                  onReverse: widget.session.isAdmin
+                      ? (sale) => _correctSale(sale, cancel: true)
+                      : _reverseSale,
+                  onEdit: widget.session.isAdmin
+                      ? (sale) => _correctSale(sale, cancel: false)
+                      : null,
                 ),
               ],
             ),
@@ -434,6 +440,30 @@ class _InventoryPageState extends State<InventoryPage> {
     } catch (e) {
       if (mounted) {
         showAppSnack(context, ApiClient.errorMessage(e), error: true);
+      }
+    }
+  }
+
+  Future<void> _correctSale(
+    Map<String, dynamic> sale, {
+    required bool cancel,
+  }) async {
+    final changed = await showOperationCorrection(
+      context,
+      widget.session,
+      '${sale['id']}',
+      cancel: cancel,
+      basePath: '/ledger/inventory-sales/${sale['id']}',
+    );
+    if (changed) {
+      await load();
+      if (mounted) {
+        showAppSnack(
+          context,
+          cancel
+              ? 'تم إلغاء البيع وإرجاع المخزون والمبلغ'
+              : 'تم تعديل البيع وتحديث المخزون والخزنة',
+        );
       }
     }
   }
@@ -749,12 +779,14 @@ class _SalesCard extends StatelessWidget {
     required this.showProfits,
     required this.canReverse,
     required this.onReverse,
+    this.onEdit,
   });
 
   final List<dynamic> sales;
   final bool showProfits;
   final bool canReverse;
   final Future<void> Function(Map<String, dynamic>) onReverse;
+  final Future<void> Function(Map<String, dynamic>)? onEdit;
 
   @override
   Widget build(BuildContext context) {
@@ -911,11 +943,27 @@ class _SalesCard extends StatelessWidget {
                                         style: TextStyle(color: Colors.red),
                                       )
                                     : canReverse
-                                    ? TextButton(
-                                        onPressed: () => onReverse(
-                                          e as Map<String, dynamic>,
-                                        ),
-                                        child: const Text('عكس البيع'),
+                                    ? Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (onEdit != null)
+                                            TextButton(
+                                              onPressed: () => onEdit!(
+                                                e as Map<String, dynamic>,
+                                              ),
+                                              child: const Text('تعديل'),
+                                            ),
+                                          TextButton(
+                                            onPressed: () => onReverse(
+                                              e as Map<String, dynamic>,
+                                            ),
+                                            child: Text(
+                                              onEdit != null
+                                                  ? 'إلغاء البيع'
+                                                  : 'عكس البيع',
+                                            ),
+                                          ),
+                                        ],
                                       )
                                     : const Text('مكتملة'),
                               ),

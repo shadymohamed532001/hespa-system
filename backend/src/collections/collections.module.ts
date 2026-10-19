@@ -21,6 +21,7 @@ import { CollectionsService } from './collections.service.js';
     WalletsModule,
   ],
   controllers: [CollectionsController],
+  exports: [CollectionsService],
   providers: [CollectionsService],
 })
 export class CollectionsModule {}

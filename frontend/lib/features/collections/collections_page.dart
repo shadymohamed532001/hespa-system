@@ -1,3 +1,4 @@
+import '../ledger/operation_correction_dialog.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/network/api_client.dart';
@@ -26,6 +27,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
   bool loading = true;
   String? error;
   String _period = 'day';
+  String _status = 'all';
   DateTime _selectedDate = DateUtils.dateOnly(DateTime.now());
 
   DateTime get _periodStart {
@@ -44,7 +46,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
     _periodStart.day + (_period == 'week' ? 7 : 1),
   );
 
-  List<dynamic> get _filteredRows {
+  List<dynamic> get _periodRows {
     if (_period == 'all') return data;
     final start = _periodStart;
     final end = _periodEnd;
@@ -55,6 +57,14 @@ class _CollectionsPageState extends State<CollectionsPage> {
       return date != null && !date.isBefore(start) && date.isBefore(end);
     }).toList();
   }
+
+  List<dynamic> get _filteredRows {
+    if (_status == 'all') return _periodRows;
+    return _periodRows.where((row) => '${row['status']}' == _status).toList();
+  }
+
+  int _statusCount(String status) =>
+      _periodRows.where((row) => '${row['status']}' == status).length;
 
   void _movePeriod(int direction) {
     setState(() {
@@ -127,6 +137,29 @@ class _CollectionsPageState extends State<CollectionsPage> {
     );
   }
 
+  Widget _statusFilters() {
+    final pending = _statusCount('pending');
+    final done = _statusCount('done');
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(tr(ar: 'الحالة:', en: 'Status:')),
+        for (final option in [
+          ('all', tr(ar: 'الكل', en: 'All')),
+          ('pending', tr(ar: 'معلّق ($pending)', en: 'Pending ($pending)')),
+          ('done', tr(ar: 'خلص ($done)', en: 'Done ($done)')),
+        ])
+          ChoiceChip(
+            label: Text(option.$2),
+            selected: _status == option.$1,
+            onSelected: (_) => setState(() => _status = option.$1),
+          ),
+      ],
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -177,26 +210,47 @@ class _CollectionsPageState extends State<CollectionsPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _dateFilters(),
+                const SizedBox(height: 10),
+                _statusFilters(),
                 const SizedBox(height: 16),
                 if (_filteredRows.isEmpty)
                   Padding(
                     padding: const EdgeInsets.all(32),
-                    child: Text(
-                      tr(
-                        ar: 'لا توجد تحصيلات في الفترة المحددة',
-                        en: 'No collections in this period',
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text(_emptyMessage(), textAlign: TextAlign.center),
                   )
                 else
                   _CollectionsTable(
                     rows: _filteredRows,
                     onExecute: (row) => _execute(row),
                     showProfits: widget.session.isAdmin,
+                    onEdit: widget.session.isAdmin
+                        ? (row) => _correct(row, cancel: false)
+                        : null,
+                    onCancel: widget.session.isAdmin
+                        ? (row) => _correct(row, cancel: true)
+                        : null,
                   ),
               ],
             ),
+    );
+  }
+
+  String _emptyMessage() {
+    if (_status == 'pending') {
+      return tr(
+        ar: 'لا توجد معلّقات في الفترة المحددة',
+        en: 'No pending collections in this period',
+      );
+    }
+    if (_status == 'done') {
+      return tr(
+        ar: 'لا توجد تحصيلات خلصت في الفترة المحددة',
+        en: 'No completed collections in this period',
+      );
+    }
+    return tr(
+      ar: 'لا توجد تحصيلات في الفترة المحددة',
+      en: 'No collections in this period',
     );
   }
 
@@ -211,6 +265,30 @@ class _CollectionsPageState extends State<CollectionsPage> {
         showAppSnack(
           context,
           tr(ar: 'تم تسجيل التحصيل', en: 'Collection recorded'),
+        );
+      }
+    }
+  }
+
+  Future<void> _correct(
+    Map<String, dynamic> row, {
+    required bool cancel,
+  }) async {
+    final changed = await showOperationCorrection(
+      context,
+      widget.session,
+      '${row['id']}',
+      cancel: cancel,
+      basePath: '/ledger/collections/${row['id']}',
+    );
+    if (changed) {
+      await load();
+      if (mounted) {
+        showAppSnack(
+          context,
+          cancel
+              ? 'تم إلغاء الاستلام وكل أجزائه'
+              : 'تم تعديل الاستلام وتحديث الأرصدة',
         );
       }
     }
@@ -250,11 +328,15 @@ class _CollectionsTable extends StatelessWidget {
     required this.rows,
     required this.onExecute,
     required this.showProfits,
+    this.onEdit,
+    this.onCancel,
   });
 
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onExecute;
   final bool showProfits;
+  final Future<void> Function(Map<String, dynamic>)? onEdit;
+  final Future<void> Function(Map<String, dynamic>)? onCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -404,8 +486,20 @@ class _CollectionsTable extends StatelessWidget {
                                   onPressed: () => onExecute(e),
                                   child: const Text('تنفيذ'),
                                 )
-                              else
+                              else if (onEdit == null ||
+                                  e['status'] == 'reversed')
                                 Text('—', style: HesbaText.tableCell),
+                              if (e['status'] != 'reversed' &&
+                                  onEdit != null) ...[
+                                TextButton(
+                                  onPressed: () => onEdit!(e),
+                                  child: const Text('تعديل'),
+                                ),
+                                TextButton(
+                                  onPressed: () => onCancel!(e),
+                                  child: const Text('إلغاء العملية'),
+                                ),
+                              ],
                             ],
                           ),
                         ),

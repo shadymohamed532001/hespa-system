@@ -25,6 +25,7 @@ import { TreasuryService } from './treasury.service.js';
     ]),
   ],
   controllers: [TreasuryController],
+  exports: [TreasuryService],
   providers: [TreasuryService],
 })
 export class TreasuryModule {}

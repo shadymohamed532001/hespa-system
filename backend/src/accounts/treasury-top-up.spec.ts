@@ -35,6 +35,7 @@ function setup(type: AccountType, balance = 2000) {
     createQueryBuilder: () => query,
   };
   const manager = {
+    query: vi.fn().mockResolvedValue([]),
     getRepository: (entity) =>
       entity === FinancialAccount
         ? accountRepo

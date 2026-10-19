@@ -1,3 +1,4 @@
+import { inTransaction } from '../common/in-transaction.js';
 import {
   BadRequestException,
   ConflictException,
@@ -5,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { purchaseVisaProfit } from '../accounts/profit-commission.js';
 import { msg } from '../common/i18n/locale-context.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
@@ -113,9 +114,17 @@ export class PurchaseVisasService {
     });
   }
 
-  async topUp(id: string, dto: TopUpPurchaseVisaDto, username: string) {
+  async topUp(
+    id: string,
+    dto: TopUpPurchaseVisaDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
     const amount = Number(Number(dto.amount).toFixed(2));
-    return this.dataSource.transaction(async (manager) => {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const visa = await manager.getRepository(PurchaseVisa).findOne({
         where: { id, active: true },
         lock: { mode: 'pessimistic_write' },
@@ -144,7 +153,12 @@ export class PurchaseVisasService {
     });
   }
 
-  async withdraw(id: string, dto: WithdrawPurchaseVisaDto, username: string) {
+  async withdraw(
+    id: string,
+    dto: WithdrawPurchaseVisaDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
     const agentName = dto.agentName.trim();
     if (!agentName) {
       throw new BadRequestException(
@@ -158,7 +172,10 @@ export class PurchaseVisasService {
     );
     const treasuryCredit = Number((principal + netProfit).toFixed(2));
 
-    return this.dataSource.transaction(async (manager) => {
+    return inTransaction(
+      this.dataSource,
+      transactionManager,
+    )(async (manager) => {
       const treasury = await manager.getRepository(Treasury).findOne({
         where: { id: 'main' },
         lock: { mode: 'pessimistic_write' },
@@ -182,7 +199,10 @@ export class PurchaseVisasService {
       }
       if (Number(visa.balance) < principal) {
         throw new BadRequestException(
-          msg({ ar: 'رصيد الفيزا غير كافٍ', en: 'Insufficient visa balance' }),
+          msg({
+            ar: 'رصيد الفيزا غير كافٍ',
+            en: 'Insufficient visa balance',
+          }),
         );
       }
 
