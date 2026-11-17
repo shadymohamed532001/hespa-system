@@ -84,6 +84,8 @@ class _TreasuryPageState extends State<TreasuryPage> {
           .post(ApiEndpoints.treasuryWithdraw, {
             'mode': request.mode,
             if (request.mode == 'leave') 'leaveAmount': request.leaveAmount,
+            if (request.mode == 'amount')
+              'withdrawAmount': request.withdrawAmount,
             if (request.note.isNotEmpty) 'note': request.note,
           });
       await load();
@@ -600,11 +602,13 @@ class _WithdrawRequest {
   const _WithdrawRequest({
     required this.mode,
     required this.leaveAmount,
+    required this.withdrawAmount,
     required this.note,
   });
 
   final String mode;
   final num leaveAmount;
+  final num withdrawAmount;
   final String note;
 }
 
@@ -620,17 +624,27 @@ class _WithdrawDialog extends StatefulWidget {
 
 class _WithdrawDialogState extends State<_WithdrawDialog> {
   final leave = TextEditingController();
+  final take = TextEditingController();
   final note = TextEditingController();
-  String mode = 'leave';
+  String mode = 'amount';
 
   @override
   void dispose() {
     leave.dispose();
+    take.dispose();
     note.dispose();
     super.dispose();
   }
 
-  num? get _leaveAmount => mode == 'all' ? 0 : parseNum(leave.text.trim());
+  num? get _leaveAmount {
+    if (mode == 'all') return 0;
+    if (mode == 'amount') {
+      final value = parseNum(take.text.trim());
+      if (value == null || value <= 0 || value > widget.actual) return null;
+      return num.parse((widget.actual - value).toStringAsFixed(2));
+    }
+    return parseNum(leave.text.trim());
+  }
 
   num? get _withdrawn {
     final remaining = _leaveAmount;
@@ -644,6 +658,14 @@ class _WithdrawDialogState extends State<_WithdrawDialog> {
 
   String? get _problem {
     if (mode == 'all') return null;
+    if (mode == 'amount') {
+      final text = take.text.trim();
+      if (text.isEmpty) return 'اكتب المبلغ اللي عايز تسحبه';
+      final value = parseNum(text);
+      if (value == null || value <= 0) return 'مبلغ السحب غير صالح';
+      if (value > widget.actual) return 'مبلغ السحب أكبر من رصيد الخزنة';
+      return null;
+    }
     final text = leave.text.trim();
     if (text.isEmpty) return 'اكتب المبلغ اللي هيفضل في الخزنة';
     final remaining = parseNum(text);
@@ -672,6 +694,7 @@ class _WithdrawDialogState extends State<_WithdrawDialog> {
           _WithdrawRequest(
             mode: mode,
             leaveAmount: remaining ?? 0,
+            withdrawAmount: withdrawn ?? 0,
             note: note.text.trim(),
           ),
         ),
@@ -680,6 +703,28 @@ class _WithdrawDialogState extends State<_WithdrawDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          _ModeCard(
+            title: 'سحب سريع',
+            subtitle: 'اكتب المبلغ اللي عايز تسحبه ويتخصم من الخزنة على طول',
+            selected: mode == 'amount',
+            onTap: () => setState(() => mode = 'amount'),
+          ),
+          if (mode == 'amount') ...[
+            const SizedBox(height: 12),
+            HesbaModalField(
+              label: 'المبلغ اللي هيتسحب',
+              child: TextField(
+                controller: take,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                inputFormatters: const [MoneyInputFormatter()],
+                onChanged: (_) => setState(() {}),
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
           _ModeCard(
             title: 'سحب الخزنة كلها',
             subtitle: 'الخزنة هتبقى صفر',

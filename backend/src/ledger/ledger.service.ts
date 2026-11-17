@@ -651,6 +651,8 @@ export class LedgerService {
   private async reversePurchaseVisaUsage(
     manager: EntityManager,
     entry: LedgerEntry,
+    reason: string,
+    username: string,
   ) {
     if (entry.metadata?.collectionId) {
       throw new BadRequestException(
@@ -659,6 +661,85 @@ export class LedgerService {
           en: 'This visa withdrawal belongs to an agent receipt and cannot be reversed alone',
         }),
       );
+    }
+    if (entry.metadata?.externalVisa === true) {
+      const credit = Number(entry.metadata?.treasuryCredit ?? entry.amount);
+      const treasury = await manager.getRepository(Treasury).findOne({
+        where: { id: 'main' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!treasury) {
+        throw new NotFoundException(
+          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+        );
+      }
+      if (Number(treasury.balance) < credit) {
+        throw new BadRequestException(
+          msg({
+            ar: 'رصيد الخزنة الحالي لا يسمح بعكس السحب',
+            en: 'Current treasury balance does not allow reversing this withdrawal',
+          }),
+        );
+      }
+      const machineId = entry.metadata?.machineId;
+      if (typeof machineId === 'string') {
+        const principal = Number(entry.metadata?.principal);
+        const machine = await manager.getRepository(Machine).findOne({
+          where: { id: machineId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!machine || !Number.isFinite(principal)) {
+          throw new NotFoundException(
+            msg({ ar: 'الماكينة غير موجودة', en: 'Machine not found' }),
+          );
+        }
+        const remaining =
+          Number(machine.loadedBalance) - Number(machine.usedBalance);
+        if (remaining + 0.000001 < principal) {
+          throw new BadRequestException(
+            msg({
+              ar: 'رصيد الماكينة اتصرف منه ولا يمكن عكس السحب',
+              en: 'The machine balance was already used; this withdrawal cannot be reversed',
+            }),
+          );
+        }
+        machine.loadedBalance = Number(
+          (Number(machine.loadedBalance) - principal).toFixed(2),
+        );
+        await manager.save(machine);
+        const repo = manager.getRepository(LedgerEntry);
+        const loads = await repo
+          .createQueryBuilder('entry')
+          .where('entry.category = :category', {
+            category: LedgerCategory.TOP_UP,
+          })
+          .andWhere(`entry.metadata @> :metadata::jsonb`, {
+            metadata: JSON.stringify({ purchaseVisaUsageEntryId: entry.id }),
+          })
+          .getMany();
+        for (const load of loads) {
+          if (await repo.exists({ where: { reversesEntryId: load.id } }))
+            continue;
+          await repo.save({
+            category: LedgerCategory.REVERSAL,
+            amount: -load.amount,
+            entityType: load.entityType,
+            entityId: load.entityId,
+            reference: load.reference,
+            description: `عكس: ${load.description} — السبب: ${reason}`,
+            performedBy: username,
+            reversesEntryId: load.id,
+            metadata: {
+              reason,
+              purchaseVisaUsageEntryId: entry.id,
+              originalCategory: load.category,
+            },
+          });
+        }
+      }
+      treasury.balance = Number((Number(treasury.balance) - credit).toFixed(2));
+      await manager.save(treasury);
+      return;
     }
     const visaId = entry.sourceId ?? entry.metadata?.visaId;
     const principal = Number(entry.metadata?.principal);
@@ -796,6 +877,14 @@ export class LedgerService {
             }),
           );
         }
+        if (entry.metadata?.purchaseVisaUsageEntryId) {
+          throw new BadRequestException(
+            msg({
+              ar: 'شحن الماكينة ده جزء من سحب فيزا مشتريات خارجية ولا يُعكس لوحده',
+              en: 'This machine load belongs to an external visa withdrawal and cannot be reversed alone',
+            }),
+          );
+        }
         await this.reverseTopUp(manager, entry);
         if (entry.metadata?.treasuryFundedTopUp === true) {
           const treasury = await this.asset(manager, 'treasury', 'main');
@@ -845,7 +934,12 @@ export class LedgerService {
       } else if (entry.category === LedgerCategory.OWNER_WITHDRAWAL) {
         await this.reverseOwnerWithdrawal(manager, entry);
       } else if (entry.category === LedgerCategory.PURCHASE_VISA_USAGE) {
-        await this.reversePurchaseVisaUsage(manager, entry);
+        await this.reversePurchaseVisaUsage(
+          manager,
+          entry,
+          dto.reason,
+          username,
+        );
       } else {
         throw new BadRequestException(
           msg({

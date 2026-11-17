@@ -37,7 +37,10 @@ import { CustomerWalletOperationDto } from '../wallets/dto/customer-wallet-opera
 import { UseMachineDto } from '../machines/dto/use-machine.dto.js';
 import { InternalTransferDto } from '../treasury/dto/internal-transfer.dto.js';
 import { ReconcileDto } from '../treasury/dto/reconcile.dto.js';
-import { WithdrawPurchaseVisaDto } from '../purchase-visas/dto/purchase-visa.dto.js';
+import {
+  ExternalVisaWithdrawDto,
+  WithdrawPurchaseVisaDto,
+} from '../purchase-visas/dto/purchase-visa.dto.js';
 import { ReceiveCollectionDto } from '../collections/dto/receive-collection.dto.js';
 import { ReversalDto } from '../common/dto/reversal.dto.js';
 import { CorrectionDto } from './correction.dto.js';
@@ -371,6 +374,41 @@ export class OperationCorrectionsService {
           other: 'أخرى',
         }),
         textField('reference', 'المرجع'),
+      ];
+    } else if (
+      entry.category === LedgerCategory.PURCHASE_VISA_USAGE &&
+      m.externalVisa === true
+    ) {
+      p.kind = 'external_visa';
+      p.values = {
+        amount: Number(m.principal),
+        destination: m.destination ?? 'agent',
+        machineId: m.machineId ?? '',
+        agentName: m.agentName ?? '',
+        withService: m.withService,
+        profitPayer: m.profitPayer,
+        note: m.note ?? '',
+      };
+      p.fields = [
+        numberField('amount', 'المبلغ'),
+        choices('destination', 'الفلوس راحت فين', {
+          agent: 'مندوب',
+          machine: 'ماكينة',
+        }),
+        await this.assetField(
+          manager,
+          'machineId',
+          'الماكينة',
+          'machine',
+          true,
+        ),
+        textField('agentName', 'اسم المندوب'),
+        { key: 'withService', label: 'بخدمة ماكينة', type: 'boolean' },
+        choices('profitPayer', 'المكسب على', {
+          agent: 'المندوب',
+          customer: 'العميل',
+        }),
+        textField('note', 'ملاحظات'),
       ];
     } else if (entry.category === LedgerCategory.PURCHASE_VISA_USAGE) {
       p.kind = 'visa_usage';
@@ -1029,6 +1067,18 @@ export class OperationCorrectionsService {
         username,
         manager,
       );
+    if (p.kind === 'external_visa') {
+      if (v.destination === 'machine') {
+        delete v.agentName;
+        delete v.profitPayer;
+      }
+      if (v.destination !== 'machine' || !v.machineId) delete v.machineId;
+      return this.visas.withdrawExternal(
+        await this.checked(ExternalVisaWithdrawDto, v),
+        username,
+        manager,
+      );
+    }
     if (p.kind === 'visa_usage')
       return this.visas.withdraw(
         assetId,

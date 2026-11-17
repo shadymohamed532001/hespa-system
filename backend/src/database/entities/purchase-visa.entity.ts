@@ -15,14 +15,20 @@ export class PurchaseVisa {
   @Column({ unique: true, length: 150 })
   name: string;
 
-  @Column({ name: 'card_number', unique: true, length: 16 })
-  cardNumber: string;
+  @Column({
+    name: 'card_number',
+    type: 'varchar',
+    unique: true,
+    length: 16,
+    nullable: true,
+  })
+  cardNumber: string | null;
 
   @Column({ name: 'owner_name', length: 120 })
   ownerName: string;
 
-  @Column({ name: 'expires_on', type: 'date' })
-  expiresOn: string;
+  @Column({ name: 'expires_on', type: 'date', nullable: true })
+  expiresOn: string | null;
 
   @Column({ default: true })
   active: boolean;

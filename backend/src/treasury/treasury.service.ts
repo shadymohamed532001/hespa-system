@@ -391,8 +391,31 @@ export class TreasuryService {
         .getRawOne<{ total: string }>();
       const pendingAmount = Number(pendingResult?.total ?? 0);
       const previousBalance = Number(treasury.balance);
+      if (dto.mode === 'amount') {
+        const requested = Number(dto.withdrawAmount);
+        if (!Number.isFinite(requested) || requested <= 0) {
+          throw new BadRequestException(
+            msg({
+              ar: 'مبلغ السحب غير صالح',
+              en: 'The withdrawal amount is invalid',
+            }),
+          );
+        }
+        if (requested > previousBalance) {
+          throw new BadRequestException(
+            msg({
+              ar: 'مبلغ السحب أكبر من رصيد الخزنة',
+              en: 'The withdrawal amount is larger than the treasury balance',
+            }),
+          );
+        }
+      }
       const remainingBalance =
-        dto.mode === 'all' ? 0 : Number(Number(dto.leaveAmount).toFixed(2));
+        dto.mode === 'all'
+          ? 0
+          : dto.mode === 'amount'
+            ? Number((previousBalance - Number(dto.withdrawAmount)).toFixed(2))
+            : Number(Number(dto.leaveAmount).toFixed(2));
       if (!Number.isFinite(remainingBalance) || remainingBalance < 0) {
         throw new BadRequestException(
           msg({

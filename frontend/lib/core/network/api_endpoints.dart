@@ -74,6 +74,8 @@ abstract final class ApiEndpoints {
   static const String purchaseVisas = '/purchase-visas';
 
   static String purchaseVisaTopUp(String id) => '$purchaseVisas/$id/top-up';
+  static const String purchaseVisaExternalWithdraw =
+      '$purchaseVisas/external-withdraw';
 
   // Collections
   static const String collections = '/collections';

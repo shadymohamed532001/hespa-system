@@ -14,6 +14,7 @@ import { AppPermission } from '../database/enums.js';
 import { UsersService } from '../users/users.service.js';
 import {
   CreatePurchaseVisaDto,
+  ExternalVisaWithdrawDto,
   TopUpPurchaseVisaDto,
   WithdrawPurchaseVisaDto,
 } from './dto/purchase-visa.dto.js';
@@ -52,6 +53,16 @@ export class PurchaseVisasController {
   ) {
     const visa = await this.visas.create(dto, request.user.username);
     return redactCardNumbers(visa, await this.revealCards(request.user.userId));
+  }
+
+  @RequirePermissions(AppPermission.USE_PURCHASE_VISAS)
+  @Idempotent()
+  @Post('external-withdraw')
+  withdrawExternal(
+    @Body() dto: ExternalVisaWithdrawDto,
+    @Request() request: UserRequest,
+  ) {
+    return this.visas.withdrawExternal(dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.TOP_UP_ASSETS)

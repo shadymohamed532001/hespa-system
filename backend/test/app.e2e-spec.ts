@@ -892,6 +892,26 @@ describe('financial operations (e2e)', () => {
       .expect(200);
     expect(restored.body.actualBalance).toBe(funded);
 
+    const quick = await request(app.getHttpServer())
+      .post('/api/treasury/withdraw')
+      .set(mutation(`withdraw-amount-${randomUUID()}`))
+      .send({ mode: 'amount', withdrawAmount: 5_000 })
+      .expect(201);
+    expect(quick.body.withdrawnAmount).toBe(5_000);
+    expect(quick.body.remainingBalance).toBe(
+      Number((funded - 5_000).toFixed(2)),
+    );
+    await request(app.getHttpServer())
+      .post('/api/treasury/withdraw')
+      .set(mutation(`withdraw-amount-over-${randomUUID()}`))
+      .send({ mode: 'amount', withdrawAmount: funded })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${quick.body.id}/reverse`)
+      .set(mutation(`withdraw-amount-reverse-${randomUUID()}`))
+      .send({ reason: 'تجربة السحب السريع' })
+      .expect(201);
+
     const emptied = await request(app.getHttpServer())
       .post('/api/treasury/withdraw')
       .set(mutation(`withdraw-all-${randomUUID()}`))

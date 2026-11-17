@@ -522,12 +522,16 @@ describe.sequential('admin operation corrections (e2e)', () => {
     const visa = (
       await post('/purchase-visas', {
         name: 'Correction visa',
-        ownerName: 'Visa owner',
-        cardNumber: '4111111111111111',
-        expiry: '12/30',
         openingBalance: 5000,
       })
     ).body;
+    expect(visa).toMatchObject({
+      name: 'Correction visa',
+      ownerName: 'Correction visa',
+      cardNumber: null,
+      expiresOn: null,
+      balance: 5000,
+    });
     const cash = (await get('/treasury/summary')).body.actualBalance;
     const withdrawal = (
       await post(`/purchase-visas/${visa.id}/withdraw`, {
@@ -571,6 +575,132 @@ describe.sequential('admin operation corrections (e2e)', () => {
       0,
     );
     expect((await get('/treasury/summary')).body.actualBalance).toBe(cash);
+  });
+
+  it('withdraws from an external visa via an agent or a machine and cancels it', async () => {
+    const cash = (await get('/treasury/summary')).body.actualBalance;
+    const machineBefore = await balance('/machines', machineId);
+    const agentPays = (
+      await post('/purchase-visas/external-withdraw', {
+        amount: 5000,
+        agentName: 'Visa agent',
+        withService: false,
+        profitPayer: 'agent',
+      })
+    ).body;
+    expect(agentPays).toMatchObject({
+      holderName: 'فيزا مشتريات خارجية',
+      netProfit: 100,
+      agentCash: 5100,
+      customerCash: 5000,
+      treasuryCredit: 100,
+    });
+    const customerPays = (
+      await post('/purchase-visas/external-withdraw', {
+        holderName: 'Walk-in customer',
+        amount: 5000,
+        agentName: 'Visa agent',
+        withService: true,
+        profitPayer: 'customer',
+      })
+    ).body;
+    expect(customerPays).toMatchObject({
+      netProfit: 65,
+      agentCash: 5000,
+      customerCash: 4935,
+      treasuryCredit: 65,
+    });
+    expect((await get('/treasury/summary')).body.actualBalance).toBe(
+      Number((cash + 165).toFixed(2)),
+    );
+    const viaMachine = (
+      await post('/purchase-visas/external-withdraw', {
+        amount: 3000,
+        destination: 'machine',
+        machineId,
+        withService: false,
+      })
+    ).body;
+    expect(viaMachine).toMatchObject({
+      destination: 'machine',
+      profitPayer: 'customer',
+      netProfit: 60,
+      agentCash: 0,
+      customerCash: 2940,
+      treasuryCredit: -2940,
+    });
+    expect((await get('/treasury/summary')).body.actualBalance).toBe(
+      Number((cash + 165 - 2940).toFixed(2)),
+    );
+    expect((await balance('/machines', machineId)).loadedBalance).toBe(
+      Number((machineBefore.loadedBalance + 3000).toFixed(2)),
+    );
+    const load = (await get('/ledger?limit=500')).body.find(
+      (e: any) =>
+        e.category === 'top_up' &&
+        e.metadata?.purchaseVisaUsageEntryId === viaMachine.id,
+    );
+    await post(`/ledger/${load.id}/reverse`, { reason: 'تجربة' }, 400);
+    await post(`/ledger/${load.id}/cancel`, { reason: 'تجربة الإلغاء' });
+    expect((await balance('/machines', machineId)).loadedBalance).toBe(
+      machineBefore.loadedBalance,
+    );
+    const anyMachine = (
+      await post('/purchase-visas/external-withdraw', {
+        amount: 1000,
+        destination: 'machine',
+        withService: false,
+      })
+    ).body;
+    expect(anyMachine).toMatchObject({
+      destination: 'machine',
+      machineName: null,
+      customerCash: 980,
+      treasuryCredit: -980,
+    });
+    expect((await balance('/machines', machineId)).loadedBalance).toBe(
+      machineBefore.loadedBalance,
+    );
+    await post(`/ledger/${anyMachine.id}/cancel`, { reason: 'تجربة الإلغاء' });
+    expect((await get('/treasury/summary')).body.actualBalance).toBe(
+      Number((cash + 165).toFixed(2)),
+    );
+    const plan = (await get(`/ledger/${agentPays.id}/correction`)).body;
+    expect(plan.blocked).toBeNull();
+
+    await post(`/ledger/${agentPays.id}/correct`, {
+      reason: 'تصحيح فيزا العميل',
+      values: { amount: 2000 },
+    });
+    const corrected = (await get('/ledger?limit=500')).body.find(
+      (e: any) =>
+        e.metadata?.externalVisa === true &&
+        e.category === 'purchase_visa_usage' &&
+        !e.isReversed &&
+        e.id !== customerPays.id &&
+        e.id !== viaMachine.id &&
+        e.id !== anyMachine.id,
+    );
+    expect(corrected.metadata).toMatchObject({
+      holderName: 'فيزا مشتريات خارجية',
+      principal: 2000,
+      profitPayer: 'agent',
+      agentCash: 2040,
+      customerCash: 2000,
+    });
+    await post(`/ledger/${corrected.id}/cancel`, { reason: 'تجربة' });
+    await post(`/ledger/${customerPays.id}/cancel`, { reason: 'تجربة' });
+    expect((await get('/treasury/summary')).body.actualBalance).toBe(cash);
+    const rows = (await get('/ledger?limit=500')).body;
+    const profit = rows.filter(
+      (e: any) =>
+        e.category === 'commission' &&
+        [agentPays.id, customerPays.id, corrected.id, viaMachine.id].includes(
+          e.metadata?.purchaseVisaUsageEntryId,
+        ),
+    );
+    expect(profit).toHaveLength(4);
+    expect(profit.every((e: any) => e.isReversed)).toBe(true);
   });
 
   it('corrects treasury withdrawals by amount and rejects forged hidden values', async () => {
