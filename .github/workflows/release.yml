@@ -1,89 +1,52 @@
-name: Desktop installers
+name: Production Windows build
 
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to attach the installer to
+        description: Version to build
         required: true
         type: string
       platform:
-        description: Installer to build
+        description: Platform
         required: true
         default: windows
         type: choice
-        options:
-          - windows
-          - macos
-          - linux
-          - all
+        options: [windows]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  macos:
-    if: github.event_name == 'push' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'macos'
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: subosito/flutter-action@v2
-        with: { channel: stable, cache: true }
-      - run: flutter pub get
-        working-directory: frontend
-      - run: ./packaging/build-macos-dmg.sh
-        env:
-          API_BASE_URL: ${{ vars.API_BASE_URL }}
-          HESBA_VERSION: ${{ github.event.inputs.tag || github.ref_name }}
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: artifacts/*.dmg
-          overwrite_files: true
-
   windows:
-    if: github.event_name == 'push' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'windows'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
-        with: { channel: stable, cache: true }
+        with:
+          channel: stable
+          flutter-version: '3.44.6'
+          cache: true
       - run: flutter pub get
         working-directory: frontend
       - shell: pwsh
         working-directory: frontend
         run: |
-          $version = "${{ github.event.inputs.tag || github.ref_name }}" -replace '^v', ''
-          flutter build windows --release --build-name="$version" --build-number="${{ github.run_number }}" --dart-define="HESBA_APP_FLAVOR=prod" --dart-define="API_BASE_URL=${{ vars.API_BASE_URL || 'https://hesba.alien-fit.com/api' }}"
+          $version = "${{ inputs.tag }}" -replace '^v', ''
+          flutter build windows --release --build-name="$version" --build-number=117 --dart-define="HESBA_APP_FLAVOR=prod" --dart-define="API_BASE_URL=https://hesba.alien-fit.com/api"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - run: choco install innosetup --yes --no-progress
       - shell: pwsh
         run: |
-          $version = "${{ github.event.inputs.tag || github.ref_name }}" -replace '^v', ''
+          $version = "${{ inputs.tag }}" -replace '^v', ''
           iscc "/DMyAppVersion=$version" packaging/windows/hesba.iss
-      - uses: softprops/action-gh-release@v2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path frontend/build/windows/x64/runner/Release/* -DestinationPath "artifacts/Hesba-$version-windows-portable.zip"
+      - uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: artifacts/*.exe
-          overwrite_files: true
-
-  linux:
-    if: github.event_name == 'push' || github.event.inputs.platform == 'all' || github.event.inputs.platform == 'linux'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev libsecret-1-dev
-      - uses: subosito/flutter-action@v2
-        with: { channel: stable, cache: true }
-      - run: flutter pub get
-        working-directory: frontend
-      - run: ./packaging/build-linux-deb.sh
-        env:
-          API_BASE_URL: ${{ vars.API_BASE_URL }}
-          HESBA_VERSION: ${{ github.event.inputs.tag || github.ref_name }}
-      - uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          files: artifacts/*.deb
-          overwrite_files: true
+          name: Hesba-${{ inputs.tag }}-windows-production
+          path: |
+            artifacts/*.exe
+            artifacts/*-windows-portable.zip
+          if-no-files-found: error
+          retention-days: 14
