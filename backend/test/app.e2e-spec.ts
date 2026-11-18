@@ -131,6 +131,24 @@ describe('financial operations (e2e)', () => {
     'Idempotency-Key': key,
   });
 
+  /** Ensures the treasury holds at least `extra` more cash for funded top-ups. */
+  const fundTreasury = async (extra: number) => {
+    const summary = await request(app.getHttpServer())
+      .get('/api/treasury/summary')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .post('/api/treasury/reconcile')
+      .set(mutation(`fund-treasury-${randomUUID()}`))
+      .send({
+        assetType: 'treasury',
+        countedBalance: Number(
+          (Number(summary.body.actualBalance) + extra).toFixed(2),
+        ),
+      })
+      .expect(201);
+  };
+
   it('migrates a legacy database and exposes the protected API', async () => {
     await request(app.getHttpServer())
       .get('/api/auth/me')
@@ -931,6 +949,13 @@ describe('financial operations (e2e)', () => {
       .set(mutation(`withdraw-empty-${randomUUID()}`))
       .send({ mode: 'all' })
       .expect(400);
+
+    // Refill the treasury so later treasury-funded top-ups have cash.
+    await request(app.getHttpServer())
+      .post(`/api/ledger/${emptied.body.id}/reverse`)
+      .set(mutation(`withdraw-all-reverse-${randomUUID()}`))
+      .send({ reason: 'إرجاع الخزنة بعد الاختبار' })
+      .expect(201);
   });
 
   it('creates a profit account', async () => {
@@ -987,11 +1012,14 @@ describe('financial operations (e2e)', () => {
     expect(topped.body.balance).toBe(1005);
     expect(topped.body.commissionBalance).toBe(0);
 
-    await request(app.getHttpServer())
+    // Regular profit accounts have no balance ceiling.
+    await fundTreasury(1_000_000);
+    const large = await request(app.getHttpServer())
       .post(`/api/accounts/${profit.body.id}/top-up`)
-      .set(mutation(`profit-over-limit-${suffix}`))
+      .set(mutation(`profit-no-limit-${suffix}`))
       .send({ amount: 1_000_000 })
-      .expect(400);
+      .expect(201);
+    expect(large.body.balance).toBe(1_006_005);
 
     await request(app.getHttpServer())
       .post('/api/treasury/transfer')
@@ -1016,7 +1044,7 @@ describe('financial operations (e2e)', () => {
         commissionBalance: number;
       }>
     ).find((item) => item.id === profit.body.id);
-    expect(updated?.balance).toBe(5);
+    expect(updated?.balance).toBe(1_005_005);
     expect(updated?.commissionBalance).toBe(-4);
   });
 
@@ -1034,6 +1062,7 @@ describe('financial operations (e2e)', () => {
         .set(mutation(`profit-account-${suffix}`))
         .send({ name: `مكسب ${suffix}`, type: 'profit', openingBalance: 0 })
         .expect(201);
+      await fundTreasury(1_000_000);
       await request(app.getHttpServer())
         .post(`/api/accounts/${account.body.id}/top-up`)
         .set(mutation(`profit-fund-${suffix}`))

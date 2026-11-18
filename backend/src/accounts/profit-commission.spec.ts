@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   isBasicProfitName,
-  isOpenProfitAccount,
   purchaseVisaProfit,
   profitQrCustomerCommission,
   profitQrIncomingFee,
@@ -84,11 +83,9 @@ describe('regular profit commission', () => {
     expect(profitQrOutgoingFee(1234.56)).toBe(4.94);
   });
 
-  it('treats the basic profit account as open and keeps other names capped', () => {
+  it('recognizes the basic profit account by name', () => {
     expect(isBasicProfitName('حساب مكسب أساسي')).toBe(true);
     expect(isBasicProfitName('حساب مكسب الاساسي')).toBe(true);
     expect(isBasicProfitName('حساب مكسب عادي')).toBe(false);
-    expect(isOpenProfitAccount({ name: 'test', openLimit: true })).toBe(true);
-    expect(isOpenProfitAccount({ name: 'حساب مكسب عادي' })).toBe(false);
   });
 });

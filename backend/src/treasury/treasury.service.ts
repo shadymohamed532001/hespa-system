@@ -21,8 +21,6 @@ import {
   LedgerCategory,
 } from '../database/enums.js';
 import {
-  REGULAR_PROFIT_LIMIT,
-  isOpenProfitAccount,
   profitQrOutgoingFee,
   regularProfitWithdrawCommission,
 } from '../accounts/profit-commission.js';
@@ -271,25 +269,6 @@ export class TreasuryService {
               en: 'QR profit accounts receive customer transfers through cash-out operations only',
             }),
           );
-        }
-        if (
-          destination?.type === AccountType.PROFIT &&
-          !isOpenProfitAccount(destination) &&
-          Number(target.balance) + dto.amount > REGULAR_PROFIT_LIMIT
-        ) {
-          throw new BadRequestException({
-            message: msg({
-              ar: 'سيتم تجاوز الحد الأقصى لحساب المكسب العادي',
-              en: 'This would exceed the regular profit account maximum',
-            }),
-            limit: REGULAR_PROFIT_LIMIT,
-            available: Math.max(
-              0,
-              Number(
-                (REGULAR_PROFIT_LIMIT - Number(target.balance)).toFixed(2),
-              ),
-            ),
-          });
         }
       }
       await source.setBalance(source.balance - sourceDebit);

@@ -72,20 +72,12 @@ describe('Regular profit top-ups credited to spendable balance', () => {
     expect(f.entries[0].metadata.profitDepositCommission).toBe(1000);
     expect(f.entries[1].metadata.profitDepositCreditedToBalance).toBe(true);
   });
-  it('allows one million principal plus its 5000 bonus', async () => {
-    const f = fixture(0);
-    await f.service.topUp('account', { amount: 1000000 }, 'test');
-    expect(f.account.balance).toBe(1005000);
-    await expect(
-      f.service.topUp('account', { amount: 1 }, 'test'),
-    ).rejects.toThrow();
-  });
-  it('leaves the basic profit account uncapped', async () => {
+  it('has no balance ceiling for any regular profit account', async () => {
     const f = fixture(1_000_000);
-    f.account.name = 'حساب مكسب أساسي';
-    f.account.openLimit = true;
     await f.service.topUp('account', { amount: 1_000_000 }, 'test');
     expect(f.account.balance).toBe(2_005_000);
+    await f.service.topUp('account', { amount: 1 }, 'test');
+    expect(f.account.balance).toBe(2_005_001.01);
   });
   it('reverses both the principal and bonus without touching commissions', async () => {
     const f = fixture();

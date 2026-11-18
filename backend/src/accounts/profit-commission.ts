@@ -1,19 +1,12 @@
-/** Regular profit accounts: 5 EGP per 1,000 topped up, 4 EGP per 1,000 transferred out. */
-export const REGULAR_PROFIT_LIMIT = 1_000_000;
+/** Regular profit accounts: 5 EGP per 1,000 topped up, 4 EGP per 1,000 transferred out.
+ * Regular profit accounts have no balance ceiling. */
 
-/** The basic profit account has no balance ceiling. Other regular profit accounts stay capped. */
+/** Detects the basic profit account by name (still flagged with openLimit). */
 export function isBasicProfitName(name: string | null | undefined): boolean {
   const compact = (name ?? '')
     .replace(/[\u064B-\u0652\u0670\u0640\s]/g, '')
     .replace(/[أإآ]/g, 'ا');
   return compact.includes('اساسي');
-}
-
-export function isOpenProfitAccount(account: {
-  name?: string | null;
-  openLimit?: boolean | null;
-}): boolean {
-  return account.openLimit === true || isBasicProfitName(account.name);
 }
 
 export function regularProfitDepositCommission(amount: number): number {

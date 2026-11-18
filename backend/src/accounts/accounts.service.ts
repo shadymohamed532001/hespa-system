@@ -27,9 +27,7 @@ import { TopUpAccountDto } from './dto/top-up-account.dto.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 import { UsersService } from '../users/users.service.js';
 import {
-  REGULAR_PROFIT_LIMIT,
   isBasicProfitName,
-  isOpenProfitAccount,
   profitQrCustomerCommission,
   profitQrIncomingFee,
   regularProfitDepositCommission,
@@ -115,18 +113,6 @@ export class AccountsService implements OnModuleInit {
     }
     const openLimit =
       dto.type === AccountType.PROFIT && isBasicProfitName(dto.name);
-    if (
-      dto.type === AccountType.PROFIT &&
-      !openLimit &&
-      dto.openingBalance > REGULAR_PROFIT_LIMIT
-    ) {
-      throw new BadRequestException(
-        msg({
-          ar: 'الرصيد الافتتاحي يتجاوز الحد الأقصى لحساب المكسب العادي',
-          en: 'Opening balance exceeds the regular profit account maximum',
-        }),
-      );
-    }
     return this.dataSource.transaction(async (manager) => {
       const repo = manager.getRepository(FinancialAccount);
       const account = await repo.save(
@@ -220,23 +206,6 @@ export class AccountsService implements OnModuleInit {
           }),
           limit: FAWRY_MAX_BALANCE,
           available: Math.max(0, FAWRY_MAX_BALANCE - Number(account.balance)),
-        });
-      }
-      if (
-        account.type === AccountType.PROFIT &&
-        !isOpenProfitAccount(account) &&
-        nextBalance > REGULAR_PROFIT_LIMIT
-      ) {
-        throw new BadRequestException({
-          message: msg({
-            ar: 'سيتم تجاوز الحد الأقصى لحساب المكسب العادي',
-            en: 'This would exceed the regular profit account maximum',
-          }),
-          limit: REGULAR_PROFIT_LIMIT,
-          available: Math.max(
-            0,
-            Number((REGULAR_PROFIT_LIMIT - Number(account.balance)).toFixed(2)),
-          ),
         });
       }
       const treasuryFunded =
