@@ -1,5 +1,6 @@
 import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -16,6 +17,7 @@ import {
   viewerCanSeePurchaseVisaNumber,
 } from '../purchase-visas/purchase-visa-card.js';
 import { UsersService } from '../users/users.service.js';
+import { msg } from '../common/i18n/locale-context.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import {
@@ -43,6 +45,17 @@ export class CollectionsController {
   @Get('agent-credits/days')
   findAgentCreditDays() {
     return this.collections.findAgentCreditDays();
+  }
+
+  @Get('agent-credits/history')
+  findAgentHistory(@Query('agentName') agentName?: string) {
+    const name = agentName?.trim() ?? '';
+    if (name.length < 2 || name.length > 150) {
+      throw new BadRequestException(
+        msg({ ar: 'اكتب اسم المندوب', en: 'Enter the agent name' }),
+      );
+    }
+    return this.collections.findAgentHistory(name);
   }
 
   @Get('agent-credits')

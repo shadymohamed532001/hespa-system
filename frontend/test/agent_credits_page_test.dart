@@ -194,6 +194,30 @@ void main() {
     expect(adapter.lastBody, {'agentName': 'مندوب أحمد', 'amount': 100});
   });
 
+  testWidgets('tapping an agent name opens their full statement', (
+    tester,
+  ) async {
+    final adapter = await pumpPage(tester);
+
+    await tester.tap(find.text('مندوب سعد'));
+    await tester.pumpAndSettle();
+
+    expect(
+      adapter.historyRequests.single.queryParameters['agentName'],
+      'مندوب سعد',
+    );
+    expect(find.textContaining('كشف حساب المندوب'), findsOneWidget);
+    expect(find.text('ليه 90,000 ج.م'), findsWidgets);
+    expect(find.text('رد للمندوب'), findsOneWidget);
+    expect(find.text('استلام فلوس'), findsOneWidget);
+    expect(find.text('RFD-002'), findsOneWidget);
+    expect(find.text('ليه 100,000 ج.م'), findsOneWidget);
+
+    await tester.tap(find.text('رجوع'));
+    await tester.pumpAndSettle();
+    expect(find.text('آجل المندوبين'), findsOneWidget);
+  });
+
   testWidgets('refunds only up to the deposit held for the agent', (
     tester,
   ) async {
@@ -227,6 +251,7 @@ void main() {
 }
 
 class _AgentCreditsAdapter implements HttpClientAdapter {
+  final historyRequests = <Uri>[];
   String? lastPath;
   Map<String, dynamic>? lastBody;
 
@@ -241,6 +266,38 @@ class _AgentCreditsAdapter implements HttpClientAdapter {
       lastPath = options.path;
       lastBody = Map<String, dynamic>.from(options.data as Map);
       body = {'remainingBalance': -3000, 'treasuryBalance': 12000};
+    } else if (options.path.contains('/agent-credits/history')) {
+      historyRequests.add(options.uri);
+      body = {
+        'agentName': 'مندوب سعد',
+        'balance': -90000,
+        'totals': {
+          'credit': 0,
+          'paid': 100000,
+          'refunded': 10000,
+          'collections': 0,
+        },
+        'movements': [
+          {
+            'id': 'r1',
+            'kind': 'refund',
+            'date': '2026-11-21T10:00:00.000Z',
+            'reference': 'RFD-002',
+            'description': 'رد أمانة للمندوب مندوب سعد',
+            'change': 10000,
+            'balanceAfter': -90000,
+          },
+          {
+            'id': 'p1',
+            'kind': 'payment',
+            'date': '2026-11-20T10:00:00.000Z',
+            'reference': 'CRD-001',
+            'description': 'أمانة من المندوب مندوب سعد',
+            'change': -100000,
+            'balanceAfter': -100000,
+          },
+        ],
+      };
     } else if (options.path.endsWith('/wallets')) {
       body = <dynamic>[
         {'id': 'wallet-1', 'name': 'InstaPay 01', 'type': 'instapay'},

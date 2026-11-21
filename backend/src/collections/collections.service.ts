@@ -1,5 +1,8 @@
 import { inTransaction } from '../common/in-transaction.js';
-import { buildAgentCreditDays } from './agent-credit-days.js';
+import {
+  buildAgentCreditDays,
+  buildAgentHistory,
+} from './agent-credit-days.js';
 import { activeAgentPaymentSql } from './agent-credit-sql.js';
 import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
 import {
@@ -88,6 +91,107 @@ export class CollectionsService implements OnModuleInit {
       relations: { account: true, purchaseVisa: true },
       order: { createdAt: 'DESC' },
     });
+  }
+
+  /** Every movement of one agent with the running balance after each. */
+  async findAgentHistory(agentName: string) {
+    const name = agentName.trim();
+    const collections = await this.dataSource.query(
+      `
+      SELECT id, reference, company_name AS "companyName", amount,
+        agent_credit_change AS change, status, received_at AS date
+      FROM collections
+      WHERE status <> 'reversed' AND LOWER(TRIM(agent_name)) = LOWER($1)
+    `,
+      [name],
+    );
+    const openings = await this.dataSource.query(
+      `
+      SELECT id, amount, created_at AS date, description
+      FROM ledger_entries
+      WHERE entity_type = 'agent_credit' AND category = 'opening_balance'
+        AND LOWER(TRIM(metadata->>'agentName')) = LOWER($1)
+        AND NOT EXISTS (SELECT 1 FROM ledger_entries cancelled WHERE cancelled.reverses_entry_id = ledger_entries.id)
+    `,
+      [name],
+    );
+    const payments = await this.dataSource.query(
+      `
+      SELECT payment.id, payment.reference, payment.amount,
+        payment.created_at AS date, entry.description
+      FROM agent_credit_payments payment
+      LEFT JOIN LATERAL (
+        SELECT description FROM ledger_entries original
+        WHERE (original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text)
+          OR original.metadata->>'agentCreditPaymentId' = payment.id::text
+        ORDER BY original.created_at LIMIT 1
+      ) entry ON TRUE
+      WHERE LOWER(TRIM(payment.agent_name)) = LOWER($1)
+        AND ${activeAgentPaymentSql('payment')}
+    `,
+      [name],
+    );
+    const history = buildAgentHistory([
+      ...collections.map(
+        (row: {
+          id: string;
+          reference: string;
+          companyName: string;
+          amount: string;
+          change: string;
+          status: string;
+          date: Date;
+        }) => ({
+          id: row.id,
+          kind: 'collection' as const,
+          date: row.date,
+          reference: row.reference,
+          description: `تحصيل لصالح ${row.companyName}`,
+          operationAmount: row.amount,
+          receivedAmount:
+            (moneyCents(Number(row.amount)) - moneyCents(Number(row.change))) /
+            100,
+          status: row.status,
+          change: row.change,
+        }),
+      ),
+      ...openings.map(
+        (row: {
+          id: string;
+          amount: string;
+          date: Date;
+          description: string;
+        }) => ({
+          id: row.id,
+          kind: 'opening' as const,
+          date: row.date,
+          reference: null,
+          description: row.description,
+          change: row.amount,
+        }),
+      ),
+      ...payments.map(
+        (row: {
+          id: string;
+          reference: string;
+          amount: string;
+          date: Date;
+          description: string | null;
+        }) => ({
+          id: row.id,
+          kind:
+            Number(row.amount) < 0 ? ('refund' as const) : ('payment' as const),
+          date: row.date,
+          reference: row.reference,
+          description:
+            row.description ??
+            (Number(row.amount) < 0 ? 'رد أمانة للمندوب' : 'استلام من المندوب'),
+          // A payment lowers what the agent owes; a refund raises it again.
+          change: -Number(row.amount),
+        }),
+      ),
+    ]);
+    return { agentName: name, ...history };
   }
 
   async findAgentCreditDays() {

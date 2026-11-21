@@ -378,6 +378,31 @@ describe('financial operations (e2e)', () => {
       withDepositOnly.body.find((r: any) => r.agentName === depositOnly)
         ?.balance,
     ).toBe(-250);
+
+    const history = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits/history')
+      .query({ agentName: ` ${agentName.toUpperCase()} ` })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(history.body.balance).toBe(-90500);
+    expect(
+      history.body.movements.map((row: any) => [row.kind, row.change]),
+    ).toEqual([
+      ['opening', -500],
+      ['refund', 10000],
+      ['payment', -100000],
+    ]);
+    expect(history.body.movements[0].balanceAfter).toBe(-90500);
+    expect(history.body.movements[2].balanceAfter).toBe(-100000);
+    expect(history.body.totals).toMatchObject({
+      paid: 100500,
+      refunded: 10000,
+    });
+    await request(app.getHttpServer())
+      .get('/api/collections/agent-credits/history')
+      .query({ agentName: ' ' })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
   });
 
   it('records a Fawry deposit from banknote counts and a typed external name', async () => {

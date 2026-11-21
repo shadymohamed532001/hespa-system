@@ -14,6 +14,7 @@ import '../auth/session_controller.dart';
 import 'execute_hold_dialog.dart';
 import 'receive_collection_dialog.dart';
 import '../../core/settings/tr.dart';
+import 'agent_history_page.dart';
 
 class CollectionsPage extends StatefulWidget {
   const CollectionsPage({super.key, required this.session});
@@ -220,6 +221,7 @@ class _CollectionsPageState extends State<CollectionsPage> {
                   )
                 else
                   _CollectionsTable(
+                    session: widget.session,
                     rows: _filteredRows,
                     onExecute: (row) => _execute(row),
                     showProfits: widget.session.isAdmin,
@@ -322,12 +324,14 @@ String _executionName(dynamic row) {
 
 class _CollectionsTable extends StatelessWidget {
   const _CollectionsTable({
+    required this.session,
     required this.rows,
     required this.onExecute,
     required this.showProfits,
     this.onCancel,
   });
 
+  final SessionController session;
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onExecute;
   final bool showProfits;
@@ -414,7 +418,10 @@ class _CollectionsTable extends StatelessWidget {
                           Text('${e['reference']}', style: HesbaText.tableCell),
                         ),
                         DataCell(
-                          Text('${e['agentName']}', style: HesbaText.tableCell),
+                          AgentNameLink(
+                            session: session,
+                            agentName: '${e['agentName']}',
+                          ),
                         ),
                         DataCell(
                           Text(

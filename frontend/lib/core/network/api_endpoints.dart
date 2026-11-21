@@ -83,6 +83,10 @@ abstract final class ApiEndpoints {
   static const String agentCredits = '$collections/agent-credits';
   static const String agentCreditPayments = '$agentCredits/payments';
   static const String agentCreditRefunds = '$agentCredits/refunds';
+  static String agentCreditHistory(String agentName) => Uri(
+    path: '$agentCredits/history',
+    queryParameters: {'agentName': agentName},
+  ).toString();
 
   static String executeCollection(String id) => '$collections/$id/execute';
   // Treasury

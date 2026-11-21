@@ -12,6 +12,7 @@ import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
 import 'agent_picker.dart';
+import 'agent_history_page.dart';
 
 class AgentCreditsPage extends StatefulWidget {
   const AgentCreditsPage({super.key, required this.session});
@@ -240,6 +241,7 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                   const _EmptyCredits()
                 else
                   _CreditsTable(
+                    session: widget.session,
                     rows: _visible,
                     onReceive: (row) => _moveCash(row, _CashDirection.receive),
                     onRefund: (row) => _moveCash(row, _CashDirection.refund),
@@ -844,6 +846,7 @@ class _CreditMetric extends StatelessWidget {
 
 class _CreditsTable extends StatelessWidget {
   const _CreditsTable({
+    required this.session,
     required this.rows,
     required this.onReceive,
     required this.onRefund,
@@ -851,6 +854,7 @@ class _CreditsTable extends StatelessWidget {
   });
 
   final bool canPay;
+  final SessionController session;
 
   final List<dynamic> rows;
   final Future<void> Function(Map<String, dynamic> row) onReceive;
@@ -893,11 +897,11 @@ class _CreditsTable extends StatelessWidget {
                     cells: [
                       DataCell(Text(formatDate(item['date']))),
                       DataCell(
-                        Text(
-                          '${item['agentName']}',
+                        AgentNameLink(
+                          session: session,
+                          agentName: '${item['agentName']}',
                           style: HesbaText.tableCell.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: HesbaColors.ink,
                           ),
                         ),
                       ),
