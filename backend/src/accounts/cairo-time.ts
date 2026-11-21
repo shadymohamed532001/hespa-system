@@ -55,3 +55,61 @@ export function fawryAccountsDueForDrop(input: {
     missing,
   };
 }
+
+const EXPLICIT_ZONE = /(?:Z|[+-]\d{2}:?\d{2})$/i;
+const WALL_CLOCK =
+  /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?$/;
+
+/** Milliseconds Cairo's clock is ahead of UTC at the given instant. */
+function cairoOffsetMs(instant: Date): number {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Cairo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(instant);
+  const read = (type: Intl.DateTimeFormatPartTypes) =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const asUtc = Date.UTC(
+    read('year'),
+    read('month') - 1,
+    read('day'),
+    read('hour'),
+    read('minute'),
+    read('second'),
+  );
+  return asUtc - Math.floor(instant.getTime() / 1000) * 1000;
+}
+
+/**
+ * Parses a timestamp sent by a client. A value with an explicit zone ("Z" or
+ * "+02:00") is taken as is. A value without one ("2026-11-21T23:30:00") is
+ * a Cairo wall-clock time — it must not be read in the server's own zone,
+ * which is UTC in production and would push it 2–3 hours later (an operation
+ * at 23:30 would land on the next day).
+ */
+export function parseClientInstant(value: string): Date {
+  const text = value.trim();
+  if (EXPLICIT_ZONE.test(text)) return new Date(text);
+  const match = WALL_CLOCK.exec(text);
+  if (!match) return new Date(text);
+  const [, year, month, day, hour, minute, second, fraction] = match;
+  const wallAsUtc = Date.UTC(
+    Number(year),
+    Number(month) - 1,
+    Number(day),
+    Number(hour),
+    Number(minute),
+    Number(second ?? 0),
+    Number((fraction ?? '0').padEnd(3, '0').slice(0, 3)),
+  );
+  // Cairo's offset depends on the instant (summer time), so refine once.
+  let instant = wallAsUtc - cairoOffsetMs(new Date(wallAsUtc));
+  const corrected = wallAsUtc - cairoOffsetMs(new Date(instant));
+  if (corrected !== instant) instant = corrected;
+  return new Date(instant);
+}

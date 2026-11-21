@@ -3,6 +3,7 @@ import {
   cairoParts,
   fawryAccountsDueForDrop,
   instantAtCairoHour,
+  parseClientInstant,
 } from './cairo-time.js';
 
 describe('fawryAccountsDueForDrop', () => {
@@ -46,5 +47,34 @@ describe('fawryAccountsDueForDrop', () => {
     expect(due.date).toBe('2026-09-26');
     expect(due.remind).toBe(true);
     expect(due.missing).toEqual([{ id: 'a', name: 'فوري 1' }]);
+  });
+});
+
+describe('parseClientInstant', () => {
+  it('reads a time without a zone as Cairo time in winter (UTC+2)', () => {
+    const instant = parseClientInstant('2026-11-21T23:30:00.000');
+    expect(instant.toISOString()).toBe('2026-11-21T21:30:00.000Z');
+    expect(cairoParts(instant)).toEqual({ date: '2026-11-21', hour: 23 });
+  });
+
+  it('reads a time without a zone as Cairo time in summer (UTC+3)', () => {
+    expect(parseClientInstant('2026-07-15T23:30:00').toISOString()).toBe(
+      '2026-07-15T20:30:00.000Z',
+    );
+  });
+
+  it('keeps the moment when the client sends an explicit zone', () => {
+    expect(parseClientInstant('2026-11-21T21:30:00.000Z').toISOString()).toBe(
+      '2026-11-21T21:30:00.000Z',
+    );
+    expect(parseClientInstant('2026-11-21T23:30:00+02:00').toISOString()).toBe(
+      '2026-11-21T21:30:00.000Z',
+    );
+  });
+
+  it('accepts microseconds as sent by Dart', () => {
+    expect(parseClientInstant('2026-11-21T00:15:00.000123').toISOString()).toBe(
+      '2026-11-20T22:15:00.000Z',
+    );
   });
 });

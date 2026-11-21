@@ -892,6 +892,43 @@ describe('financial operations (e2e)', () => {
     expect(restored).toMatchObject({ stockQty: 2, soldQty: 0 });
   });
 
+  it('stores a receive time without a zone as Cairo time, not the server zone', async () => {
+    const suffix = randomUUID();
+    const account = await request(app.getHttpServer())
+      .post('/api/accounts')
+      .set(mutation(`late-night-account-${suffix}`))
+      .send({
+        name: `Late night account ${suffix}`,
+        type: 'company',
+        openingBalance: 1000,
+      })
+      .expect(201);
+    const send = (receivedAt: string, key: string) =>
+      request(app.getHttpServer())
+        .post('/api/collections/receive')
+        .set(mutation(`${key}-${suffix}`))
+        .send({
+          agentName: 'مندوب آخر الليل',
+          companyName: 'شركة اختبار',
+          amount: 10,
+          executionMode: 'immediate',
+          accountId: account.body.id,
+          receivedAt,
+        })
+        .expect(201);
+
+    // Old app builds send the Cairo wall clock with no zone.
+    const naive = await send('2026-11-21T23:30:00.000', 'late-night-naive');
+    expect(new Date(naive.body.receivedAt).toISOString()).toBe(
+      '2026-11-21T21:30:00.000Z',
+    );
+    // New builds send UTC with a Z.
+    const utc = await send('2026-11-21T21:30:00.000Z', 'late-night-utc');
+    expect(new Date(utc.body.receivedAt).toISOString()).toBe(
+      '2026-11-21T21:30:00.000Z',
+    );
+  });
+
   it('no longer exposes collection reversal and keeps collection ledger rows intact', async () => {
     const suffix = randomUUID();
     const account = await request(app.getHttpServer())

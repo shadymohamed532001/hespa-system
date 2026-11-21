@@ -265,20 +265,14 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       _error = null;
     });
 
-    final now = DateTime.now();
-    final receivedAt = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      _receivedAt.hour,
-      _receivedAt.minute,
-    );
+    final receivedAt = receivedAtFor(_receivedAt, DateTime.now());
     final request = <String, dynamic>{
       'agentName': _recordedAgentName(),
       'companyName': _companyName!,
       'amount': parseNum(_amount.text.trim())!,
       'executionMode': _mode,
-      'receivedAt': receivedAt.toIso8601String(),
+      // Send UTC with a "Z" so the server never reads it in its own zone.
+      'receivedAt': receivedAt.toUtc().toIso8601String(),
       'commission':
           _isImmediate &&
               !_selectedIsFawry &&
@@ -1289,4 +1283,29 @@ class _ServiceChoice extends StatelessWidget {
 class _WalletPart {
   String? walletId;
   final TextEditingController amount = TextEditingController();
+}
+
+/// The moment a collection was received, from the time picked in the dialog.
+///
+/// The picked time is on today's date, except when it is clearly in the
+/// future: right after midnight, picking 11:50 PM means last night, not
+/// tonight.
+DateTime receivedAtFor(TimeOfDay picked, DateTime now) {
+  final today = DateTime(
+    now.year,
+    now.month,
+    now.day,
+    picked.hour,
+    picked.minute,
+  );
+  if (today.isAfter(now.add(const Duration(minutes: 10)))) {
+    return DateTime(
+      now.year,
+      now.month,
+      now.day - 1,
+      picked.hour,
+      picked.minute,
+    );
+  }
+  return today;
 }

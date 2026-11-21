@@ -42,6 +42,7 @@ import {
 } from '../accounts/profit-commission.js';
 import { shouldSeedDemoData } from '../config/demo-data.js';
 import { recordWalletIncoming } from '../wallets/wallets.service.js';
+import { parseClientInstant } from '../accounts/cairo-time.js';
 
 @Injectable()
 export class CollectionsService implements OnModuleInit {
@@ -616,7 +617,9 @@ export class CollectionsService implements OnModuleInit {
           dto.executionMode === ExecutionMode.IMMEDIATE
             ? CollectionStatus.DONE
             : CollectionStatus.PENDING,
-        receivedAt: dto.receivedAt ? new Date(dto.receivedAt) : new Date(),
+        receivedAt: dto.receivedAt
+          ? parseClientInstant(dto.receivedAt)
+          : new Date(),
         executedAt:
           dto.executionMode === ExecutionMode.IMMEDIATE ? new Date() : null,
         account,
