@@ -118,6 +118,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('اسم المندوب *'), findsOneWidget);
+    // A held receipt can arrive split; agent credit waits for execution.
+    expect(find.text('تقسيم المبلغ الداخل'), findsOneWidget);
+    expect(find.text('آجل المندوب'), findsNothing);
 
     final submit = find.text('تسجيل كمعلّق');
     await tester.ensureVisible(submit);

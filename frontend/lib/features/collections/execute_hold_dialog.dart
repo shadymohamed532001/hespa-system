@@ -421,9 +421,13 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
                 ),
               ),
             const SizedBox(height: 8),
-            _agentCreditSection(),
-            const SizedBox(height: 4),
-            _splitSection(),
+            if (_receivedSplits.isNotEmpty)
+              _receivedSplitsNote()
+            else ...[
+              _agentCreditSection(),
+              const SizedBox(height: 4),
+              _splitSection(),
+            ],
             if (_error != null) ...[
               const SizedBox(height: 12),
               Text(_error!, style: const TextStyle(color: HesbaColors.red)),
@@ -515,6 +519,27 @@ class _ExecuteHoldDialogState extends State<_ExecuteHoldDialog> {
         ),
         const SizedBox(height: 8),
       ],
+    );
+  }
+
+  /// Parts that landed on wallets / QR accounts when the hold was received.
+  List<Map<String, dynamic>> get _receivedSplits =>
+      ((widget.collection['incomingSplits'] as List?) ?? const [])
+          .whereType<Map>()
+          .map((split) => Map<String, dynamic>.from(split))
+          .toList();
+
+  Widget _receivedSplitsNote() {
+    final cash = widget.collection['cashAmount'];
+    return HesbaModalCallout(
+      child: Text(
+        [
+          'الفلوس اتقسمت وقت الاستلام:',
+          'كاش في الخزنة ${money(cash ?? 0)}',
+          for (final split in _receivedSplits)
+            '${split['walletName']} ${money(split['amount'])}',
+        ].join(' · '),
+      ),
     );
   }
 

@@ -330,7 +330,7 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   void _setSplit(bool enabled) {
     if (enabled && _parts.isEmpty) _addPart(rebuild: false);
     setState(() {
-      _splitIncoming = enabled && _isImmediate;
+      _splitIncoming = enabled;
       _error = null;
     });
   }
@@ -491,6 +491,19 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   String _flowText() {
     if (!_isImmediate) {
+      if (_splitIncoming && _splitError() == null) {
+        final cash = _treasuryCash()!;
+        final wallets = _parts
+            .map(
+              (part) =>
+                  '${_destinationName(part.walletId)} ${money(part.amount.text.trim())}',
+            )
+            .join('، ');
+        final treasury = cash == 0
+            ? 'مفيش كاش يدخل الخزنة.'
+            : 'يدخل الخزنة ${money(cash)} كاش ويفضل محجوز لحد التنفيذ.';
+        return '$treasury يدخل $wallets. العملية تفضل معلّقة لحد ما تتنفذ.';
+      }
       return 'يدخل الكاش الخزنة لكنه يظل محجوزًا كالتزام حتى تنفيذ العملية لاحقًا.';
     }
     if (_useAgentCredit) {
@@ -670,13 +683,11 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
                 );
               },
             ),
-            if (_isImmediate) ...[
-              const SizedBox(height: 16),
-              _agentCreditSection(),
-              if (!_useAgentCredit) ...[
-                const SizedBox(height: 8),
-                _splitSection(),
-              ],
+            const SizedBox(height: 16),
+            if (_isImmediate) _agentCreditSection(),
+            if (!_useAgentCredit) ...[
+              const SizedBox(height: 8),
+              _splitSection(),
             ],
             const SizedBox(height: 18),
             HesbaModalCallout(
@@ -813,8 +824,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             visualDensity: VisualDensity.compact,
             value: _splitIncoming,
             title: const Text('تقسيم المبلغ الداخل'),
-            subtitle: const Text(
-              'اكتب كل حساب في سطر. مثال: 10,000 على فودافون QR و10,000 على InstaPay، والباقي كاش يدخل الخزنة. المبلغ كله يتسحب من حساب التنفيذ.',
+            subtitle: Text(
+              _isImmediate
+                  ? 'اكتب كل حساب في سطر. مثال: 10,000 على فودافون QR و10,000 على InstaPay، والباقي كاش يدخل الخزنة. المبلغ كله يتسحب من حساب التنفيذ.'
+                  : 'لو المندوب بعت جزء على InstaPay أو محفظة أو حساب QR: اكتب كل حساب في سطر، والباقي كاش يدخل الخزنة. كل جزء بيدخل حسابه دلوقتي، والتنفيذ بيحصل بعدين.',
             ),
             onChanged: _saving ? null : (value) => _setSplit(value ?? false),
           ),
@@ -941,7 +954,8 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
             : (value) => setState(() {
                 _mode = value ?? 'immediate';
                 if (_mode != 'immediate') {
-                  _splitIncoming = false;
+                  // A held receipt can still arrive split; only agent
+                  // credit waits for execution.
                   _useAgentCredit = false;
                   _receivedAmount.clear();
                 }

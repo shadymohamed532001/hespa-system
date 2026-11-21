@@ -1146,19 +1146,29 @@ export class OperationCorrectionsService {
       );
     }
     if (p.kind === 'collection') {
+      const partsTotal = (v.incomingParts ?? []).reduce(
+        (sum: number, part: { amount: number }) =>
+          sum + Math.round(Number(part.amount) * 100),
+        0,
+      );
       if (v.executionMode === 'hold') {
-        if (v.incomingParts?.length || v.useAgentCredit)
-          throw new BadRequestException(
-            'الاستلام المقسم أو الآجل يحتاج تنفيذ فوري',
-          );
-        delete v.cashAmount;
-        delete v.incomingParts;
+        if (v.useAgentCredit)
+          throw new BadRequestException('الآجل يحتاج تنفيذ فوري');
+        if (v.incomingParts?.length) {
+          // A split hold keeps its wallet parts; cash is whatever is left.
+          v.cashAmount =
+            (Math.round(Number(v.amount) * 100) - partsTotal) / 100;
+        } else {
+          delete v.cashAmount;
+          delete v.incomingParts;
+        }
+        delete v.useAgentCredit;
         delete v.accountId;
         delete v.purchaseVisaId;
         delete v.withService;
         v.commission = 0;
       } else if (p.collection?.status === CollectionStatus.PENDING) {
-        v.cashAmount = v.amount;
+        v.cashAmount = (Math.round(Number(v.amount) * 100) - partsTotal) / 100;
       }
       if (!v.accountId) delete v.accountId;
       if (!v.purchaseVisaId) delete v.purchaseVisaId;

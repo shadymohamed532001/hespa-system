@@ -1012,6 +1012,106 @@ describe.sequential('admin operation corrections (e2e)', () => {
     expect((await balance('/accounts', accountId)).balance).toBe(10000);
   });
 
+  it('receives a held collection split across cash and a wallet', async () => {
+    const summary = async () => (await get('/treasury/summary')).body;
+    const before = await summary();
+    const walletBefore = await balance('/wallets', walletId);
+    const accountBefore = (await balance('/accounts', accountId)).balance;
+
+    const hold = (
+      await post('/collections/receive', {
+        agentName: 'Split hold agent',
+        companyName: 'Split hold company',
+        amount: 1000,
+        executionMode: 'hold',
+        cashAmount: 400,
+        incomingParts: [{ walletId, amount: 600 }],
+      })
+    ).body;
+    expect(hold.status).toBe('pending');
+    let now = await summary();
+    expect(now.actualBalance).toBe(before.actualBalance + 400);
+    // Only the cash part is reserved in the treasury.
+    expect(now.pendingAmount).toBe(before.pendingAmount + 400);
+    expect((await balance('/wallets', walletId)).balance).toBe(
+      walletBefore.balance + 600,
+    );
+
+    // Agent credit still needs immediate execution.
+    await post(
+      '/collections/receive',
+      {
+        agentName: 'Split hold agent',
+        companyName: 'Split hold company',
+        amount: 1000,
+        executionMode: 'hold',
+        cashAmount: 900,
+        useAgentCredit: true,
+      },
+      400,
+    );
+    // The money was split on receipt, so execution cannot split it again.
+    await post(
+      `/collections/${hold.id}/execute`,
+      { accountId, commission: 0, cashAmount: 1000 },
+      400,
+    );
+    await post(`/collections/${hold.id}/execute`, {
+      accountId,
+      commission: 0,
+    });
+    now = await summary();
+    expect(now.actualBalance).toBe(before.actualBalance + 400);
+    expect(now.pendingAmount).toBe(before.pendingAmount);
+    expect((await balance('/wallets', walletId)).balance).toBe(
+      walletBefore.balance + 600,
+    );
+    expect((await balance('/accounts', accountId)).balance).toBe(
+      accountBefore - 1000,
+    );
+
+    await post(`/ledger/collections/${hold.id}/cancel`, {
+      reason: 'إلغاء معلق مقسم',
+    });
+    now = await summary();
+    expect(now.actualBalance).toBe(before.actualBalance);
+    expect((await balance('/wallets', walletId)).balance).toBe(
+      walletBefore.balance,
+    );
+    expect((await balance('/accounts', accountId)).balance).toBe(accountBefore);
+  });
+
+  it('corrects a split held collection and keeps its wallet part', async () => {
+    const before = (await get('/treasury/summary')).body;
+    const walletBefore = await balance('/wallets', walletId);
+    const hold = (
+      await post('/collections/receive', {
+        agentName: 'Split hold correction',
+        companyName: 'Split hold company',
+        amount: 1000,
+        executionMode: 'hold',
+        cashAmount: 700,
+        incomingParts: [{ walletId, amount: 300 }],
+      })
+    ).body;
+    await post(`/ledger/collections/${hold.id}/correct`, {
+      reason: 'المبلغ الصحيح',
+      values: { amount: 1200 },
+    });
+    const replacement = (await get('/collections')).body.find(
+      (r: any) =>
+        r.agentName === 'Split hold correction' && r.status === 'pending',
+    );
+    expect(replacement.amount).toBe(1200);
+    expect(Number(replacement.cashAmount)).toBe(900);
+    const after = (await get('/treasury/summary')).body;
+    expect(after.actualBalance).toBe(before.actualBalance + 900);
+    expect(after.pendingAmount).toBe(before.pendingAmount + 900);
+    expect((await balance('/wallets', walletId)).balance).toBe(
+      walletBefore.balance + 300,
+    );
+  });
+
   it('corrects a QR receipt whose incoming destination is also its execution source', async () => {
     const qr = (
       await post('/accounts', {

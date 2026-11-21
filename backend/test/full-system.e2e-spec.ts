@@ -1181,14 +1181,16 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .expect(400);
     await request(app.getHttpServer())
       .post('/api/collections/receive')
-      .set(mutation(adminToken, 'split-hold'))
+      .set(mutation(adminToken, 'credit-hold'))
       .send({
+        // A hold may be split (covered in operation-corrections), but agent
+        // credit is settled only on immediate execution.
         agentName: 'مندوب التقسيم',
         companyName: 'شركة التقسيم',
         amount: 50000,
         executionMode: 'hold',
         cashAmount: 40000,
-        incomingParts: [{ walletId: wallet.body.id, amount: 10000 }],
+        useAgentCredit: true,
       })
       .expect(400);
 

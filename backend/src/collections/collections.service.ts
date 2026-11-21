@@ -1135,11 +1135,13 @@ function resolveIncoming(dto: {
     const amount = moneyCents(dto.amount) / 100;
     return { cashAmount: amount, parts: [], totalReceived: amount };
   }
-  if (dto.executionMode !== ExecutionMode.IMMEDIATE) {
+  // A held receipt can arrive split across cash and wallets / QR accounts;
+  // agent credit is settled only when an operation is executed.
+  if (dto.executionMode !== ExecutionMode.IMMEDIATE && dto.useAgentCredit) {
     throw new BadRequestException(
       msg({
-        ar: 'تقسيم الداخل وآجل المندوب متاحان مع التنفيذ الفوري فقط',
-        en: 'Incoming splits and agent credit are only available for immediate execution',
+        ar: 'آجل المندوب متاح مع التنفيذ الفوري فقط',
+        en: 'Agent credit is only available for immediate execution',
       }),
     );
   }
@@ -1246,6 +1248,23 @@ async function applyHeldIncoming(
     incomingParts: dto.incomingParts,
     useAgentCredit: dto.useAgentCredit,
   });
+  if (collection.incomingSplits?.length) {
+    // The money was already split across cash and wallets when it was
+    // received; executing it must not move it again.
+    if (
+      dto.cashAmount != null ||
+      dto.incomingParts?.length ||
+      dto.useAgentCredit
+    ) {
+      throw new BadRequestException(
+        msg({
+          ar: 'الفلوس دي اتقسمت وقت الاستلام؛ نفّذ العملية من غير تقسيم أو آجل',
+          en: 'This receipt was split when it was received; execute it without a new split or agent credit',
+        }),
+      );
+    }
+    return;
+  }
   const booked = Number(collection.cashAmount ?? collection.amount);
   const treasuryDelta =
     (moneyCents(incoming.cashAmount) - moneyCents(booked)) / 100;

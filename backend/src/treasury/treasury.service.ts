@@ -57,7 +57,10 @@ export class TreasuryService {
       );
     const result = await this.collections
       .createQueryBuilder('collection')
-      .select('COALESCE(SUM(collection.amount), 0)', 'total')
+      .select(
+        'COALESCE(SUM(COALESCE(collection.cashAmount, collection.amount)), 0)',
+        'total',
+      )
       .where('collection.status = :status', {
         status: CollectionStatus.PENDING,
       })
@@ -362,7 +365,10 @@ export class TreasuryService {
       const pendingResult = await manager
         .getRepository(Collection)
         .createQueryBuilder('collection')
-        .select('COALESCE(SUM(collection.amount), 0)', 'total')
+        .select(
+          'COALESCE(SUM(COALESCE(collection.cashAmount, collection.amount)), 0)',
+          'total',
+        )
         .where('collection.status = :status', {
           status: CollectionStatus.PENDING,
         })
@@ -565,7 +571,10 @@ export class TreasuryService {
       const pendingResult = await manager
         .getRepository(Collection)
         .createQueryBuilder('collection')
-        .select('COALESCE(SUM(collection.amount), 0)', 'total')
+        .select(
+          'COALESCE(SUM(COALESCE(collection.cashAmount, collection.amount)), 0)',
+          'total',
+        )
         .where('collection.status = :status', {
           status: CollectionStatus.PENDING,
         })
