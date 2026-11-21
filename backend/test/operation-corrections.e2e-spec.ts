@@ -1112,6 +1112,75 @@ describe.sequential('admin operation corrections (e2e)', () => {
     );
   });
 
+  it('filters the ledger to the operations of one account', async () => {
+    const other = (
+      await post('/wallets', {
+        name: 'Ledger filter other wallet',
+        type: 'vodafone_cash',
+        openingBalance: 0,
+      })
+    ).body;
+    await post('/treasury/transfer', {
+      fromType: 'treasury',
+      toType: 'wallet',
+      toId: walletId,
+      amount: 5,
+    });
+    await post('/collections/receive', {
+      agentName: 'Ledger filter agent',
+      companyName: 'Ledger filter company',
+      amount: 30,
+      executionMode: 'immediate',
+      accountId,
+      cashAmount: 10,
+      incomingParts: [{ walletId, amount: 20 }],
+    });
+
+    const touches = (e: any, type: string, id: string) =>
+      (e.entityType === type && e.entityId === id) ||
+      (e.sourceType === type && e.sourceId === id) ||
+      (e.targetType === type && e.targetId === id);
+
+    const wallet = (
+      await get(`/ledger?limit=500&entityType=wallet&entityId=${walletId}`)
+    ).body;
+    expect(wallet.length).toBeGreaterThan(0);
+    expect(wallet.every((e: any) => touches(e, 'wallet', walletId))).toBe(true);
+    expect(
+      wallet.some(
+        (e: any) =>
+          e.category === 'internal_transfer' && e.targetId === walletId,
+      ),
+    ).toBe(true);
+    expect(wallet.some((e: any) => e.category === 'top_up')).toBe(true);
+    expect(
+      (await get(`/ledger?entityType=wallet&entityId=${other.id}`)).body.every(
+        (e: any) => touches(e, 'wallet', other.id),
+      ),
+    ).toBe(true);
+
+    const treasury = (await get('/ledger?limit=500&entityType=treasury')).body;
+    expect(treasury.some((e: any) => e.category === 'cash_receipt')).toBe(true);
+    expect(
+      treasury.some(
+        (e: any) =>
+          e.category === 'internal_transfer' && e.sourceType === 'treasury',
+      ),
+    ).toBe(true);
+    expect(treasury.some((e: any) => e.category === 'company_execution')).toBe(
+      false,
+    );
+
+    await request(app.getHttpServer())
+      .get('/api/ledger?entityType=planet')
+      .set(bearer(adminToken))
+      .expect(400);
+    await request(app.getHttpServer())
+      .get('/api/ledger?entityType=account')
+      .set(bearer(adminToken))
+      .expect(400);
+  });
+
   it('corrects a QR receipt whose incoming destination is also its execution source', async () => {
     const qr = (
       await post('/accounts', {

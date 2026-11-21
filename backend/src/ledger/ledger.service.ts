@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { msg } from '../common/i18n/locale-context.js';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, EntityManager, Repository, In } from 'typeorm';
+import { Brackets, DataSource, EntityManager, Repository, In } from 'typeorm';
 import { ReversalDto } from '../common/dto/reversal.dto.js';
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
@@ -16,6 +16,19 @@ import { PurchaseVisa } from '../database/entities/purchase-visa.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
 import { LedgerCategory } from '../database/enums.js';
+
+export const LEDGER_SCOPE_TYPES = [
+  'treasury',
+  'account',
+  'wallet',
+  'machine',
+  'purchase_visa',
+] as const;
+
+export type LedgerScope = {
+  entityType: (typeof LEDGER_SCOPE_TYPES)[number];
+  entityId?: string;
+};
 
 type Asset = {
   balance: number;
@@ -30,11 +43,46 @@ export class LedgerService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async findAll(limit = 100) {
-    const entries = await this.ledger.find({
-      order: { createdAt: 'DESC' },
-      take: Math.min(Math.max(limit, 1), 500),
-    });
+  /**
+   * Latest ledger entries, optionally only those that touch one asset: its
+   * own entries plus transfers into or out of it. The treasury also owns
+   * every cash receipt (agent collections and agent credit payments).
+   */
+  async findAll(limit = 100, scope?: LedgerScope) {
+    const query = this.ledger
+      .createQueryBuilder('entry')
+      .orderBy('entry.createdAt', 'DESC')
+      .take(Math.min(Math.max(limit, 1), 500));
+    if (scope?.entityType === 'treasury') {
+      query.where(
+        new Brackets((where) =>
+          where
+            .where("entry.entityType = 'treasury'")
+            .orWhere("entry.sourceType = 'treasury'")
+            .orWhere("entry.targetType = 'treasury'")
+            .orWhere('entry.category = :cash')
+            .orWhere(
+              "(entry.category = :reversal AND entry.metadata->>'originalCategory' = :cashText)",
+            ),
+        ),
+        {
+          cash: LedgerCategory.CASH_RECEIPT,
+          cashText: String(LedgerCategory.CASH_RECEIPT),
+          reversal: LedgerCategory.REVERSAL,
+        },
+      );
+    } else if (scope) {
+      query.where(
+        new Brackets((where) =>
+          where
+            .where('(entry.entityType = :type AND entry.entityId = :id)')
+            .orWhere('(entry.sourceType = :type AND entry.sourceId = :id)')
+            .orWhere('(entry.targetType = :type AND entry.targetId = :id)'),
+        ),
+        { type: scope.entityType, id: scope.entityId },
+      );
+    }
+    const entries = await query.getMany();
     if (!entries.length) return [];
     const reversals = await this.ledger.find({
       where: { reversesEntryId: In(entries.map((e) => e.id)) },

@@ -3,6 +3,7 @@ import { UserRole } from '../database/enums.js';
 import { CorrectionDto } from './correction.dto.js';
 import { OperationCorrectionsService } from './operation-corrections.service.js';
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -16,7 +17,9 @@ import { RequirePermissions } from '../common/decorators/permissions.decorator.j
 import { AppPermission } from '../database/enums.js';
 import { ReversalDto } from '../common/dto/reversal.dto.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
-import { LedgerService } from './ledger.service.js';
+import { LEDGER_SCOPE_TYPES, LedgerService } from './ledger.service.js';
+import { isUUID } from 'class-validator';
+import { msg } from '../common/i18n/locale-context.js';
 
 type UserRequest = { user: { username: string } };
 
@@ -29,9 +32,28 @@ export class LedgerController {
   ) {}
 
   @Get()
-  findAll(@Query('limit') limit?: string) {
+  findAll(
+    @Query('limit') limit?: string,
+    @Query('entityType') entityType?: string,
+    @Query('entityId') entityId?: string,
+  ) {
     const take = Math.min(Math.max(Number(limit) || 100, 1), 500);
-    return this.ledger.findAll(take);
+    if (!entityType) return this.ledger.findAll(take);
+    const type = LEDGER_SCOPE_TYPES.find((item) => item === entityType);
+    if (!type) {
+      throw new BadRequestException(
+        msg({ ar: 'نوع الحساب غير معروف', en: 'Unknown account type' }),
+      );
+    }
+    if (type !== 'treasury' && !isUUID(entityId ?? '')) {
+      throw new BadRequestException(
+        msg({ ar: 'اختار الحساب', en: 'Choose the account' }),
+      );
+    }
+    return this.ledger.findAll(take, {
+      entityType: type,
+      ...(type === 'treasury' ? {} : { entityId }),
+    });
   }
 
   @Roles(UserRole.ADMIN)

@@ -25,7 +25,11 @@ class LedgerPage extends StatelessWidget {
             en: 'Central ledger separating principal amounts from commissions',
           )
         : tr(ar: 'سجل مركزي لحركات التشغيل', en: 'Central operating ledger'),
-    endpoint: ApiEndpoints.ledgerList(limit: 200),
+    endpoint: (type, id) => ApiEndpoints.ledgerList(
+      limit: type == null ? 200 : 500,
+      entityType: type,
+      entityId: id,
+    ),
     columns: [
       tr(ar: 'التاريخ والوقت', en: 'Date & time'),
       tr(ar: 'النوع', en: 'Type'),
@@ -63,7 +67,10 @@ class _AsyncListFrame extends StatefulWidget {
     required this.allowReversal,
   });
   final SessionController session;
-  final String title, subtitle, endpoint;
+  final String title, subtitle;
+
+  /// Ledger URL for all operations (null type) or one asset's operations.
+  final String Function(String? entityType, String? entityId) endpoint;
   final List<String> columns;
   final List<Object> Function(Map<String, dynamic>) rowBuilder;
   final bool allowReversal;
@@ -75,20 +82,144 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
   List<dynamic> data = [];
   String? error;
   bool loading = true;
+
+  /// Every asset the ledger can be filtered by, loaded once.
+  List<_LedgerScope> scopes = const [_LedgerScope.all, _LedgerScope.treasury];
+  _LedgerScope scope = _LedgerScope.all;
+  final _scopeText = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     load();
+    _loadScopes();
+  }
+
+  @override
+  void dispose() {
+    _scopeText.dispose();
+    super.dispose();
   }
 
   Future<void> load() async {
     try {
-      data = await widget.session.api.list(widget.endpoint);
+      data = await widget.session.api.list(
+        widget.endpoint(scope.entityType, scope.entityId),
+      );
       error = null;
     } catch (e) {
       error = ApiClient.errorMessage(e);
     }
     if (mounted) setState(() => loading = false);
+  }
+
+  Future<void> _loadScopes() async {
+    Future<List<dynamic>> list(String path) =>
+        widget.session.api.list(path).catchError((_) => <dynamic>[]);
+    final results = await Future.wait([
+      list(ApiEndpoints.accounts),
+      list(ApiEndpoints.wallets),
+      list(ApiEndpoints.machines),
+      list(ApiEndpoints.purchaseVisas),
+    ]);
+    if (!mounted) return;
+    String walletName(dynamic wallet) {
+      final owner = '${wallet['ownerName'] ?? ''}'.trim();
+      final name = '${wallet['name']}';
+      return owner.isEmpty || owner == name ? name : '$owner — $name';
+    }
+
+    setState(() {
+      scopes = [
+        _LedgerScope.all,
+        _LedgerScope.treasury,
+        for (final item in results[0])
+          _LedgerScope('account', '${item['id']}', 'حساب · ${item['name']}'),
+        for (final item in results[1])
+          _LedgerScope(
+            'wallet',
+            '${item['id']}',
+            'محفظة · ${walletName(item)}',
+          ),
+        for (final item in results[2])
+          _LedgerScope('machine', '${item['id']}', 'ماكينة · ${item['name']}'),
+        for (final item in results[3])
+          _LedgerScope(
+            'purchase_visa',
+            '${item['id']}',
+            'فيزا مشتريات · ${item['name']}',
+          ),
+      ];
+    });
+  }
+
+  void _selectScope(_LedgerScope? value) {
+    final next = value ?? _LedgerScope.all;
+    if (next.key == scope.key) return;
+    setState(() {
+      scope = next;
+      loading = true;
+    });
+    load();
+  }
+
+  Widget _scopeFilter() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        SizedBox(
+          width: 380,
+          child: DropdownMenu<_LedgerScope>(
+            key: const ValueKey('ledger-scope'),
+            controller: _scopeText,
+            initialSelection: scope,
+            enableFilter: true,
+            enableSearch: true,
+            requestFocusOnTap: true,
+            expandedInsets: EdgeInsets.zero,
+            menuHeight: 320,
+            label: Text(tr(ar: 'الحساب', en: 'Account')),
+            hintText: tr(
+              ar: 'اكتب اسم الحساب أو أي حرف منه',
+              en: 'Type an account name',
+            ),
+            leadingIcon: const Icon(Icons.search),
+            filterCallback: (entries, filter) {
+              final query = filter.trim().toLowerCase();
+              if (query.isEmpty || query == scope.label.toLowerCase()) {
+                return entries;
+              }
+              return entries
+                  .where((entry) => entry.label.toLowerCase().contains(query))
+                  .toList();
+            },
+            dropdownMenuEntries: [
+              for (final item in scopes)
+                DropdownMenuEntry(value: item, label: item.label),
+            ],
+            onSelected: _selectScope,
+          ),
+        ),
+        if (scope.entityType != null) ...[
+          Text(
+            tr(
+              ar: '${data.length} عملية على ${scope.label}',
+              en: '${data.length} operations on ${scope.label}',
+            ),
+          ),
+          TextButton.icon(
+            onPressed: () {
+              _scopeText.text = _LedgerScope.all.label;
+              _selectScope(_LedgerScope.all);
+            },
+            icon: const Icon(Icons.close, size: 18),
+            label: Text(tr(ar: 'عرض كل الحسابات', en: 'Show all')),
+          ),
+        ],
+      ],
+    );
   }
 
   bool _canReverse(Map<String, dynamic> entry, Set<String> reversedIds) {
@@ -185,53 +316,89 @@ class _AsyncListFrameState extends State<_AsyncListFrame> {
     actions: [
       IconButton.filledTonal(onPressed: load, icon: const Icon(Icons.refresh)),
     ],
-    child: loading
-        ? const Center(child: CircularProgressIndicator())
-        : error != null
-        ? ErrorBox(message: error!, retry: load)
-        : Builder(
-            builder: (context) {
-              final reversedIds = data
-                  .map((item) => item['reversesEntryId'])
-                  .whereType<String>()
-                  .toSet();
-              return DataCard(
-                columns: [
-                  ...widget.columns,
-                  if (widget.allowReversal || widget.session.isAdmin)
-                    tr(ar: 'إجراء', en: 'Action'),
-                ],
-                rows: data.map((raw) {
-                  final entry = raw as Map<String, dynamic>;
-                  return <Object>[
-                    ...widget.rowBuilder(entry),
-                    if (widget.session.isAdmin)
-                      entry['category'] == 'reversal' ||
-                              entry['isReversed'] == true
-                          ? const Text('—')
-                          : Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                TextButton(
-                                  onPressed: () =>
-                                      _correct(entry, cancel: true),
-                                  child: const Text('إلغاء العملية'),
-                                ),
-                              ],
-                            )
-                    else if (widget.allowReversal)
-                      _canReverse(entry, reversedIds)
-                          ? TextButton(
-                              onPressed: () => _reverse(entry),
-                              child: Text(tr(ar: 'عكس', en: 'Reverse')),
-                            )
-                          : const Text('—'),
-                  ];
-                }).toList(),
-              );
-            },
-          ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [_scopeFilter(), const SizedBox(height: 16), _entries()],
+    ),
   );
+
+  Widget _entries() => loading
+      ? const Center(child: CircularProgressIndicator())
+      : error != null
+      ? ErrorBox(message: error!, retry: load)
+      : data.isEmpty
+      ? Padding(
+          padding: const EdgeInsets.all(32),
+          child: Center(
+            child: Text(
+              tr(
+                ar: 'مفيش عمليات على الحساب ده',
+                en: 'No operations for this account',
+              ),
+            ),
+          ),
+        )
+      : Builder(
+          builder: (context) {
+            final reversedIds = data
+                .map((item) => item['reversesEntryId'])
+                .whereType<String>()
+                .toSet();
+            return DataCard(
+              columns: [
+                ...widget.columns,
+                if (widget.allowReversal || widget.session.isAdmin)
+                  tr(ar: 'إجراء', en: 'Action'),
+              ],
+              rows: data.map((raw) {
+                final entry = raw as Map<String, dynamic>;
+                return <Object>[
+                  ...widget.rowBuilder(entry),
+                  if (widget.session.isAdmin)
+                    entry['category'] == 'reversal' ||
+                            entry['isReversed'] == true
+                        ? const Text('—')
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton(
+                                onPressed: () => _correct(entry, cancel: true),
+                                child: const Text('إلغاء العملية'),
+                              ),
+                            ],
+                          )
+                  else if (widget.allowReversal)
+                    _canReverse(entry, reversedIds)
+                        ? TextButton(
+                            onPressed: () => _reverse(entry),
+                            child: Text(tr(ar: 'عكس', en: 'Reverse')),
+                          )
+                        : const Text('—'),
+                ];
+              }).toList(),
+            );
+          },
+        );
+}
+
+/// One choice in the ledger account filter.
+class _LedgerScope {
+  const _LedgerScope(this.entityType, this.entityId, this.label);
+
+  static const all = _LedgerScope(null, null, 'كل الحسابات');
+  static const treasury = _LedgerScope('treasury', null, 'الخزنة المركزية');
+
+  final String? entityType;
+  final String? entityId;
+  final String label;
+
+  String get key => '$entityType:$entityId';
+
+  @override
+  bool operator ==(Object other) => other is _LedgerScope && other.key == key;
+
+  @override
+  int get hashCode => key.hashCode;
 }
 
 String _category(String value) =>

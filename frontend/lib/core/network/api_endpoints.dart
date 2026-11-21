@@ -98,8 +98,19 @@ abstract final class ApiEndpoints {
   // Ledger
   static const String ledger = '/ledger';
 
-  static String ledgerList({int? limit}) =>
-      limit == null ? ledger : '$ledger?limit=$limit';
+  /// Latest ledger entries; with [entityType] only the operations of one
+  /// asset (treasury, account, wallet, machine or purchase_visa).
+  static String ledgerList({int? limit, String? entityType, String? entityId}) {
+    final query = <String, String>{
+      if (limit != null) 'limit': '$limit',
+      'entityType': ?entityType,
+      'entityId': ?entityId,
+    };
+    return query.isEmpty
+        ? ledger
+        : Uri(path: ledger, queryParameters: query).toString();
+  }
+
   static String reverseLedgerEntry(String id) => '$ledger/$id/reverse';
 
   // Reports
