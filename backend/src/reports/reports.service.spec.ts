@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { LedgerCategory } from '../database/enums.js';
-import { ReportsService } from './reports.service.js';
+import { ReportsService, walletLabel } from './reports.service.js';
 
 const start = new Date('2026-09-20T21:00:00.000Z');
 const end = new Date('2026-09-21T21:00:00.000Z');
@@ -297,5 +297,16 @@ describe('ReportsService', () => {
       net: 160,
       commissions: 5,
     });
+  });
+});
+
+describe('walletLabel', () => {
+  it('shows the owner name before the wallet number', () => {
+    expect(walletLabel({ name: '01023123321', ownerName: 'شادي محمد' })).toBe(
+      'شادي محمد — 01023123321',
+    );
+    expect(walletLabel({ name: 'InstaPay 01', ownerName: '  ' })).toBe(
+      'InstaPay 01',
+    );
   });
 });

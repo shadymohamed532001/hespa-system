@@ -129,7 +129,8 @@ export class ReportsService {
     names.set('treasury:main', 'الخزنة المركزية');
     names.set('inventory:inventory', 'خزنة المخزن');
     for (const item of accounts) names.set(`account:${item.id}`, item.name);
-    for (const item of wallets) names.set(`wallet:${item.id}`, item.name);
+    for (const item of wallets)
+      names.set(`wallet:${item.id}`, walletLabel(item));
     for (const item of machines) names.set(`machine:${item.id}`, item.name);
 
     const channels = new Map<string, ChannelRow>();
@@ -172,7 +173,13 @@ export class ReportsService {
       );
     }
     for (const item of wallets) {
-      addChannel('wallet', item.id, item.name, item.type, Number(item.balance));
+      addChannel(
+        'wallet',
+        item.id,
+        walletLabel(item),
+        item.type,
+        Number(item.balance),
+      );
     }
     for (const item of machines) {
       addChannel(
@@ -568,4 +575,15 @@ export class ReportsService {
       parts.find((item) => item.type === type)?.value ?? '';
     return `${part('year')}-${part('month')}-${part('day')}`;
   }
+}
+
+/**
+ * Wallets are often named by their phone number; show the owner's name first
+ * and keep the number so two wallets of the same person stay distinguishable.
+ */
+export function walletLabel(wallet: Pick<Wallet, 'name' | 'ownerName'>) {
+  const owner = wallet.ownerName?.trim();
+  return owner && owner !== wallet.name.trim()
+    ? `${owner} — ${wallet.name}`
+    : wallet.name;
 }
