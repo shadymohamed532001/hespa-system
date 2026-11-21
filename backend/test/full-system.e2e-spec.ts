@@ -157,6 +157,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'WalletOperations1790087699420',
       'WalletOwner1790087699421',
       'DevicePushTokens1790087699422',
+      'EmployeeManageInventory1790087699423',
       'WalletCustomerCashFee1790087699424',
       'FawryDailyDrop1790087699425',
       'CollectionIncomingSplits1790087699426',
@@ -169,6 +170,8 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'PurchaseVisa1790087699433',
       'PurchaseVisaDetails1790087699434',
       'CollectionPurchaseVisa1790087699435',
+      'ProfitBasicOpenLimit1790087699437',
+      'PurchaseVisaOptionalCard1790087699438',
     ]);
   });
 
@@ -234,10 +237,16 @@ describe.sequential('full system lifecycle (e2e)', () => {
         unexpected: true,
       })
       .expect(400);
+    // Employees get every permission except user management.
     await request(app.getHttpServer())
-      .post('/api/accounts')
-      .set(mutation(employeeToken, 'forbidden-create-account'))
-      .send({ name: 'Forbidden', type: 'company', openingBalance: 0 })
+      .post('/api/users')
+      .set(mutation(employeeToken, 'forbidden-create-user'))
+      .send({
+        username: 'forbidden-user',
+        password: 'ForbiddenPassword123!',
+        displayName: 'Forbidden',
+        role: 'employee',
+      })
       .expect(403);
 
     const accountKey = `full-account-idempotency-${randomUUID()}`;
@@ -524,11 +533,6 @@ describe.sequential('full system lifecycle (e2e)', () => {
         entry.reference === 'MACHINE-USE-120' &&
         entry.category === 'machine_usage',
     );
-    await request(app.getHttpServer())
-      .post(`/api/ledger/${machineUsage!.id}/reverse`)
-      .set(mutation(employeeToken, 'employee-reverse-machine'))
-      .send({ reason: 'موظف بلا صلاحية عكس' })
-      .expect(403);
     await request(app.getHttpServer())
       .post(`/api/ledger/${machineUsage!.id}/reverse`)
       .set(mutation(adminToken, 'reverse-machine'))
@@ -890,10 +894,10 @@ describe.sequential('full system lifecycle (e2e)', () => {
       })
       .expect(201);
     const renewedToken = renewedLogin.body.accessToken as string;
+    // The renewed session works, but user management stays admin-only.
     await request(app.getHttpServer())
-      .post(`/api/accounts/${accountId}/top-up`)
-      .set(mutation(renewedToken, 'removed-topup-permission'))
-      .send({ amount: 1 })
+      .get('/api/users')
+      .set(bearer(renewedToken))
       .expect(403);
     await request(app.getHttpServer())
       .patch(`/api/users/${employeeId}/status`)
@@ -1577,10 +1581,11 @@ describe.sequential('full system lifecycle (e2e)', () => {
       ]),
     );
 
+    // The agent owes us, so there is no deposit to hand back.
     await request(app.getHttpServer())
-      .post('/api/collections/agent-credits/payments')
-      .set(mutation(adminToken, 'agent-credit-too-much'))
-      .send({ agentName, amount: 3 })
+      .post('/api/collections/agent-credits/refunds')
+      .set(mutation(adminToken, 'agent-credit-no-deposit'))
+      .send({ agentName, amount: 1 })
       .expect(400);
 
     const beforePayment = await request(app.getHttpServer())
