@@ -11,6 +11,7 @@ import '../../core/widgets/error_box.dart';
 import '../../core/widgets/hesba_modal.dart';
 import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
+import 'agent_picker.dart';
 
 class AgentCreditsPage extends StatefulWidget {
   const AgentCreditsPage({super.key, required this.session});
@@ -40,7 +41,8 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
     if (_agent.isNotEmpty && row['agentName'] != _agent) return false;
     final closing = num.tryParse('${row['closingBalance']}') ?? 0;
     if (_status == 'outstanding' && closing <= 0) return false;
-    if (_status == 'settled' && closing > 0) return false;
+    if (_status == 'deposit' && closing >= 0) return false;
+    if (_status == 'settled' && closing != 0) return false;
     return true;
   }).toList();
 
@@ -49,15 +51,42 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
     (sum, row) => sum + (num.tryParse('${row[field]}') ?? 0),
   );
 
-  num get _currentTotal {
+  /// Latest balance per agent: positive = the agent owes us, negative = we
+  /// hold the agent's money (deposit).
+  Iterable<num> get _currentBalances {
     final balances = <String, num>{};
     for (final row in _rows) {
       if (_agent.isNotEmpty && row['agentName'] != _agent) continue;
       balances['${row['agentName']}'.trim().toLowerCase()] =
           num.tryParse('${row['balance']}') ?? 0;
     }
-    return balances.values.fold<num>(0, (sum, value) => sum + value);
+    return balances.values;
   }
+
+  num get _owedByAgents => _currentBalances
+      .where((value) => value > 0)
+      .fold<num>(0, (sum, value) => sum + value);
+
+  num get _heldForAgents => _currentBalances
+      .where((value) => value < 0)
+      .fold<num>(0, (sum, value) => sum - value);
+
+  /// Every agent on the page with their current balance, for the picker.
+  List<Map<String, dynamic>> get _agentAccounts {
+    final byKey = <String, Map<String, dynamic>>{};
+    for (final row in _rows) {
+      final key = '${row['agentName']}'.trim().toLowerCase();
+      byKey.putIfAbsent(
+        key,
+        () => {'agentName': row['agentName'], 'balance': row['balance']},
+      );
+    }
+    return byKey.values.toList()
+      ..sort((a, b) => '${a['agentName']}'.compareTo('${b['agentName']}'));
+  }
+
+  List<String> get _agentNames =>
+      _rows.map((row) => '${row['agentName']}').toSet().toList()..sort();
 
   Future<void> _pickDay() async {
     final day = await showDatePicker(
@@ -118,14 +147,21 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
       onRefresh: () => _load(silent: true),
       title: 'آجل المندوبين',
       actions: [
-        if (widget.session.can(AppPermissions.receiveCollections))
+        if (widget.session.can(AppPermissions.receiveCollections)) ...[
           FilledButton.icon(
+            onPressed: () => _moveCash(null, _CashDirection.receive),
+            icon: const Icon(Icons.savings_outlined),
+            label: const Text('استلام فلوس من مندوب'),
+          ),
+          OutlinedButton.icon(
             onPressed: _addOpening,
             icon: const Icon(Icons.add),
-            label: const Text('إضافة آجل قديم'),
+            label: const Text('إضافة رصيد قديم'),
           ),
+        ],
       ],
-      subtitle: 'المبالغ المستحقة على المندوبين وتسجيل سدادها في الخزنة',
+      subtitle:
+          'اللي على المندوبين من آجل، واللي ليهم من أمانات سابوها في الخزنة',
       child: _loading
           ? const Center(
               child: Padding(
@@ -142,9 +178,13 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                 const SizedBox(height: 16),
                 LayoutBuilder(
                   builder: (context, constraints) {
-                    final width = constraints.maxWidth >= 700
-                        ? (constraints.maxWidth - 32) / 3
-                        : constraints.maxWidth;
+                    final perRow = constraints.maxWidth >= 1100
+                        ? 4
+                        : constraints.maxWidth >= 600
+                        ? 2
+                        : 1;
+                    final width =
+                        (constraints.maxWidth - 16 * (perRow - 1)) / perRow;
                     return Wrap(
                       spacing: 16,
                       runSpacing: 16,
@@ -152,11 +192,23 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                         SizedBox(
                           width: width,
                           child: _CreditMetric(
-                            label: 'إجمالي الآجل الحالي',
-                            value: money(_currentTotal),
-                            note:
-                                'الرصيد الحالي للمندوب المحدد أو كل المندوبين، عبر كل الأيام',
-                            warning: _currentTotal > 0,
+                            label: 'إجمالي اللي على المندوبين',
+                            value: money(_owedByAgents),
+                            note: 'آجل حالي مستحق علينا نحصّله، عبر كل الأيام',
+                            tone: _owedByAgents > 0
+                                ? _MetricTone.warning
+                                : _MetricTone.normal,
+                          ),
+                        ),
+                        SizedBox(
+                          width: width,
+                          child: _CreditMetric(
+                            label: 'إجمالي أمانات المندوبين',
+                            value: money(_heldForAgents),
+                            note: 'فلوس المندوبين اللي معانا ولازم تترد لهم',
+                            tone: _heldForAgents > 0
+                                ? _MetricTone.deposit
+                                : _MetricTone.normal,
                           ),
                         ),
                         SizedBox(
@@ -165,16 +217,18 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                             label: 'آجل جديد في الفترة',
                             value: money(_sum('credit')),
                             note: 'إجمالي الآجل المضاف في الأيام المعروضة',
-                            warning: _sum('credit') > 0,
+                            tone: _sum('credit') > 0
+                                ? _MetricTone.warning
+                                : _MetricTone.normal,
                           ),
                         ),
                         SizedBox(
                           width: width,
                           child: _CreditMetric(
-                            label: 'المسدّد في الفترة',
+                            label: 'المستلم في الفترة',
                             value: money(_sum('paid')),
                             note:
-                                '${_visible.map((row) => row['agentName']).toSet().length} مندوب · ${_visible.length} سجل يومي',
+                                'مردود ${money(_sum('refunded'))} · ${_visible.map((row) => row['agentName']).toSet().length} مندوب · ${_visible.length} سجل يومي',
                           ),
                         ),
                       ],
@@ -187,7 +241,8 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                 else
                   _CreditsTable(
                     rows: _visible,
-                    onPay: _pay,
+                    onReceive: (row) => _moveCash(row, _CashDirection.receive),
+                    onRefund: (row) => _moveCash(row, _CashDirection.refund),
                     canPay: widget.session.can(
                       AppPermissions.receiveCollections,
                     ),
@@ -198,8 +253,7 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
   }
 
   Widget _filters() {
-    final agents = _rows.map((row) => '${row['agentName']}').toSet().toList()
-      ..sort();
+    final agents = _agentNames;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -271,6 +325,10 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                         value: 'outstanding',
                         child: Text('عليه آجل'),
                       ),
+                      DropdownMenuItem(
+                        value: 'deposit',
+                        child: Text('ليه أمانة'),
+                      ),
                       DropdownMenuItem(value: 'settled', child: Text('مسدد')),
                     ],
                     onChanged: (value) =>
@@ -288,7 +346,7 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
             ),
             const SizedBox(height: 4),
             const Text(
-              'كل صف يمثل حركة مندوب في يوم. رصيد نهاية اليوم يشمل الآجل السابق، والسداد يتم من إجمالي الآجل الحالي للمندوب.',
+              'كل صف يمثل حركة مندوب في يوم. «عليه» يعني آجل مستحق على المندوب، و«ليه» يعني أمانة للمندوب معانا. الاستلام بيسدد الآجل الأول والزيادة بتتسجل أمانة.',
               style: HesbaText.caption,
             ),
           ],
@@ -299,9 +357,11 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
 
   Future<void> _addOpening() async {
     final name = TextEditingController();
+    final agents = _agentAccounts;
     final amount = TextEditingController();
     final note = TextEditingController();
     final form = GlobalKey<FormState>();
+    var direction = 'owes';
     var saving = false;
     String? error;
     final saved = await showHesbaModal<bool>(
@@ -309,11 +369,11 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
       maxWidth: 520,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => HesbaModalCard(
-          title: 'إضافة آجل قديم',
+          title: 'إضافة رصيد قديم',
           subtitle:
-              'سجّل المبلغ المستحق قبل استخدام السيستم. يدخل الخزنة عند سداده فقط. لو الاسم موجود هيتضاف المبلغ على الآجل الحالي.',
+              'سجّل رصيد المندوب قبل استخدام السيستم. مش بيأثر على الخزنة. لو الاسم موجود هيتقاص مع رصيده الحالي.',
           actions: HesbaModalActions(
-            primaryLabel: saving ? 'جارٍ الحفظ...' : 'حفظ الآجل',
+            primaryLabel: saving ? 'جارٍ الحفظ...' : 'حفظ الرصيد',
             primaryEnabled: !saving,
             onCancel: () {
               if (!saving) Navigator.pop(ctx, false);
@@ -329,6 +389,7 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                     .post('${ApiEndpoints.agentCredits}/opening', {
                       'agentName': name.text.trim(),
                       'amount': parseNum(amount.text),
+                      'direction': direction,
                       if (note.text.trim().isNotEmpty) 'note': note.text.trim(),
                     });
                 if (ctx.mounted) Navigator.pop(ctx, true);
@@ -346,14 +407,18 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
             key: form,
             child: Column(
               children: [
-                TextFormField(
-                  controller: name,
-                  enabled: !saving,
-                  maxLength: 150,
-                  decoration: const InputDecoration(labelText: 'اسم المندوب *'),
-                  validator: (v) =>
-                      (v?.trim().length ?? 0) < 2 ? 'اكتب اسم المندوب' : null,
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'owes', label: Text('عليه آجل')),
+                    ButtonSegment(value: 'owed', label: Text('ليه أمانة')),
+                  ],
+                  selected: {direction},
+                  onSelectionChanged: saving
+                      ? null
+                      : (value) => setLocal(() => direction = value.first),
                 ),
+                const SizedBox(height: 16),
+                AgentPicker(controller: name, agents: agents, enabled: !saving),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: amount,
@@ -362,8 +427,10 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
                     decimal: true,
                   ),
                   inputFormatters: const [MoneyInputFormatter()],
-                  decoration: const InputDecoration(
-                    labelText: 'المبلغ المستحق *',
+                  decoration: InputDecoration(
+                    labelText: direction == 'owed'
+                        ? 'مبلغ الأمانة *'
+                        : 'المبلغ المستحق *',
                   ),
                   validator: (v) => (parseNum(v) ?? 0) <= 0
                       ? 'اكتب مبلغًا أكبر من صفر'
@@ -393,34 +460,55 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
     note.dispose();
     if (saved == true && mounted) {
       await _load();
-      if (mounted) showAppSnack(context, 'تم تسجيل الآجل القديم');
+      if (mounted) showAppSnack(context, 'تم تسجيل الرصيد القديم');
     }
   }
 
-  Future<void> _pay(Map<String, dynamic> row) async {
-    final balance = num.tryParse('${row['balance']}') ?? 0;
-    final amount = await showHesbaModal<num>(
-      context: context,
-      maxWidth: 500,
-      builder: (dialogContext) => _PayAgentCreditDialog(
-        agentName: '${row['agentName']}',
-        balance: balance,
-      ),
-    );
-    if (amount == null || !mounted) return;
+  Future<void> _moveCash(
+    Map<String, dynamic>? row,
+    _CashDirection direction,
+  ) async {
+    final destinations = direction == _CashDirection.receive
+        ? await _loadDestinations()
+        : const [_Destination.treasury];
+    if (!mounted) return;
+    final result =
+        await showHesbaModal<
+          ({String agentName, num amount, _Destination destination})
+        >(
+          context: context,
+          maxWidth: 500,
+          builder: (dialogContext) => _AgentCashDialog(
+            direction: direction,
+            agentName: row == null ? null : '${row['agentName']}',
+            balance: row == null
+                ? null
+                : num.tryParse('${row['balance']}') ?? 0,
+            agents: _agentAccounts,
+            destinations: destinations,
+          ),
+        );
+    if (result == null || !mounted) return;
     try {
-      final result = await widget.session.api.post(
-        ApiEndpoints.agentCreditPayments,
-        {'agentName': '${row['agentName']}', 'amount': amount},
+      final response = await widget.session.api.post(
+        direction == _CashDirection.receive
+            ? ApiEndpoints.agentCreditPayments
+            : ApiEndpoints.agentCreditRefunds,
+        {
+          'agentName': result.agentName,
+          'amount': result.amount,
+          ...result.destination.body,
+        },
       );
       await _load();
       if (!mounted) return;
-      final remaining = num.tryParse('${result['remainingBalance']}') ?? 0;
+      final remaining = num.tryParse('${response['remainingBalance']}') ?? 0;
+      final action = direction == _CashDirection.receive
+          ? 'تم إضافة ${money(result.amount)} على ${result.destination.label}'
+          : 'تم صرف ${money(result.amount)} من الخزنة لـ ${result.agentName}';
       showAppSnack(
         context,
-        remaining == 0
-            ? 'تم سداد آجل ${row['agentName']} بالكامل وإضافة ${money(amount)} للخزنة'
-            : 'تم إضافة ${money(amount)} للخزنة، والمتبقي ${money(remaining)}',
+        '$action، ورصيد ${result.agentName} دلوقتي ${_balanceLabel(remaining)}',
       );
     } catch (exception) {
       if (mounted) {
@@ -428,49 +516,200 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
       }
     }
   }
+
+  /// Where money received from an agent can land: the treasury, any wallet
+  /// (including InstaPay) or a QR profit account. Falls back to the treasury
+  /// alone if the lists cannot be loaded.
+  Future<List<_Destination>> _loadDestinations() async {
+    final destinations = [_Destination.treasury];
+    try {
+      final results = await Future.wait([
+        widget.session.api.list(ApiEndpoints.wallets),
+        widget.session.api.list(ApiEndpoints.accounts),
+      ]);
+      for (final wallet in results[0]) {
+        if (wallet['active'] == false) continue;
+        final type = _walletTypeLabel('${wallet['type']}');
+        destinations.add(
+          _Destination(
+            label: type.isEmpty
+                ? '${wallet['name']}'
+                : '${wallet['name']} · $type',
+            walletId: '${wallet['id']}',
+          ),
+        );
+      }
+      for (final account in results[1]) {
+        if (account['active'] == false || account['type'] != 'profit_qr') {
+          continue;
+        }
+        destinations.add(
+          _Destination(
+            label: 'حساب مكسب QR ${account['name']}',
+            accountId: '${account['id']}',
+          ),
+        );
+      }
+    } catch (_) {
+      // Keep the treasury so cash receipts still work.
+    }
+    return destinations;
+  }
 }
 
-class _PayAgentCreditDialog extends StatefulWidget {
-  const _PayAgentCreditDialog({required this.agentName, required this.balance});
+String _walletTypeLabel(String type) => switch (type) {
+  'vodafone_cash' => 'Vodafone Cash',
+  'orange_cash' => 'Orange Cash',
+  'etisalat_cash' => 'e& cash',
+  'we_pay' => 'WE Pay',
+  'instapay' => 'InstaPay',
+  'other_wallet' => 'محفظة أخرى',
+  'wallet' => 'محفظة',
+  _ => '',
+};
 
-  final String agentName;
-  final num balance;
+class _Destination {
+  const _Destination({required this.label, this.walletId, this.accountId});
+
+  static const treasury = _Destination(label: 'الخزنة (كاش)');
+
+  final String label;
+  final String? walletId;
+  final String? accountId;
+
+  bool get isTreasury => walletId == null && accountId == null;
+
+  Map<String, String> get body => {
+    'walletId': ?walletId,
+    'accountId': ?accountId,
+  };
+}
+
+enum _CashDirection { receive, refund }
+
+enum _MetricTone { normal, warning, deposit }
+
+/// "عليه X" when the agent owes us, "ليه X" when we hold their money.
+String _balanceLabel(num balance) => balance > 0
+    ? 'عليه ${money(balance)}'
+    : balance < 0
+    ? 'ليه ${money(-balance)}'
+    : money(0);
+
+class _BalanceText extends StatelessWidget {
+  const _BalanceText(this.value);
+
+  final dynamic value;
 
   @override
-  State<_PayAgentCreditDialog> createState() => _PayAgentCreditDialogState();
+  Widget build(BuildContext context) {
+    final balance = num.tryParse('$value') ?? 0;
+    return Text(
+      _balanceLabel(balance),
+      style: TextStyle(
+        color: balance > 0
+            ? HesbaColors.warning
+            : balance < 0
+            ? HesbaColors.tealDark
+            : HesbaColors.muted,
+        fontWeight: balance == 0 ? FontWeight.w400 : FontWeight.w600,
+      ),
+    );
+  }
 }
 
-class _PayAgentCreditDialogState extends State<_PayAgentCreditDialog> {
+class _AgentCashDialog extends StatefulWidget {
+  const _AgentCashDialog({
+    required this.direction,
+    required this.agentName,
+    required this.balance,
+    required this.agents,
+    required this.destinations,
+  });
+
+  final _CashDirection direction;
+  final List<_Destination> destinations;
+
+  /// Null when the agent is typed in the dialog (e.g. a brand-new depositor).
+  final String? agentName;
+  final num? balance;
+  final List<Map<String, dynamic>> agents;
+
+  @override
+  State<_AgentCashDialog> createState() => _AgentCashDialogState();
+}
+
+class _AgentCashDialogState extends State<_AgentCashDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _controller;
+  late final TextEditingController _amount;
+  final _name = TextEditingController();
+  late _Destination _destination = widget.destinations.first;
+
+  bool get _refund => widget.direction == _CashDirection.refund;
+
+  /// The row's balance, or the balance of the agent picked in the dialog
+  /// (0 for a new agent).
+  num get _balance {
+    if (widget.balance != null) return widget.balance!;
+    final key = agentSearchKey(_name.text);
+    for (final agent in widget.agents) {
+      if (key.isNotEmpty && agentSearchKey('${agent['agentName']}') == key) {
+        return num.tryParse('${agent['balance']}') ?? 0;
+      }
+    }
+    return 0;
+  }
+
+  /// The most that can be handed back: the deposit we hold for the agent.
+  num get _maxRefund => _balance < 0 ? -_balance : 0;
 
   @override
   void initState() {
     super.initState();
-    final balance = widget.balance;
-    _controller = TextEditingController(
-      text: balance == balance.roundToDouble()
-          ? balance.toStringAsFixed(0)
-          : balance.toStringAsFixed(2),
+    final suggested = _refund ? _maxRefund : (_balance > 0 ? _balance : 0);
+    _amount = TextEditingController(
+      text: suggested <= 0
+          ? ''
+          : suggested == suggested.roundToDouble()
+          ? suggested.toStringAsFixed(0)
+          : suggested.toStringAsFixed(2),
     );
+    _amount.addListener(() => setState(() {}));
+    _name.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _amount.dispose();
+    _name.dispose();
     super.dispose();
   }
 
+  String get _agentName => widget.agentName ?? _name.text.trim();
+
+  String get _where =>
+      _destination.isTreasury ? 'رصيد الخزنة' : _destination.label;
+
   @override
   Widget build(BuildContext context) {
+    final entered = parseNum(_amount.text.trim()) ?? 0;
+    final extra = !_refund && _agentName.isNotEmpty
+        ? entered - (_balance > 0 ? _balance : 0)
+        : 0;
     return HesbaModalCard(
-      title: 'تسجيل سداد الآجل',
-      subtitle: '${widget.agentName} · المتبقي ${money(widget.balance)}',
+      title: _refund ? 'رد فلوس للمندوب' : 'استلام فلوس من مندوب',
+      subtitle: widget.agentName == null
+          ? 'لو المندوب عليه آجل هيتسدد الأول، والزيادة هتتسجل أمانة ليه.'
+          : '${widget.agentName} · ${_balanceLabel(_balance)}',
       actions: HesbaModalActions(
-        primaryLabel: 'إضافة للخزنة وتسجيل السداد',
+        primaryLabel: _refund ? 'صرف من الخزنة' : 'تسجيل الاستلام',
         onPrimary: () {
           if (!(_formKey.currentState?.validate() ?? false)) return;
-          Navigator.of(context).pop(parseNum(_controller.text.trim()));
+          Navigator.of(context).pop((
+            agentName: _agentName,
+            amount: parseNum(_amount.text.trim())!,
+            destination: _destination,
+          ));
         },
         onCancel: () => Navigator.of(context).pop(),
       ),
@@ -479,11 +718,15 @@ class _PayAgentCreditDialogState extends State<_PayAgentCreditDialog> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.agentName == null) ...[
+              AgentPicker(controller: _name, agents: widget.agents),
+              const SizedBox(height: 8),
+            ],
             HesbaModalField(
-              label: 'المبلغ المدفوع *',
+              label: _refund ? 'المبلغ المردود *' : 'المبلغ المستلم *',
               child: TextFormField(
-                controller: _controller,
-                autofocus: true,
+                controller: _amount,
+                autofocus: widget.agentName != null,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
@@ -491,20 +734,53 @@ class _PayAgentCreditDialogState extends State<_PayAgentCreditDialog> {
                 textDirection: TextDirection.ltr,
                 textAlign: TextAlign.left,
                 validator: (value) {
-                  final paid = parseNum(value?.trim() ?? '');
-                  if (paid == null || paid <= 0) return 'أدخل مبلغًا صحيحًا';
-                  if (paid > widget.balance) {
-                    return 'أقصى مبلغ تسديد هو ${money(widget.balance)}';
+                  final amount = parseNum(value?.trim() ?? '');
+                  if (amount == null || amount <= 0) {
+                    return 'أدخل مبلغًا صحيحًا';
+                  }
+                  if (_refund && amount > _maxRefund) {
+                    return 'أقصى مبلغ رد هو ${money(_maxRefund)}';
                   }
                   return null;
                 },
               ),
             ),
+            if (!_refund) ...[
+              const SizedBox(height: 14),
+              HesbaModalField(
+                label: 'الفلوس دخلت على *',
+                child: DropdownButtonFormField<_Destination>(
+                  isExpanded: true,
+                  initialValue: _destination,
+                  items: [
+                    for (final destination in widget.destinations)
+                      DropdownMenuItem(
+                        value: destination,
+                        child: Text(
+                          destination.label,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) => setState(
+                    () => _destination = value ?? _Destination.treasury,
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 14),
             HesbaModalCallout(
-              backgroundColor: HesbaColors.tealLight,
+              backgroundColor: _refund
+                  ? HesbaColors.warningLight
+                  : HesbaColors.tealLight,
               child: Text(
-                'المبلغ هيتضاف لرصيد الخزنة، وهيتخصم من آجل ${widget.agentName}.',
+                _refund
+                    ? 'المبلغ هيتخصم من رصيد الخزنة، وهيقل من أمانة ${widget.agentName}.'
+                    : extra > 0
+                    ? 'المبلغ هيتضاف على $_where. ${_balance > 0 ? 'هيتسدد الآجل بالكامل، و' : ''}الزيادة ${money(extra)} هتتسجل أمانة للمندوب.'
+                    : widget.agentName == null
+                    ? 'المبلغ هيتضاف على $_where.'
+                    : 'المبلغ هيتضاف على $_where، وهيتخصم من آجل المندوب.',
               ),
             ),
           ],
@@ -519,13 +795,13 @@ class _CreditMetric extends StatelessWidget {
     required this.label,
     required this.value,
     required this.note,
-    this.warning = false,
+    this.tone = _MetricTone.normal,
   });
 
   final String label;
   final String value;
   final String note;
-  final bool warning;
+  final _MetricTone tone;
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +810,11 @@ class _CreditMetric extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(
-          color: warning ? const Color(0xFFEACF91) : HesbaColors.border,
+          color: switch (tone) {
+            _MetricTone.warning => const Color(0xFFEACF91),
+            _MetricTone.deposit => HesbaColors.teal.withValues(alpha: 0.45),
+            _MetricTone.normal => HesbaColors.border,
+          },
         ),
         borderRadius: BorderRadius.circular(14),
       ),
@@ -547,7 +827,11 @@ class _CreditMetric extends StatelessWidget {
             value,
             style: HesbaText.pageTitle.copyWith(
               fontSize: 28,
-              color: warning ? HesbaColors.warning : HesbaColors.ink,
+              color: switch (tone) {
+                _MetricTone.warning => HesbaColors.warning,
+                _MetricTone.deposit => HesbaColors.tealDark,
+                _MetricTone.normal => HesbaColors.ink,
+              },
             ),
           ),
           const SizedBox(height: 4),
@@ -561,14 +845,16 @@ class _CreditMetric extends StatelessWidget {
 class _CreditsTable extends StatelessWidget {
   const _CreditsTable({
     required this.rows,
-    required this.onPay,
+    required this.onReceive,
+    required this.onRefund,
     required this.canPay,
   });
 
   final bool canPay;
 
   final List<dynamic> rows;
-  final Future<void> Function(Map<String, dynamic> row) onPay;
+  final Future<void> Function(Map<String, dynamic> row) onReceive;
+  final Future<void> Function(Map<String, dynamic> row) onRefund;
 
   @override
   Widget build(BuildContext context) {
@@ -594,11 +880,12 @@ class _CreditsTable extends StatelessWidget {
                 DataColumn(label: Text('المندوب')),
                 DataColumn(label: Text('رصيد أول اليوم')),
                 DataColumn(label: Text('آجل جديد')),
-                DataColumn(label: Text('المسدّد')),
+                DataColumn(label: Text('المستلم')),
+                DataColumn(label: Text('مردود له')),
                 DataColumn(label: Text('رصيد نهاية اليوم')),
-                DataColumn(label: Text('الآجل الحالي')),
+                DataColumn(label: Text('الرصيد الحالي')),
                 DataColumn(label: Text('عدد الحركات')),
-                DataColumn(label: Text('السداد')),
+                DataColumn(label: Text('الفلوس')),
               ],
               rows: [
                 for (final item in rows)
@@ -614,21 +901,41 @@ class _CreditsTable extends StatelessWidget {
                           ),
                         ),
                       ),
-                      DataCell(Text(money(item['openingBalance']))),
+                      DataCell(_BalanceText(item['openingBalance'])),
                       DataCell(Text(money(item['credit']))),
                       DataCell(Text(money(item['paid']))),
-                      DataCell(Text(money(item['closingBalance']))),
-                      DataCell(Text(money(item['balance']))),
+                      DataCell(Text(money(item['refunded'] ?? 0))),
+                      DataCell(_BalanceText(item['closingBalance'])),
+                      DataCell(_BalanceText(item['balance'])),
                       DataCell(Text('${item['movementsCount']}')),
                       DataCell(
-                        FilledButton.icon(
-                          onPressed:
-                              canPay &&
-                                  (num.tryParse('${item['balance']}') ?? 0) > 0
-                              ? () => onPay(item as Map<String, dynamic>)
-                              : null,
-                          icon: const Icon(Icons.payments_outlined, size: 18),
-                          label: const Text('سداد من الإجمالي الحالي'),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: canPay
+                                  ? () =>
+                                        onReceive(item as Map<String, dynamic>)
+                                  : null,
+                              icon: const Icon(
+                                Icons.payments_outlined,
+                                size: 18,
+                              ),
+                              label: const Text('استلام'),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              onPressed:
+                                  canPay &&
+                                      (num.tryParse('${item['balance']}') ??
+                                              0) <
+                                          0
+                                  ? () => onRefund(item as Map<String, dynamic>)
+                                  : null,
+                              icon: const Icon(Icons.undo, size: 18),
+                              label: const Text('رد للمندوب'),
+                            ),
+                          ],
                         ),
                       ),
                     ],

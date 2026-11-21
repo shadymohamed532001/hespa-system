@@ -3,6 +3,7 @@ export type CreditDayMovement = {
   agentName: string;
   credit: number | string;
   paid: number | string;
+  refunded?: number | string;
   movementsCount: number | string;
 };
 
@@ -14,7 +15,11 @@ export function buildAgentCreditDays(movements: CreditDayMovement[]) {
     .map((row) => {
       const key = row.agentName.trim().toLowerCase();
       const opening = balances.get(key) ?? 0;
-      const closing = opening + cents(row.credit) - cents(row.paid);
+      const closing =
+        opening +
+        cents(row.credit) +
+        cents(row.refunded ?? 0) -
+        cents(row.paid);
       balances.set(key, closing);
       return {
         date: row.date,
@@ -22,6 +27,7 @@ export function buildAgentCreditDays(movements: CreditDayMovement[]) {
         openingBalance: opening / 100,
         credit: Number(row.credit),
         paid: Number(row.paid),
+        refunded: Number(row.refunded ?? 0),
         closingBalance: closing / 100,
         movementsCount: Number(row.movementsCount),
       };

@@ -44,12 +44,12 @@ import {
 import { ReceiveCollectionDto } from '../collections/dto/receive-collection.dto.js';
 import { ReversalDto } from '../common/dto/reversal.dto.js';
 import { CorrectionDto } from './correction.dto.js';
-import {
-  agentCreditBalance,
-  lockAgentCredit,
-} from '../collections/collections.service.js';
+import { lockAgentCredit } from '../collections/collections.service.js';
 import { OpenAgentCreditDto } from '../collections/dto/open-agent-credit.dto.js';
-import { PayAgentCreditDto } from '../collections/dto/pay-agent-credit.dto.js';
+import {
+  PayAgentCreditDto,
+  RefundAgentCreditDto,
+} from '../collections/dto/pay-agent-credit.dto.js';
 import { reverseCollection } from './collection-reversal.js';
 
 // Forms describe business inputs; balances, computed commissions and ledger IDs
@@ -260,7 +260,10 @@ export class OperationCorrectionsService {
         ),
         textField('reference', 'المرجع'),
       ];
-    } else if (entry.category === LedgerCategory.TOP_UP) {
+    } else if (
+      entry.category === LedgerCategory.TOP_UP &&
+      !m.agentCreditPayment
+    ) {
       p.kind = 'top_up';
       p.values = {
         assetId: entry.entityId,
@@ -459,20 +462,44 @@ export class OperationCorrectionsService {
       p.kind = 'agent_opening';
       p.values = {
         agentName: m.agentName,
-        amount: Number(entry.amount),
+        amount: Math.abs(Number(entry.amount)),
+        direction: Number(entry.amount) < 0 ? 'owed' : 'owes',
         note: m.note ?? '',
       };
       p.fields = [
         textField('agentName', 'اسم المندوب'),
-        numberField('amount', 'الآجل الافتتاحي'),
+        choices('direction', 'نوع الرصيد', {
+          owes: 'عليه آجل',
+          owed: 'ليه أمانة',
+        }),
+        numberField('amount', 'الرصيد الافتتاحي'),
         textField('note', 'ملاحظات'),
       ];
-    } else if (entry.entityType === 'agent_credit' && m.agentCreditPayment) {
+    } else if (m.agentCreditPayment) {
+      // Cash into the treasury (entity agent_credit) or a top-up on the wallet /
+      // QR profit account the agent sent the money to.
       p.kind = 'agent_payment';
-      p.values = { agentName: m.agentName, amount: Number(entry.amount) };
+      p.values = {
+        agentName: m.agentName,
+        amount: Number(entry.amount),
+        ...(entry.entityType === 'wallet' ? { walletId: entry.entityId } : {}),
+        ...(entry.entityType === 'account'
+          ? { accountId: entry.entityId }
+          : {}),
+      };
       p.fields = [
         textField('agentName', 'اسم المندوب'),
-        numberField('amount', 'مبلغ السداد'),
+        numberField('amount', 'المبلغ المستلم'),
+      ];
+    } else if (entry.entityType === 'agent_credit' && m.agentCreditRefund) {
+      p.kind = 'agent_refund';
+      p.values = {
+        agentName: m.agentName,
+        amount: Math.abs(Number(entry.amount)),
+      };
+      p.fields = [
+        textField('agentName', 'اسم المندوب'),
+        numberField('amount', 'المبلغ المردود'),
       ];
     } else if (
       entry.category === LedgerCategory.OPENING_BALANCE &&
@@ -848,29 +875,41 @@ export class OperationCorrectionsService {
       await manager.getRepository(LedgerEntry).save(reversal);
       return;
     }
-    if (p.kind === 'agent_opening' || p.kind === 'agent_payment') {
+    if (
+      p.kind === 'agent_opening' ||
+      p.kind === 'agent_payment' ||
+      p.kind === 'agent_refund'
+    ) {
       const agentName =
         typeof p.entry.metadata?.agentName === 'string'
           ? p.entry.metadata.agentName
           : '';
       await lockAgentCredit(manager, agentName);
-      if (p.kind === 'agent_payment') {
+      if (
+        p.kind === 'agent_payment' &&
+        (p.entry.entityType === 'wallet' || p.entry.entityType === 'account')
+      ) {
+        // Reverses the wallet / account balance and its period counters.
+        await this.ledger.reverse(p.entry.id, { reason }, username, manager);
+        return;
+      }
+      if (p.kind === 'agent_payment' || p.kind === 'agent_refund') {
+        // Payments are stored positive (cash in) and refunds negative (cash
+        // out), so cancelling either one moves the treasury by -amount.
+        const amount = Number(p.entry.amount);
         const treasury = await manager.getRepository(Treasury).findOne({
           where: { id: 'main' },
           lock: { mode: 'pessimistic_write' },
         });
-        if (!treasury || Number(treasury.balance) < Number(p.entry.amount))
+        if (!treasury || (amount > 0 && Number(treasury.balance) < amount))
           throw new BadRequestException('رصيد الخزنة لا يكفي لإلغاء السداد');
         treasury.balance = Number(
-          (Number(treasury.balance) - Number(p.entry.amount)).toFixed(2),
+          (Number(treasury.balance) - amount).toFixed(2),
         );
         await manager.save(treasury);
       }
+      // A negative agent balance is valid: it is money we hold for the agent.
       await this.reversalEntry(p.entry, reason, username, manager);
-      if ((await agentCreditBalance(manager, agentName)) < 0)
-        throw new BadRequestException(
-          'تم استخدام آجل المندوب في عملية لاحقة؛ الغِ الارتباط أولًا',
-        );
       return;
     }
     if (p.kind === 'opening') {
@@ -1156,6 +1195,12 @@ export class OperationCorrectionsService {
     if (p.kind === 'agent_payment')
       return this.collections.payAgentCredit(
         await this.checked(PayAgentCreditDto, v),
+        username,
+        manager,
+      );
+    if (p.kind === 'agent_refund')
+      return this.collections.refundAgentCredit(
+        await this.checked(RefundAgentCreditDto, v),
         username,
         manager,
       );

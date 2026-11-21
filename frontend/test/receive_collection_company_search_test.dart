@@ -258,7 +258,7 @@ class _AccountsAdapter implements HttpClientAdapter {
     Stream<Uint8List>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    final body = options.path.endsWith('/collections/agent-credits')
+    final body = options.path.contains('/collections/agent-credits')
         ? <dynamic>[]
         : options.path.endsWith('/wallets')
         ? [

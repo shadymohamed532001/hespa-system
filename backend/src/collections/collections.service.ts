@@ -1,5 +1,6 @@
 import { inTransaction } from '../common/in-transaction.js';
 import { buildAgentCreditDays } from './agent-credit-days.js';
+import { activeAgentPaymentSql } from './agent-credit-sql.js';
 import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
 import {
   BadRequestException,
@@ -30,7 +31,10 @@ import {
 } from '../database/enums.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
-import { PayAgentCreditDto } from './dto/pay-agent-credit.dto.js';
+import {
+  PayAgentCreditDto,
+  RefundAgentCreditDto,
+} from './dto/pay-agent-credit.dto.js';
 import {
   profitQrOutgoingFee,
   purchaseVisaProfit,
@@ -91,24 +95,34 @@ export class CollectionsService implements OnModuleInit {
         SELECT agent_name AS name,
           (received_at AT TIME ZONE 'Africa/Cairo')::date AS day,
           GREATEST(agent_credit_change, 0) AS credit,
-          GREATEST(-agent_credit_change, 0) AS paid
+          GREATEST(-agent_credit_change, 0) AS paid,
+          0 AS refunded
         FROM collections WHERE status <> 'reversed' AND agent_credit_change <> 0
         UNION ALL
         SELECT metadata->>'agentName',
-          (created_at AT TIME ZONE 'Africa/Cairo')::date, amount, 0
+          (created_at AT TIME ZONE 'Africa/Cairo')::date,
+          GREATEST(amount, 0), GREATEST(-amount, 0), 0
         FROM ledger_entries WHERE entity_type = 'agent_credit' AND category = 'opening_balance' AND NOT EXISTS (SELECT 1 FROM ledger_entries cancelled WHERE cancelled.reverses_entry_id = ledger_entries.id)
         UNION ALL
-        SELECT agent_name, (created_at AT TIME ZONE 'Africa/Cairo')::date, 0, amount
-        FROM agent_credit_payments WHERE NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = agent_credit_payments.id::text AND original.category = 'cash_receipt')
+        SELECT agent_name, (created_at AT TIME ZONE 'Africa/Cairo')::date,
+          0, GREATEST(amount, 0), GREATEST(-amount, 0)
+        FROM agent_credit_payments WHERE ${activeAgentPaymentSql('agent_credit_payments')}
       )
       SELECT MIN(name) AS "agentName", TO_CHAR(day, 'YYYY-MM-DD') AS date,
-        SUM(credit) AS credit, SUM(paid) AS paid, COUNT(*) AS "movementsCount"
+        SUM(credit) AS credit, SUM(paid) AS paid, SUM(refunded) AS refunded,
+        COUNT(*) AS "movementsCount"
       FROM movements GROUP BY LOWER(TRIM(name)), day ORDER BY day
     `);
     return buildAgentCreditDays(rows);
   }
 
-  async findAgentCredits() {
+  /**
+   * Agents with a credit account. By default only those who currently owe us
+   * (used to repay credit from a collection); with includeAll, every agent
+   * with any credit history — owing, holding a deposit, or settled — so the
+   * UI can pick an existing agent instead of creating a near-duplicate name.
+   */
+  async findAgentCredits(includeAll = false) {
     const rows = await this.collections
       .createQueryBuilder('collection')
       .select('MIN(collection.agentName)', 'agentName')
@@ -163,16 +177,16 @@ export class CollectionsService implements OnModuleInit {
     }
     const payments = await this.agentCreditPayments
       .createQueryBuilder('payment')
-      .andWhere(
-        "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
-      )
+      .andWhere(activeAgentPaymentSql('payment'))
       .select('LOWER(TRIM(payment.agentName))', 'agentKey')
+      .addSelect('MIN(payment.agentName)', 'agentName')
       .addSelect('SUM(payment.amount)', 'paid')
       .addSelect('MAX(payment.createdAt)', 'lastPaymentAt')
       .addSelect('COUNT(*)', 'paymentsCount')
       .groupBy('LOWER(TRIM(payment.agentName))')
       .getRawMany<{
         agentKey: string;
+        agentName: string;
         paid: string;
         lastPaymentAt: Date;
         paymentsCount: string;
@@ -180,6 +194,18 @@ export class CollectionsService implements OnModuleInit {
     const paymentsByAgent = new Map(
       payments.map((payment) => [payment.agentKey, payment]),
     );
+    // Agents who only ever handed us money (a pure deposit) have no
+    // collection or opening row yet.
+    for (const payment of payments) {
+      if (rows.some((row) => row.agentKey === payment.agentKey)) continue;
+      rows.push({
+        agentName: payment.agentName,
+        agentKey: payment.agentKey,
+        balance: '0',
+        lastActivityAt: payment.lastPaymentAt,
+        movementsCount: '0',
+      });
+    }
     return rows
       .map((row) => {
         const payment = paymentsByAgent.get(row.agentKey);
@@ -200,7 +226,11 @@ export class CollectionsService implements OnModuleInit {
             Number(row.movementsCount) + Number(payment?.paymentsCount ?? 0),
         };
       })
-      .filter((row) => row.balance > 0)
+      .filter((row) =>
+        includeAll
+          ? row.movementsCount > 0 || row.balance !== 0
+          : row.balance > 0,
+      )
       .sort((left, right) => right.balance - left.balance);
   }
 
@@ -215,18 +245,23 @@ export class CollectionsService implements OnModuleInit {
     )(async (manager) => {
       const agentName = dto.agentName.trim();
       await lockAgentCredit(manager, agentName);
+      const owed = dto.direction === 'owed';
+      const note = dto.note?.trim() ? ' — ' + dto.note.trim() : '';
       const entry = await manager.getRepository(LedgerEntry).save({
         category: LedgerCategory.OPENING_BALANCE,
-        amount: dto.amount,
+        amount: owed ? -dto.amount : dto.amount,
         entityType: 'agent_credit',
         entityId: null,
         reference: null,
-        description: `آجل قديم على ${agentName}${dto.note?.trim() ? ' — ' + dto.note.trim() : ''}`,
+        description: owed
+          ? `أمانة قديمة للمندوب ${agentName}${note}`
+          : `آجل قديم على ${agentName}${note}`,
         performedBy: username,
         metadata: {
           agentName,
           note: dto.note?.trim() || null,
           manualOpeningCredit: true,
+          direction: owed ? 'owed' : 'owes',
         },
       });
       return {
@@ -237,9 +272,43 @@ export class CollectionsService implements OnModuleInit {
     });
   }
 
+  /**
+   * Money received from an agent, as cash into the treasury or on a wallet /
+   * InstaPay / QR profit account. It repays their credit first; anything above
+   * the outstanding credit stays with us as a deposit (negative balance).
+   */
   async payAgentCredit(
     dto: PayAgentCreditDto,
     username: string,
+    transactionManager?: EntityManager,
+  ) {
+    const { result, dailyNotices } = await this.recordAgentCash(
+      dto,
+      username,
+      'in',
+      transactionManager,
+    );
+    for (const wallet of transactionManager ? [] : dailyNotices) {
+      await this.walletLimitNotices.notifyDailyThreshold(wallet);
+    }
+    return result;
+  }
+
+  /** Cash handed back to an agent from the treasury out of their deposit. */
+  async refundAgentCredit(
+    dto: RefundAgentCreditDto,
+    username: string,
+    transactionManager?: EntityManager,
+  ) {
+    return (
+      await this.recordAgentCash(dto, username, 'out', transactionManager)
+    ).result;
+  }
+
+  private recordAgentCash(
+    dto: PayAgentCreditDto,
+    username: string,
+    direction: 'in' | 'out',
     transactionManager?: EntityManager,
   ) {
     return inTransaction(
@@ -247,24 +316,37 @@ export class CollectionsService implements OnModuleInit {
       transactionManager,
     )(async (manager) => {
       const agentName = dto.agentName.trim();
-      await lockAgentCredit(manager, agentName);
-      const currentBalance = await agentCreditBalance(manager, agentName);
-      const amount = moneyCents(dto.amount) / 100;
-      if (currentBalance <= 0) {
+      if (dto.walletId && dto.accountId) {
         throw new BadRequestException(
           msg({
-            ar: 'المندوب ده ملوش آجل مستحق',
-            en: 'This agent has no outstanding credit',
+            ar: 'اختار مكان واحد تدخل عليه الفلوس',
+            en: 'Choose a single destination for the money',
           }),
         );
       }
-      if (amount > currentBalance) {
-        throw new BadRequestException(
-          msg({
-            ar: `أقصى مبلغ تسديد هو ${currentBalance}`,
-            en: `The maximum repayment is ${currentBalance}`,
-          }),
-        );
+      const toTreasury =
+        direction === 'out' || (!dto.walletId && !dto.accountId);
+      await lockAgentCredit(manager, agentName);
+      const currentBalance = await agentCreditBalance(manager, agentName);
+      const amount = moneyCents(dto.amount) / 100;
+      if (direction === 'out') {
+        const deposit = moneyCents(-currentBalance) / 100;
+        if (deposit <= 0) {
+          throw new BadRequestException(
+            msg({
+              ar: 'المندوب ده ملوش أمانة',
+              en: 'This agent has no deposit to refund',
+            }),
+          );
+        }
+        if (amount > deposit) {
+          throw new BadRequestException(
+            msg({
+              ar: `أقصى مبلغ رد هو ${deposit}`,
+              en: `The maximum refund is ${deposit}`,
+            }),
+          );
+        }
       }
 
       await manager.query(
@@ -272,43 +354,91 @@ export class CollectionsService implements OnModuleInit {
       );
       const referenceNumber =
         (await manager.getRepository(AgentCreditPayment).count()) + 1;
-      const reference = `CRD-${String(referenceNumber).padStart(3, '0')}`;
-      const treasury = await manager.getRepository(Treasury).findOne({
-        where: { id: 'main' },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!treasury) {
-        throw new NotFoundException(
-          msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+      const reference = `${direction === 'in' ? 'CRD' : 'RFD'}-${String(referenceNumber).padStart(3, '0')}`;
+      const signed = direction === 'in' ? amount : -amount;
+
+      let treasuryBalance: number | null = null;
+      const dailyNotices: Wallet[] = [];
+      let split: CollectionIncomingSplit | null = null;
+      if (toTreasury) {
+        const treasury = await manager.getRepository(Treasury).findOne({
+          where: { id: 'main' },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!treasury) {
+          throw new NotFoundException(
+            msg({ ar: 'الخزنة غير مهيأة', en: 'Treasury is not initialized' }),
+          );
+        }
+        if (direction === 'out' && Number(treasury.balance) < amount) {
+          throw new BadRequestException(
+            msg({
+              ar: 'رصيد الخزنة لا يكفي لرد الأمانة',
+              en: 'Treasury balance is not enough for this refund',
+            }),
+          );
+        }
+        treasury.balance = Number(
+          (Number(treasury.balance) + signed).toFixed(2),
+        );
+        await manager.getRepository(Treasury).save(treasury);
+        treasuryBalance = treasury.balance;
+      } else {
+        [split] = await creditIncomingDestinations(
+          manager,
+          [{ walletId: dto.walletId, accountId: dto.accountId, amount }],
+          null,
+          dailyNotices,
         );
       }
-      treasury.balance = Number((Number(treasury.balance) + amount).toFixed(2));
-      await manager.getRepository(Treasury).save(treasury);
 
+      const remainingBalance = moneyCents(currentBalance - signed) / 100;
       const payment = await manager.getRepository(AgentCreditPayment).save({
         reference,
         agentName,
-        amount,
+        amount: signed,
         performedBy: username,
       });
+      const target = split ? incomingSplitTarget(split) : null;
+      const what =
+        direction === 'out'
+          ? `رد أمانة للمندوب ${agentName}`
+          : currentBalance <= 0
+            ? `أمانة من المندوب ${agentName}`
+            : amount > currentBalance
+              ? `سداد آجل وأمانة من المندوب ${agentName}`
+              : `سداد آجل من المندوب ${agentName}`;
       await manager.getRepository(LedgerEntry).save({
-        category: LedgerCategory.CASH_RECEIPT,
-        amount,
-        entityType: 'agent_credit',
-        entityId: payment.id,
+        category: target ? LedgerCategory.TOP_UP : LedgerCategory.CASH_RECEIPT,
+        amount: signed,
+        entityType: target?.entityType ?? 'agent_credit',
+        entityId: target?.entityId ?? payment.id,
         reference,
-        description: `سداد آجل من المندوب ${agentName}`,
+        description: target ? `${what} على ${target.label}` : what,
         performedBy: username,
         metadata: {
-          agentCreditPayment: true,
+          ...(direction === 'in'
+            ? { agentCreditPayment: true }
+            : { agentCreditRefund: true }),
+          agentCreditPaymentId: payment.id,
           agentName,
-          remainingBalance: moneyCents(currentBalance - amount) / 100,
+          remainingBalance,
         },
       });
       return {
-        ...payment,
-        remainingBalance: moneyCents(currentBalance - amount) / 100,
-        treasuryBalance: treasury.balance,
+        result: {
+          ...payment,
+          remainingBalance,
+          treasuryBalance,
+          destination: target
+            ? {
+                type: target.entityType,
+                id: target.entityId,
+                name: split!.walletName,
+              }
+            : { type: 'treasury' },
+        },
+        dailyNotices,
       };
     });
   }
@@ -1078,9 +1208,7 @@ export async function agentCreditBalance(
   const paymentResult = await manager
     .getRepository(AgentCreditPayment)
     .createQueryBuilder('payment')
-    .andWhere(
-      "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
-    )
+    .andWhere(activeAgentPaymentSql('payment'))
     .select('COALESCE(SUM(payment.amount), 0)', 'paid')
     .andWhere('LOWER(TRIM(payment.agentName)) = LOWER(TRIM(:agentName))', {
       agentName,

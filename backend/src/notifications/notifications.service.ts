@@ -233,6 +233,20 @@ export function notificationContent(
     };
   }
 
+  if (
+    entry.category === LedgerCategory.CASH_RECEIPT &&
+    metadata['agentCreditRefund'] === true
+  ) {
+    return {
+      kind: NotificationKind.WITHDRAWAL,
+      title: msg({
+        ar: 'سحب — رد أمانة لمندوب',
+        en: 'Withdrawal — agent deposit refund',
+      }),
+      body: entry.description,
+    };
+  }
+
   const mapped = mapLedgerCategory(entry.category);
   return {
     ...mapped,

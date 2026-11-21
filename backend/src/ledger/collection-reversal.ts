@@ -1,4 +1,3 @@
-import { agentCreditBalance } from '../collections/collections.service.js';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { Collection } from '../database/entities/collection.entity.js';
@@ -40,12 +39,10 @@ export async function reverseCollection(
   if (!treasury) throw new NotFoundException('الخزنة غير موجودة');
   // Restore the execution first, including the case where the source also received a split.
   if (receipt.status === CollectionStatus.DONE && receipt.accountId) {
-    const account = await manager
-      .getRepository(FinancialAccount)
-      .findOne({
-        where: { id: receipt.accountId },
-        lock: { mode: 'pessimistic_write' },
-      });
+    const account = await manager.getRepository(FinancialAccount).findOne({
+      where: { id: receipt.accountId },
+      lock: { mode: 'pessimistic_write' },
+    });
     if (!account) throw new NotFoundException('الحساب غير موجود');
     const fee = [AccountType.PROFIT, AccountType.PROFIT_QR].includes(
       account.type,
@@ -63,12 +60,10 @@ export async function reverseCollection(
     await manager.save(account);
   }
   if (receipt.status === CollectionStatus.DONE && receipt.purchaseVisaId) {
-    const visa = await manager
-      .getRepository(PurchaseVisa)
-      .findOne({
-        where: { id: receipt.purchaseVisaId },
-        lock: { mode: 'pessimistic_write' },
-      });
+    const visa = await manager.getRepository(PurchaseVisa).findOne({
+      where: { id: receipt.purchaseVisaId },
+      lock: { mode: 'pessimistic_write' },
+    });
     if (!visa) throw new NotFoundException('الفيزا غير موجودة');
     visa.balance = money(Number(visa.balance) + Number(receipt.amount));
     visa.commissionBalance = money(
@@ -83,12 +78,10 @@ export async function reverseCollection(
   }
   for (const split of receipt.incomingSplits ?? []) {
     if (split.accountId) {
-      const account = await manager
-        .getRepository(FinancialAccount)
-        .findOne({
-          where: { id: split.accountId },
-          lock: { mode: 'pessimistic_write' },
-        });
+      const account = await manager.getRepository(FinancialAccount).findOne({
+        where: { id: split.accountId },
+        lock: { mode: 'pessimistic_write' },
+      });
       if (!account || Number(account.balance) < Number(split.amount))
         throw new BadRequestException('رصيد حساب الاستلام لا يكفي للإلغاء');
       account.balance = money(Number(account.balance) - Number(split.amount));
@@ -111,12 +104,10 @@ export async function reverseCollection(
       );
       await manager.save(account);
     } else if (split.walletId) {
-      const wallet = await manager
-        .getRepository(Wallet)
-        .findOne({
-          where: { id: split.walletId },
-          lock: { mode: 'pessimistic_write' },
-        });
+      const wallet = await manager.getRepository(Wallet).findOne({
+        where: { id: split.walletId },
+        lock: { mode: 'pessimistic_write' },
+      });
       const period = cairoPeriod();
       if (
         !wallet ||
@@ -222,9 +213,5 @@ export async function reverseCollection(
   receipt.reversedAt = new Date();
   receipt.reversalReason = reason;
   await repo.save(receipt);
-  if ((await agentCreditBalance(manager, receipt.agentName)) < 0)
-    throw new BadRequestException(
-      'تم استخدام آجل العملية في تسديد لاحق؛ الغِ الارتباط أولًا',
-    );
   return receipt;
 }

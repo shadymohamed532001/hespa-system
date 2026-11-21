@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import {
+  IsIn,
   IsNumber,
   IsOptional,
   IsString,
@@ -23,4 +24,9 @@ export class OpenAgentCreditDto {
   @IsString()
   @MaxLength(500)
   note?: string;
+
+  /** owes = the agent owes us (credit); owed = we hold the agent's money (deposit). */
+  @IsOptional()
+  @IsIn(['owes', 'owed'])
+  direction?: 'owes' | 'owed';
 }

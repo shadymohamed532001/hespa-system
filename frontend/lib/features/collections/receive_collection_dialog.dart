@@ -10,6 +10,7 @@ import '../../core/utils/money_formatter.dart';
 import '../../core/widgets/hesba_modal.dart';
 import '../auth/session_controller.dart';
 import '../../core/settings/tr.dart';
+import 'agent_picker.dart';
 
 Future<bool> showReceiveCollectionDialog({
   required BuildContext context,
@@ -191,8 +192,10 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
       final walletsFuture = widget.session.api
           .list(ApiEndpoints.wallets)
           .catchError((_) => <dynamic>[]);
+      // Every agent with a credit account (owing, holding a deposit or
+      // settled), so the picker can add to an existing agent.
       final creditsFuture = widget.session.api
-          .list(ApiEndpoints.agentCredits)
+          .list('${ApiEndpoints.agentCredits}?all=true')
           .catchError((_) => <dynamic>[]);
       final visasFuture = widget.session.api
           .list(ApiEndpoints.purchaseVisas)
@@ -317,14 +320,6 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
 
   String _requiredText(String? value) {
     return value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : '';
-  }
-
-  String? _agentNameValidator(String? value) {
-    final name = value?.trim() ?? '';
-    if (name.isEmpty) return 'اكتب اسم المندوب';
-    if (name.length < 2) return 'اسم المندوب لازم يكون حرفين على الأقل';
-    if (name.length > 150) return 'اسم المندوب طويل جدًا';
-    return null;
   }
 
   String _searchKey(String value) {
@@ -736,44 +731,12 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
   }
 
   Widget _agentField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _textField(
-          label: 'اسم المندوب *',
-          controller: _agentName,
-          fieldKey: const ValueKey('agent-name'),
-          validator: _agentNameValidator,
-        ),
-        if (_useAgentCredit && _agentCredits.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          Text('اختار مديون حالي أو اكتب اسم جديد', style: HesbaText.caption),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final credit in _agentCredits)
-                ActionChip(
-                  label: Text(
-                    '${credit['agentName']} · ${money(credit['balance'])}',
-                  ),
-                  onPressed: _saving
-                      ? null
-                      : () {
-                          final name = '${credit['agentName']}';
-                          _agentName.value = TextEditingValue(
-                            text: name,
-                            selection: TextSelection.collapsed(
-                              offset: name.length,
-                            ),
-                          );
-                        },
-                ),
-            ],
-          ),
-        ],
-      ],
+    return AgentPicker(
+      controller: _agentName,
+      agents: _agentCredits,
+      enabled: !_saving,
+      label: 'اسم المندوب *',
+      fieldKey: const ValueKey('agent-name'),
     );
   }
 
@@ -828,9 +791,9 @@ class _ReceiveCollectionDialogState extends State<_ReceiveCollectionDialog> {
               change == null
                   ? 'اكتب مبلغ العملية والمبلغ المستلم عشان يظهر فرق الآجل.'
                   : change > 0
-                  ? 'هيتسجل على ${_agentName.text.trim().isEmpty ? 'المندوب' : _agentName.text.trim()} آجل ${money(change)}. الرصيد بعد العملية ${money(current + change)}.'
+                  ? 'هيتسجل على ${_agentName.text.trim().isEmpty ? 'المندوب' : _agentName.text.trim()} آجل ${money(change)}. الرصيد بعد العملية ${agentBalanceLabel(current + change)}.'
                   : change < 0
-                  ? 'هيتسدد من الآجل ${money(-change)}. الرصيد بعد العملية ${money(current + change)}.'
+                  ? 'هيتسدد من الآجل ${money(-change)}. الرصيد بعد العملية ${agentBalanceLabel(current + change)}.'
                   : 'المبلغ كامل، مفيش آجل جديد ولا تسديد.',
             ),
           ),

@@ -269,16 +269,115 @@ describe('financial operations (e2e)', () => {
     expect(Number(cash.body.actualBalance)).toBe(
       Number((Number(before.body.actualBalance) + 234.55).toFixed(2)),
     );
-    await request(app.getHttpServer())
+    const overpaid = await request(app.getHttpServer())
       .post('/api/collections/agent-credits/payments')
       .set(mutation(`old-overpay-${randomUUID()}`))
       .send({ agentName, amount: 1000.02 })
-      .expect(400);
+      .expect(201);
+    expect(overpaid.body.remainingBalance).toBe(-0.01);
     await request(app.getHttpServer())
       .post('/api/collections/agent-credits/opening')
       .set(mutation(`old-invalid-${randomUUID()}`))
       .send({ agentName: '  ', amount: 100 })
       .expect(400);
+  });
+
+  it('keeps cash an agent leaves with us and refunds it from the treasury', async () => {
+    const agentName = `Deposit agent ${randomUUID()}`;
+    const treasury = async () =>
+      Number(
+        (
+          await request(app.getHttpServer())
+            .get('/api/treasury/summary')
+            .set('Authorization', `Bearer ${token}`)
+            .expect(200)
+        ).body.actualBalance,
+      );
+    const balance = async () =>
+      (
+        await request(app.getHttpServer())
+          .get('/api/collections/agent-credits/days')
+          .set('Authorization', `Bearer ${token}`)
+          .expect(200)
+      ).body.find((r: any) => r.agentName === agentName)?.balance;
+    const before = await treasury();
+
+    const deposit = await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/payments')
+      .set(mutation(`deposit-${randomUUID()}`))
+      .send({ agentName, amount: 100000 })
+      .expect(201);
+    expect(deposit.body.remainingBalance).toBe(-100000);
+    expect(await treasury()).toBe(Number((before + 100000).toFixed(2)));
+    expect(await balance()).toBe(-100000);
+
+    const refund = await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/refunds')
+      .set(mutation(`refund-${randomUUID()}`))
+      .send({ agentName, amount: 10000 })
+      .expect(201);
+    expect(refund.body.reference).toMatch(/^RFD-/);
+    expect(refund.body.remainingBalance).toBe(-90000);
+    expect(await treasury()).toBe(Number((before + 90000).toFixed(2)));
+    expect(await balance()).toBe(-90000);
+
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/refunds')
+      .set(mutation(`refund-too-much-${randomUUID()}`))
+      .send({ agentName, amount: 90000.01 })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/refunds')
+      .set(mutation(`refund-nobody-${randomUUID()}`))
+      .send({ agentName: `Nobody ${randomUUID()}`, amount: 1 })
+      .expect(400);
+
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/opening')
+      .set(mutation(`old-deposit-${randomUUID()}`))
+      .send({ agentName, amount: 500, direction: 'owed' })
+      .expect(201);
+    expect(await balance()).toBe(-90500);
+    expect(await treasury()).toBe(Number((before + 90000).toFixed(2)));
+
+    const days = (
+      await request(app.getHttpServer())
+        .get('/api/collections/agent-credits/days')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200)
+    ).body.filter((r: any) => r.agentName === agentName);
+    expect(days.reduce((sum: number, r: any) => sum + r.refunded, 0)).toBe(
+      10000,
+    );
+    expect(days.reduce((sum: number, r: any) => sum + r.paid, 0)).toBe(100500);
+
+    const owing = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(owing.body.some((r: any) => r.agentName === agentName)).toBe(false);
+    const everyone = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits?all=true')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      everyone.body.find((r: any) => r.agentName === agentName)?.balance,
+    ).toBe(-90500);
+
+    const depositOnly = `Deposit only ${randomUUID()}`;
+    await request(app.getHttpServer())
+      .post('/api/collections/agent-credits/payments')
+      .set(mutation(`deposit-only-${randomUUID()}`))
+      .send({ agentName: depositOnly, amount: 250 })
+      .expect(201);
+    const withDepositOnly = await request(app.getHttpServer())
+      .get('/api/collections/agent-credits?all=true')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(
+      withDepositOnly.body.find((r: any) => r.agentName === depositOnly)
+        ?.balance,
+    ).toBe(-250);
   });
 
   it('records a Fawry deposit from banknote counts and a typed external name', async () => {

@@ -330,40 +330,161 @@ describe.sequential('admin operation corrections (e2e)', () => {
       expect(afterWallet[key]).toBe(beforeWallet[key]);
   });
 
-  it('keeps agent credit aggregates consistent and blocks dependent cancellation', async () => {
+  it('keeps agent credit aggregates consistent, including deposits', async () => {
+    const agentName = 'Credit correction agent';
+    const balance = async () =>
+      (await get('/collections/agent-credits/days')).body.find(
+        (r: any) => r.agentName === agentName,
+      )?.balance;
+    const cash = async () =>
+      Number((await get('/treasury/summary')).body.actualBalance);
     const opening = (
       await post('/collections/agent-credits/opening', {
-        agentName: 'Credit correction agent',
+        agentName,
         amount: 100,
       })
     ).body.entry;
     await post('/collections/agent-credits/payments', {
-      agentName: 'Credit correction agent',
+      agentName,
       amount: 40,
     });
-    await post(
-      `/ledger/${opening.id}/cancel`,
-      { reason: 'إلغاء رصيد مستخدم' },
-      400,
-    );
     const payment = (await get('/ledger')).body.find(
       (e: any) =>
-        e.metadata?.agentCreditPayment &&
-        e.metadata.agentName === 'Credit correction agent',
+        e.metadata?.agentCreditPayment && e.metadata.agentName === agentName,
     );
     await post(`/ledger/${payment.id}/cancel`, { reason: 'إلغاء السداد' });
-    let credit = (await get('/collections/agent-credits')).body.find(
-      (r: any) => r.agentName === 'Credit correction agent',
-    );
-    expect(credit.balance).toBe(100);
+    expect(await balance()).toBe(100);
     await post(`/ledger/${opening.id}/correct`, {
       reason: 'تصحيح الآجل القديم',
       values: { amount: 150 },
     });
-    credit = (await get('/collections/agent-credits')).body.find(
-      (r: any) => r.agentName === 'Credit correction agent',
+    expect(await balance()).toBe(150);
+
+    // Paying more than the credit leaves a deposit with us.
+    await post('/collections/agent-credits/payments', {
+      agentName,
+      amount: 200,
+    });
+    expect(await balance()).toBe(-50);
+    const beforeRefund = await cash();
+    await post('/collections/agent-credits/refunds', {
+      agentName,
+      amount: 30,
+    });
+    expect(await balance()).toBe(-20);
+    expect(await cash()).toBe(Number((beforeRefund - 30).toFixed(2)));
+    const refund = (await get('/ledger')).body.find(
+      (e: any) =>
+        e.metadata?.agentCreditRefund && e.metadata.agentName === agentName,
     );
-    expect(credit.balance).toBe(150);
+    expect(Number(refund.amount)).toBe(-30);
+    await post(`/ledger/${refund.id}/correct`, {
+      reason: 'تصحيح الرد',
+      values: { amount: 20 },
+    });
+    expect(await balance()).toBe(-30);
+    expect(await cash()).toBe(Number((beforeRefund - 20).toFixed(2)));
+    const corrected = (await get('/ledger')).body.find(
+      (e: any) =>
+        e.metadata?.agentCreditRefund &&
+        e.metadata.agentName === agentName &&
+        !e.isReversed &&
+        Number(e.amount) === -20,
+    );
+    await post(`/ledger/${corrected.id}/cancel`, { reason: 'إلغاء الرد' });
+    expect(await balance()).toBe(-50);
+    expect(await cash()).toBe(beforeRefund);
+
+    // Cancelling a credit that was already repaid turns it into a deposit.
+    const currentOpening = (await get('/ledger')).body.find(
+      (e: any) =>
+        e.entityType === 'agent_credit' &&
+        e.category === 'opening_balance' &&
+        e.metadata?.agentName === agentName &&
+        !e.isReversed,
+    );
+    await post(`/ledger/${currentOpening.id}/cancel`, {
+      reason: 'إلغاء الآجل القديم',
+    });
+    expect(await balance()).toBe(-200);
+  });
+
+  it('receives agent money on a wallet or QR profit account instead of the treasury', async () => {
+    const agentName = 'Wallet deposit agent';
+    const agentBalance = async () =>
+      (await get('/collections/agent-credits/days')).body.find(
+        (r: any) => r.agentName === agentName,
+      )?.balance;
+    const cash = async () =>
+      Number((await get('/treasury/summary')).body.actualBalance);
+    const qr = (
+      await post('/accounts', {
+        name: 'Agent deposit QR',
+        type: 'profit_qr',
+        openingBalance: 0,
+      })
+    ).body;
+    const cashBefore = await cash();
+    const walletBefore = await balance('/wallets', walletId);
+
+    const toWallet = await post('/collections/agent-credits/payments', {
+      agentName,
+      amount: 7000,
+      walletId,
+    });
+    expect(toWallet.body.destination).toMatchObject({
+      type: 'wallet',
+      id: walletId,
+    });
+    await post('/collections/agent-credits/payments', {
+      agentName,
+      amount: 3000,
+      accountId: qr.id,
+    });
+    expect(await agentBalance()).toBe(-10000);
+    expect(await cash()).toBe(cashBefore);
+    const walletAfter = await balance('/wallets', walletId);
+    expect(walletAfter.balance).toBe(walletBefore.balance + 7000);
+    expect(walletAfter.todayTopUp).toBe(walletBefore.todayTopUp + 7000);
+    expect((await balance('/accounts', qr.id)).balance).toBe(3000);
+
+    const walletEntry = (await get('/ledger')).body.find(
+      (e: any) =>
+        e.metadata?.agentCreditPayment &&
+        e.metadata.agentName === agentName &&
+        e.entityType === 'wallet',
+    );
+    expect(walletEntry.category).toBe('top_up');
+    await post(`/ledger/${walletEntry.id}/correct`, {
+      reason: 'المبلغ الصحيح',
+      values: { amount: 5000 },
+    });
+    expect(await agentBalance()).toBe(-8000);
+    expect((await balance('/wallets', walletId)).balance).toBe(
+      walletBefore.balance + 5000,
+    );
+
+    const qrEntry = (await get('/ledger')).body.find(
+      (e: any) =>
+        e.metadata?.agentCreditPayment &&
+        e.metadata.agentName === agentName &&
+        e.entityType === 'account',
+    );
+    await post(`/ledger/${qrEntry.id}/cancel`, { reason: 'إلغاء' });
+    expect(await agentBalance()).toBe(-5000);
+    expect((await balance('/accounts', qr.id)).balance).toBe(0);
+    expect(await cash()).toBe(cashBefore);
+
+    await post(
+      '/collections/agent-credits/payments',
+      { agentName, amount: 1, walletId, accountId: qr.id },
+      400,
+    );
+    await post(
+      '/collections/agent-credits/refunds',
+      { agentName, amount: 1, walletId },
+      400,
+    );
   });
 
   it('corrects sales with stock, inventory treasury and historical cost together', async () => {

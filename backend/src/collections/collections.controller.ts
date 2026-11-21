@@ -1,5 +1,13 @@
 import { OpenAgentCreditDto } from './dto/open-agent-credit.dto.js';
-import { Body, Controller, Get, Param, Post, Request } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Query,
+  Request,
+} from '@nestjs/common';
 import { RequirePermissions } from '../common/decorators/permissions.decorator.js';
 import { Idempotent } from '../common/decorators/idempotent.decorator.js';
 import { AppPermission } from '../database/enums.js';
@@ -10,7 +18,10 @@ import {
 import { UsersService } from '../users/users.service.js';
 import { CollectionsService } from './collections.service.js';
 import { ExecuteHoldDto } from './dto/execute-hold.dto.js';
-import { PayAgentCreditDto } from './dto/pay-agent-credit.dto.js';
+import {
+  PayAgentCreditDto,
+  RefundAgentCreditDto,
+} from './dto/pay-agent-credit.dto.js';
 import { ReceiveCollectionDto } from './dto/receive-collection.dto.js';
 
 type UserRequest = { user: { userId: string; username: string } };
@@ -35,8 +46,8 @@ export class CollectionsController {
   }
 
   @Get('agent-credits')
-  findAgentCredits() {
-    return this.collections.findAgentCredits();
+  findAgentCredits(@Query('all') all?: string) {
+    return this.collections.findAgentCredits(all === 'true');
   }
 
   @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)
@@ -67,6 +78,21 @@ export class CollectionsController {
       dto.amount,
     );
     return this.collections.payAgentCredit(dto, request.user.username);
+  }
+
+  @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)
+  @Idempotent()
+  @Post('agent-credits/refunds')
+  async refundAgentCredit(
+    @Body() dto: RefundAgentCreditDto,
+    @Request() request: UserRequest,
+  ) {
+    await this.users.assertAmountLimit(
+      request.user.userId,
+      'maxReceiveAmount',
+      dto.amount,
+    );
+    return this.collections.refundAgentCredit(dto, request.user.username);
   }
 
   @RequirePermissions(AppPermission.RECEIVE_COLLECTIONS)

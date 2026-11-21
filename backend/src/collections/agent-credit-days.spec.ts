@@ -69,4 +69,32 @@ describe('Daily agent credit balances', () => {
       )?.balance,
     ).toBe(0);
   });
+  it('lets the balance go negative for deposits and adds refunds back', () => {
+    const rows = buildAgentCreditDays([
+      {
+        date: '2026-11-18',
+        agentName: 'Saad',
+        credit: 0,
+        paid: 100000,
+        refunded: 0,
+        movementsCount: 1,
+      },
+      {
+        date: '2026-11-19',
+        agentName: 'Saad',
+        credit: 5000,
+        paid: 0,
+        refunded: 10000,
+        movementsCount: 2,
+      },
+    ]);
+    expect(rows.map((row) => [row.openingBalance, row.closingBalance])).toEqual(
+      [
+        [-100000, -85000],
+        [0, -100000],
+      ],
+    );
+    expect(rows[0].refunded).toBe(10000);
+    expect(rows.every((row) => row.balance === -85000)).toBe(true);
+  });
 });

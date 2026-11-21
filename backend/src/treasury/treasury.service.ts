@@ -1,4 +1,5 @@
 import { inTransaction } from '../common/in-transaction.js';
+import { activeAgentPaymentSql } from '../collections/agent-credit-sql.js';
 import {
   BadRequestException,
   Injectable,
@@ -71,9 +72,7 @@ export class TreasuryService {
       .getRawOne<{ total: string }>();
     const paymentResult = await this.agentCreditPayments
       .createQueryBuilder('payment')
-      .andWhere(
-        "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
-      )
+      .andWhere(activeAgentPaymentSql('payment'))
       .select('COALESCE(SUM(payment.amount), 0)', 'total')
       .getRawOne<{ total: string }>();
     const [openingCredit] = await this.dataSource.query(
@@ -584,9 +583,7 @@ export class TreasuryService {
       const agentCreditPaymentResult = await manager
         .getRepository(AgentCreditPayment)
         .createQueryBuilder('payment')
-        .andWhere(
-          "NOT EXISTS (SELECT 1 FROM ledger_entries original JOIN ledger_entries cancelled ON cancelled.reverses_entry_id = original.id WHERE original.entity_type = 'agent_credit' AND original.entity_id = payment.id::text AND original.category = 'cash_receipt')",
-        )
+        .andWhere(activeAgentPaymentSql('payment'))
         .select('COALESCE(SUM(payment.amount), 0)', 'total')
         .getRawOne<{ total: string }>();
       const [openingCredit] = await manager.query(
