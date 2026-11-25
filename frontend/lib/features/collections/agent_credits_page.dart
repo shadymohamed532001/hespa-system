@@ -13,6 +13,7 @@ import '../../core/widgets/page_frame.dart';
 import '../auth/session_controller.dart';
 import 'agent_picker.dart';
 import 'agent_history_page.dart';
+import 'shop_debts_section.dart';
 
 class AgentCreditsPage extends StatefulWidget {
   const AgentCreditsPage({super.key, required this.session});
@@ -31,6 +32,10 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
   DateTime? _to = DateUtils.dateOnly(DateTime.now());
   String _agent = '';
   String _status = 'all';
+
+  /// «agents» or «debts» (the shop owner's loans, admin only).
+  String _section = 'agents';
+  bool get _showDebts => _section == 'debts' && widget.session.isAdmin;
 
   String _dayKey(DateTime date) =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
@@ -148,7 +153,8 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
       onRefresh: () => _load(silent: true),
       title: 'آجل المندوبين',
       actions: [
-        if (widget.session.can(AppPermissions.receiveCollections)) ...[
+        if (!_showDebts &&
+            widget.session.can(AppPermissions.receiveCollections)) ...[
           FilledButton.icon(
             onPressed: () => _moveCash(null, _CashDirection.receive),
             icon: const Icon(Icons.savings_outlined),
@@ -161,97 +167,132 @@ class _AgentCreditsPageState extends State<AgentCreditsPage> {
           ),
         ],
       ],
-      subtitle:
-          'اللي على المندوبين من آجل، واللي ليهم من أمانات سابوها في الخزنة',
-      child: _loading
-          ? const Center(
-              child: Padding(
-                padding: EdgeInsets.all(80),
-                child: CircularProgressIndicator(),
-              ),
-            )
-          : _error != null
-          ? ErrorBox(message: _error!, retry: _load)
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _filters(),
-                const SizedBox(height: 16),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final perRow = constraints.maxWidth >= 1100
-                        ? 4
-                        : constraints.maxWidth >= 600
-                        ? 2
-                        : 1;
-                    final width =
-                        (constraints.maxWidth - 16 * (perRow - 1)) / perRow;
-                    return Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
-                      children: [
-                        SizedBox(
-                          width: width,
-                          child: _CreditMetric(
-                            label: 'إجمالي اللي على المندوبين',
-                            value: money(_owedByAgents),
-                            note: 'آجل حالي مستحق علينا نحصّله، عبر كل الأيام',
-                            tone: _owedByAgents > 0
-                                ? _MetricTone.warning
-                                : _MetricTone.normal,
-                          ),
-                        ),
-                        SizedBox(
-                          width: width,
-                          child: _CreditMetric(
-                            label: 'إجمالي أمانات المندوبين',
-                            value: money(_heldForAgents),
-                            note: 'فلوس المندوبين اللي معانا ولازم تترد لهم',
-                            tone: _heldForAgents > 0
-                                ? _MetricTone.deposit
-                                : _MetricTone.normal,
-                          ),
-                        ),
-                        SizedBox(
-                          width: width,
-                          child: _CreditMetric(
-                            label: 'آجل جديد في الفترة',
-                            value: money(_sum('credit')),
-                            note: 'إجمالي الآجل المضاف في الأيام المعروضة',
-                            tone: _sum('credit') > 0
-                                ? _MetricTone.warning
-                                : _MetricTone.normal,
-                          ),
-                        ),
-                        SizedBox(
-                          width: width,
-                          child: _CreditMetric(
-                            label: 'المستلم في الفترة',
-                            value: money(_sum('paid')),
-                            note:
-                                'مردود ${money(_sum('refunded'))} · ${_visible.map((row) => row['agentName']).toSet().length} مندوب · ${_visible.length} سجل يومي',
-                          ),
-                        ),
-                      ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 18),
-                if (_visible.isEmpty)
-                  const _EmptyCredits()
-                else
-                  _CreditsTable(
-                    session: widget.session,
-                    rows: _visible,
-                    onReceive: (row) => _moveCash(row, _CashDirection.receive),
-                    onRefund: (row) => _moveCash(row, _CashDirection.refund),
-                    canPay: widget.session.can(
-                      AppPermissions.receiveCollections,
-                    ),
+      subtitle: _showDebts
+          ? 'الفلوس اللي صاحب المحل استلفها من ناس، واللي اتسدد منها'
+          : 'اللي على المندوبين من آجل، واللي ليهم من أمانات سابوها في الخزنة',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (widget.session.isAdmin) ...[
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SegmentedButton<String>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(
+                    value: 'agents',
+                    icon: Icon(Icons.groups_outlined, size: 18),
+                    label: Text('المندوبين'),
                   ),
-              ],
+                  ButtonSegment(
+                    value: 'debts',
+                    icon: Icon(Icons.menu_book_outlined, size: 18),
+                    label: Text('سلف المحل'),
+                  ),
+                ],
+                selected: {_section},
+                onSelectionChanged: (value) =>
+                    setState(() => _section = value.first),
+              ),
             ),
+            const SizedBox(height: 16),
+          ],
+          if (_showDebts)
+            ShopDebtsSection(session: widget.session)
+          else
+            _agentsContent(),
+        ],
+      ),
     );
+  }
+
+  Widget _agentsContent() {
+    return _loading
+        ? const Center(
+            child: Padding(
+              padding: EdgeInsets.all(80),
+              child: CircularProgressIndicator(),
+            ),
+          )
+        : _error != null
+        ? ErrorBox(message: _error!, retry: _load)
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _filters(),
+              const SizedBox(height: 16),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final perRow = constraints.maxWidth >= 1100
+                      ? 4
+                      : constraints.maxWidth >= 600
+                      ? 2
+                      : 1;
+                  final width =
+                      (constraints.maxWidth - 16 * (perRow - 1)) / perRow;
+                  return Wrap(
+                    spacing: 16,
+                    runSpacing: 16,
+                    children: [
+                      SizedBox(
+                        width: width,
+                        child: _CreditMetric(
+                          label: 'إجمالي اللي على المندوبين',
+                          value: money(_owedByAgents),
+                          note: 'آجل حالي مستحق علينا نحصّله، عبر كل الأيام',
+                          tone: _owedByAgents > 0
+                              ? _MetricTone.warning
+                              : _MetricTone.normal,
+                        ),
+                      ),
+                      SizedBox(
+                        width: width,
+                        child: _CreditMetric(
+                          label: 'إجمالي أمانات المندوبين',
+                          value: money(_heldForAgents),
+                          note: 'فلوس المندوبين اللي معانا ولازم تترد لهم',
+                          tone: _heldForAgents > 0
+                              ? _MetricTone.deposit
+                              : _MetricTone.normal,
+                        ),
+                      ),
+                      SizedBox(
+                        width: width,
+                        child: _CreditMetric(
+                          label: 'آجل جديد في الفترة',
+                          value: money(_sum('credit')),
+                          note: 'إجمالي الآجل المضاف في الأيام المعروضة',
+                          tone: _sum('credit') > 0
+                              ? _MetricTone.warning
+                              : _MetricTone.normal,
+                        ),
+                      ),
+                      SizedBox(
+                        width: width,
+                        child: _CreditMetric(
+                          label: 'المستلم في الفترة',
+                          value: money(_sum('paid')),
+                          note:
+                              'مردود ${money(_sum('refunded'))} · ${_visible.map((row) => row['agentName']).toSet().length} مندوب · ${_visible.length} سجل يومي',
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 18),
+              if (_visible.isEmpty)
+                const _EmptyCredits()
+              else
+                _CreditsTable(
+                  session: widget.session,
+                  rows: _visible,
+                  onReceive: (row) => _moveCash(row, _CashDirection.receive),
+                  onRefund: (row) => _moveCash(row, _CashDirection.refund),
+                  canPay: widget.session.can(AppPermissions.receiveCollections),
+                ),
+            ],
+          );
   }
 
   Widget _filters() {

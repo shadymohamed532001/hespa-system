@@ -37,6 +37,9 @@ import { SecurityModule } from './common/security.module.js';
 import { ProfitVisibilityInterceptor } from './common/interceptors/profit-visibility.interceptor.js';
 import { validateConfig } from './config/validate-config.js';
 import { CollectionsModule } from './collections/collections.module.js';
+import { ShopDebtsModule } from './shop-debts/shop-debts.module.js';
+import { ShopDebtMovement } from './database/entities/shop-debt-movement.entity.js';
+import { ShopDebts1790087699439 } from './database/migrations/1790087699439-ShopDebts.js';
 import {
   AppNotification,
   AgentCreditPayment,
@@ -93,6 +96,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
         entities: [
           User,
           AgentCreditPayment,
+          ShopDebtMovement,
           FawryDailyDrop,
           FawryDeposit,
           FinancialAccount,
@@ -139,6 +143,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           CollectionPurchaseVisa1790087699435,
           ProfitBasicOpenLimit1790087699437,
           PurchaseVisaOptionalCard1790087699438,
+          ShopDebts1790087699439,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',
@@ -151,6 +156,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
     MachinesModule,
     PurchaseVisasModule,
     CollectionsModule,
+    ShopDebtsModule,
     TreasuryModule,
     LedgerModule,
     NotificationsModule,

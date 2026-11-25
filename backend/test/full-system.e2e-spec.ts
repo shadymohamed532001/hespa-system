@@ -172,6 +172,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'CollectionPurchaseVisa1790087699435',
       'ProfitBasicOpenLimit1790087699437',
       'PurchaseVisaOptionalCard1790087699438',
+      'ShopDebts1790087699439',
     ]);
   });
 
@@ -247,6 +248,11 @@ describe.sequential('full system lifecycle (e2e)', () => {
         displayName: 'Forbidden',
         role: 'employee',
       })
+      .expect(403);
+    // The shop owner's personal loans are admin-only.
+    await request(app.getHttpServer())
+      .get('/api/shop-debts')
+      .set(bearer(employeeToken))
       .expect(403);
 
     const accountKey = `full-account-idempotency-${randomUUID()}`;

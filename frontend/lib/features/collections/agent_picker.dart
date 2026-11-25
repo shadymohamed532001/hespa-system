@@ -34,6 +34,7 @@ class AgentPicker extends StatefulWidget {
     this.enabled = true,
     this.label = 'المندوب *',
     this.fieldKey,
+    this.noun = 'مندوب',
   });
 
   final TextEditingController controller;
@@ -43,6 +44,9 @@ class AgentPicker extends StatefulWidget {
 
   /// Key of the name text field in "new agent" mode (used by tests).
   final Key? fieldKey;
+
+  /// What is being picked, e.g. «مندوب» or «شخص»; used in every hint.
+  final String noun;
 
   @override
   State<AgentPicker> createState() => _AgentPickerState();
@@ -102,13 +106,13 @@ class _AgentPickerState extends State<AgentPicker> {
               ButtonSegment(
                 value: _AgentMode.existing,
                 icon: const Icon(Icons.person_search_outlined, size: 18),
-                label: Text('مندوب قديم (${widget.agents.length})'),
+                label: Text('${widget.noun} قديم (${widget.agents.length})'),
                 enabled: widget.agents.isNotEmpty,
               ),
-              const ButtonSegment(
+              ButtonSegment(
                 value: _AgentMode.fresh,
-                icon: Icon(Icons.person_add_alt_1_outlined, size: 18),
-                label: Text('مندوب جديد'),
+                icon: const Icon(Icons.person_add_alt_1_outlined, size: 18),
+                label: Text('${widget.noun} جديد'),
               ),
             ],
             selected: {_mode},
@@ -134,7 +138,7 @@ class _AgentPickerState extends State<AgentPicker> {
                     : null,
                 icon: const Icon(Icons.info_outline, size: 18),
                 label: Text(
-                  'المندوب ده موجود: ${agentBalanceLabel(num.tryParse('${_agentNamed(widget.controller.text)!['balance']}') ?? 0)} — اضغط عشان تضيف على حسابه',
+                  'ال${widget.noun} ده موجود: ${agentBalanceLabel(num.tryParse('${_agentNamed(widget.controller.text)!['balance']}') ?? 0)} — اضغط عشان تضيف على حسابه',
                 ),
               ),
             ),
@@ -175,9 +179,9 @@ class _AgentPickerState extends State<AgentPicker> {
             controller: search,
             focusNode: focusNode,
             enabled: widget.enabled,
-            decoration: const InputDecoration(
-              hintText: 'دوّر باسم المندوب أو أي حرف منه',
-              prefixIcon: Icon(Icons.search),
+            decoration: InputDecoration(
+              hintText: 'دوّر باسم ال${widget.noun} أو أي حرف منه',
+              prefixIcon: const Icon(Icons.search),
             ),
             onChanged: (text) {
               // Only an agent picked from the list counts; typing alone keeps
@@ -188,7 +192,7 @@ class _AgentPickerState extends State<AgentPicker> {
               );
             },
             validator: (_) => widget.controller.text.trim().isEmpty
-                ? 'اختار المندوب من القايمة، أو دوس «مندوب جديد»'
+                ? 'اختار ال${widget.noun} من القايمة، أو دوس «${widget.noun} جديد»'
                 : null,
           );
         },
@@ -203,9 +207,9 @@ class _AgentPickerState extends State<AgentPicker> {
                 maxWidth: constraints.maxWidth,
               ),
               child: options.isEmpty
-                  ? const Padding(
-                      padding: EdgeInsets.all(16),
-                      child: Text('مفيش مندوب بالاسم ده'),
+                  ? Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text('مفيش ${widget.noun} بالاسم ده'),
                     )
                   : ListView(
                       padding: EdgeInsets.zero,
@@ -235,15 +239,17 @@ class _AgentPickerState extends State<AgentPicker> {
       controller: widget.controller,
       enabled: widget.enabled,
       maxLength: 150,
-      decoration: const InputDecoration(hintText: 'اكتب اسم المندوب الجديد'),
+      decoration: InputDecoration(hintText: 'اكتب اسم ال${widget.noun} الجديد'),
       onChanged: (_) => setState(() {}),
       validator: (value) {
         final name = value?.trim() ?? '';
-        if (name.isEmpty) return 'اكتب اسم المندوب';
-        if (name.length < 2) return 'اسم المندوب لازم يكون حرفين على الأقل';
+        if (name.isEmpty) return 'اكتب اسم ال${widget.noun}';
+        if (name.length < 2) {
+          return 'اسم ال${widget.noun} لازم يكون حرفين على الأقل';
+        }
         final existing = _agentNamed(name);
         if (existing != null) {
-          return '«${existing['agentName']}» موجود بالفعل؛ اختاره من «مندوب قديم» عشان يتضاف على حسابه';
+          return '«${existing['agentName']}» موجود بالفعل؛ اختاره من «${widget.noun} قديم» عشان يتضاف على حسابه';
         }
         return null;
       },

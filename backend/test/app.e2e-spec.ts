@@ -282,6 +282,89 @@ describe('financial operations (e2e)', () => {
       .expect(400);
   });
 
+  it('keeps a record-only notebook of money the shop borrowed from people', async () => {
+    const person = `السيد ${randomUUID().slice(0, 8)}`;
+    const auth = { Authorization: `Bearer ${token}` };
+    const cash = async () =>
+      Number(
+        (
+          await request(app.getHttpServer())
+            .get('/api/treasury/summary')
+            .set(auth)
+            .expect(200)
+        ).body.actualBalance,
+      );
+    const record = (body: object, status = 201) =>
+      request(app.getHttpServer())
+        .post('/api/shop-debts')
+        .set(mutation(`shop-debt-${randomUUID()}`))
+        .send(body)
+        .expect(status);
+    const owed = async () =>
+      (
+        await request(app.getHttpServer())
+          .get('/api/shop-debts')
+          .set(auth)
+          .expect(200)
+      ).body.find((row: any) => row.personName === person)?.owed;
+    const before = await cash();
+
+    const big = await record({
+      personName: person,
+      kind: 'borrow',
+      amount: 5000,
+    });
+    expect(big.body.reference).toMatch(/^DBT-/);
+    const small = await record({
+      personName: ` ${person} `,
+      kind: 'borrow',
+      amount: 2000,
+      note: 'سلفة تانية',
+    });
+    expect(await owed()).toBe(7000);
+    await record({ personName: person, kind: 'repay', amount: 3000 });
+    expect(await owed()).toBe(4000);
+    await record({ personName: person, kind: 'repay', amount: 4000.01 }, 400);
+    await record({ personName: 'حد مش موجود', kind: 'repay', amount: 1 }, 400);
+    // Record-only: the treasury never moves.
+    expect(await cash()).toBe(before);
+
+    const cancel = (id: string, status = 201) =>
+      request(app.getHttpServer())
+        .post(`/api/shop-debts/${id}/cancel`)
+        .set(mutation(`shop-debt-cancel-${randomUUID()}`))
+        .send({ reason: 'اتسجلت غلط' })
+        .expect(status);
+    await cancel(small.body.id);
+    await cancel(small.body.id, 400);
+    expect(await owed()).toBe(2000);
+    // 3000 of the remaining loan was repaid, so it cannot be dropped.
+    await cancel(big.body.id, 400);
+
+    const history = await request(app.getHttpServer())
+      .get('/api/shop-debts/history')
+      .query({ personName: person })
+      .set(auth)
+      .expect(200);
+    expect(history.body).toMatchObject({
+      owed: 2000,
+      borrowed: 5000,
+      repaid: 3000,
+    });
+    expect(
+      history.body.movements.map((row: any) => [
+        row.kind,
+        row.amount,
+        row.cancelled,
+        row.owedAfter,
+      ]),
+    ).toEqual([
+      ['repay', 3000, false, 2000],
+      ['borrow', 2000, true, 5000],
+      ['borrow', 5000, false, 5000],
+    ]);
+  });
+
   it('keeps cash an agent leaves with us and refunds it from the treasury', async () => {
     const agentName = `Deposit agent ${randomUUID()}`;
     const treasury = async () =>

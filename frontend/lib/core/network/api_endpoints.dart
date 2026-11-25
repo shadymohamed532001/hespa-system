@@ -83,6 +83,14 @@ abstract final class ApiEndpoints {
   static const String agentCredits = '$collections/agent-credits';
   static const String agentCreditPayments = '$agentCredits/payments';
   static const String agentCreditRefunds = '$agentCredits/refunds';
+  // The shop owner's personal loans (record-only, admin only).
+  static const String shopDebts = '/shop-debts';
+  static String shopDebtHistory(String personName) => Uri(
+    path: '$shopDebts/history',
+    queryParameters: {'personName': personName},
+  ).toString();
+  static String cancelShopDebt(String id) => '$shopDebts/$id/cancel';
+
   static String agentCreditHistory(String agentName) => Uri(
     path: '$agentCredits/history',
     queryParameters: {'agentName': agentName},
