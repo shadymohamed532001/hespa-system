@@ -174,6 +174,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'PurchaseVisaOptionalCard1790087699438',
       'ShopDebts1790087699439',
       'RetireRegularProfit1790087699440',
+      'FawryDailyWithdrawLimit1790087699441',
     ]);
   });
 
@@ -279,16 +280,6 @@ describe.sequential('full system lifecycle (e2e)', () => {
       .set({ ...bearer(adminToken), 'Idempotency-Key': accountKey })
       .send({ ...accountBody, name: 'Different request body' })
       .expect(409);
-
-    await request(app.getHttpServer())
-      .post('/api/accounts')
-      .set(mutation(adminToken, 'fawry-over-limit'))
-      .send({
-        name: `فوري فوق الحد ${randomUUID()}`,
-        type: 'fawry',
-        openingBalance: 5_000_001,
-      })
-      .expect(400);
 
     const disposable = await request(app.getHttpServer())
       .post('/api/accounts')

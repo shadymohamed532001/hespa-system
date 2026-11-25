@@ -12,6 +12,7 @@ import {
   LedgerCategory,
 } from '../database/enums.js';
 import { cairoPeriod } from '../wallets/wallets.service.js';
+import { removeFawryWithdrawal } from '../accounts/fawry-limit.js';
 
 const money = (n: number) => Number(n.toFixed(2));
 
@@ -52,6 +53,12 @@ export async function reverseCollection(
     account.balance = money(
       Number(account.balance) + Number(receipt.amount) + fee,
     );
+    if (account.type === AccountType.FAWRY)
+      removeFawryWithdrawal(
+        account,
+        Number(receipt.amount),
+        receipt.executedAt,
+      );
     account.commissionBalance = money(
       Number(account.commissionBalance) - Number(receipt.commission),
     );

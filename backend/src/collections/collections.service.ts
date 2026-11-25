@@ -27,6 +27,11 @@ import { Treasury } from '../database/entities/treasury.entity.js';
 import { Wallet } from '../database/entities/wallet.entity.js';
 import { WalletLimitNoticeService } from '../wallets/wallet-limit-notice.service.js';
 import {
+  FawryLimitNoticeService,
+  type FawryLimitNotice,
+} from '../accounts/fawry-limit-notice.service.js';
+import { addFawryWithdrawal } from '../accounts/fawry-limit.js';
+import {
   AccountType,
   CollectionStatus,
   ExecutionMode,
@@ -58,6 +63,7 @@ export class CollectionsService implements OnModuleInit {
     private readonly dataSource: DataSource,
     private readonly config: ConfigService,
     private readonly walletLimitNotices: WalletLimitNoticeService,
+    private readonly fawryLimitNotices: FawryLimitNoticeService,
   ) {}
 
   async onModuleInit() {
@@ -612,6 +618,7 @@ export class CollectionsService implements OnModuleInit {
         );
 
       let account: FinancialAccount | null = null;
+      let fawryNotice: FawryLimitNotice | null = null;
       let visa: PurchaseVisa | null = null;
       let visaProfit = { grossProfit: 0, serviceFee: 0, netProfit: 0 };
       if (dto.executionMode === ExecutionMode.IMMEDIATE && dto.purchaseVisaId) {
@@ -660,6 +667,7 @@ export class CollectionsService implements OnModuleInit {
             }),
           );
         assertNoFawryOperationCommission(account, dto.commission);
+        fawryNotice = countFawryWithdrawal(account, Number(dto.amount));
       }
 
       const splits = await creditIncomingDestinations(
@@ -818,10 +826,13 @@ export class CollectionsService implements OnModuleInit {
           pending: false,
         });
       }
-      return { collection, dailyNotices };
+      return { collection, dailyNotices, fawryNotice };
     });
     for (const wallet of transactionManager ? [] : outcome.dailyNotices) {
       await this.walletLimitNotices.notifyDailyThreshold(wallet);
+    }
+    if (!transactionManager && outcome.fawryNotice) {
+      await this.fawryLimitNotices.notify(outcome.fawryNotice);
     }
     return outcome.collection;
   }
@@ -829,6 +840,7 @@ export class CollectionsService implements OnModuleInit {
   async execute(id: string, dto: ExecuteHoldDto, username: string) {
     const outcome = await this.dataSource.transaction(async (manager) => {
       const dailyNotices: Wallet[] = [];
+      let fawryNotice: FawryLimitNotice | null = null;
       const collectionRepo = manager.getRepository(Collection);
       const collection = await collectionRepo.findOne({
         where: { id },
@@ -922,6 +934,7 @@ export class CollectionsService implements OnModuleInit {
             }),
           );
         assertNoFawryOperationCommission(account, dto.commission);
+        fawryNotice = countFawryWithdrawal(account, Number(collection.amount));
         account.balance = Number(
           (Number(account.balance) - accountDebit).toFixed(2),
         );
@@ -961,10 +974,13 @@ export class CollectionsService implements OnModuleInit {
         }
       }
       await applyHeldIncoming(manager, collection, dto, username, dailyNotices);
-      return { collection, dailyNotices };
+      return { collection, dailyNotices, fawryNotice };
     });
     for (const wallet of outcome.dailyNotices) {
       await this.walletLimitNotices.notifyDailyThreshold(wallet);
+    }
+    if (outcome.fawryNotice) {
+      await this.fawryLimitNotices.notify(outcome.fawryNotice);
     }
     return outcome.collection;
   }
@@ -1470,6 +1486,16 @@ async function applyHeldIncoming(
   collection.incomingSplits = splits.length ? splits : null;
   collection.agentCreditChange = agentCreditChange;
   await manager.getRepository(Collection).save(collection);
+}
+
+/** Fawry caps what is paid out per day; count this execution against it. */
+function countFawryWithdrawal(
+  account: FinancialAccount,
+  amount: number,
+): FawryLimitNotice | null {
+  if (account.type !== AccountType.FAWRY) return null;
+  const percent = addFawryWithdrawal(account, amount);
+  return percent ? { account, percent } : null;
 }
 
 function assertNoFawryOperationCommission(

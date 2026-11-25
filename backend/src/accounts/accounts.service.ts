@@ -20,6 +20,10 @@ import { Treasury } from '../database/entities/treasury.entity.js';
 import { User } from '../database/entities/user.entity.js';
 import { AccountType, LedgerCategory } from '../database/enums.js';
 import { cairoParts } from './cairo-time.js';
+import {
+  FAWRY_DAILY_WITHDRAW_LIMIT,
+  fawryWithdrawnToday,
+} from './fawry-limit.js';
 import { CreateAccountDto } from './dto/create-account.dto.js';
 import { RecordFawryDepositDto } from './dto/record-fawry-deposit.dto.js';
 import { ProfitQrCashOutDto } from './dto/profit-qr-cash-out.dto.js';
@@ -32,8 +36,6 @@ import {
   profitQrIncomingFee,
   regularProfitDepositCommission,
 } from './profit-commission.js';
-
-export const FAWRY_MAX_BALANCE = 5_000_000;
 
 @Injectable()
 export class AccountsService implements OnModuleInit {
@@ -81,11 +83,20 @@ export class AccountsService implements OnModuleInit {
     await this.accounts.save(basic);
   }
 
-  findAll(includeInactive = false) {
-    return this.accounts.find({
+  async findAll(includeInactive = false) {
+    const accounts = await this.accounts.find({
       where: includeInactive ? {} : { active: true },
       order: { createdAt: 'ASC' },
     });
+    return accounts.map((account) =>
+      account.type === AccountType.FAWRY
+        ? {
+            ...account,
+            withdrawnToday: fawryWithdrawnToday(account),
+            withdrawLimit: FAWRY_DAILY_WITHDRAW_LIMIT,
+          }
+        : account,
+    );
   }
 
   fawryDepositors() {
@@ -101,17 +112,6 @@ export class AccountsService implements OnModuleInit {
 
   async create(dto: CreateAccountDto, username: string) {
     assertNotRegularProfit(dto.type);
-    if (
-      dto.type === AccountType.FAWRY &&
-      dto.openingBalance > FAWRY_MAX_BALANCE
-    ) {
-      throw new BadRequestException(
-        msg({
-          ar: 'الرصيد الافتتاحي يتجاوز الحد الأقصى لحساب فوري',
-          en: 'Opening balance exceeds the Fawry account maximum',
-        }),
-      );
-    }
     const openLimit =
       dto.type === AccountType.PROFIT && isBasicProfitName(dto.name);
     return this.dataSource.transaction(async (manager) => {
@@ -185,22 +185,6 @@ export class AccountsService implements OnModuleInit {
             en: 'Account not found or inactive',
           }),
         );
-      const nextBalance = Number(
-        (Number(account.balance) + dto.amount).toFixed(2),
-      );
-      if (
-        account.type === AccountType.FAWRY &&
-        nextBalance > FAWRY_MAX_BALANCE
-      ) {
-        throw new BadRequestException({
-          message: msg({
-            ar: 'سيتم تجاوز الحد الأقصى لحساب فوري',
-            en: 'This would exceed the Fawry account maximum',
-          }),
-          limit: FAWRY_MAX_BALANCE,
-          available: Math.max(0, FAWRY_MAX_BALANCE - Number(account.balance)),
-        });
-      }
       // QR profit accounts took over the regular profit top-up: funded from
       // the treasury with 5 EGP per 1,000 credited to the account balance.
       const profitTopUp =
@@ -211,7 +195,9 @@ export class AccountsService implements OnModuleInit {
       const depositCommission = profitTopUp
         ? regularProfitDepositCommission(dto.amount)
         : 0;
-      account.balance = Number((nextBalance + depositCommission).toFixed(2));
+      account.balance = Number(
+        (Number(account.balance) + dto.amount + depositCommission).toFixed(2),
+      );
       account.todayTopUp = Number(
         (Number(account.todayTopUp) + dto.amount).toFixed(2),
       );
@@ -476,17 +462,6 @@ export class AccountsService implements OnModuleInit {
           }),
         );
       }
-      if (Number(account.balance) + amount > FAWRY_MAX_BALANCE) {
-        throw new BadRequestException({
-          message: msg({
-            ar: 'سيتم تجاوز الحد الأقصى لحساب فوري',
-            en: 'This would exceed the Fawry account maximum',
-          }),
-          limit: FAWRY_MAX_BALANCE,
-          available: Math.max(0, FAWRY_MAX_BALANCE - Number(account.balance)),
-        });
-      }
-
       await this.debitTopUpTreasury(manager, amount);
       account.balance = Number((Number(account.balance) + amount).toFixed(2));
       account.todayTopUp = Number(
@@ -699,16 +674,6 @@ export class AccountsService implements OnModuleInit {
 
       let ledgerEntryId: string | null = null;
       if (normalized > 0) {
-        if (Number(account.balance) + normalized > FAWRY_MAX_BALANCE) {
-          throw new BadRequestException({
-            message: msg({
-              ar: 'سيتم تجاوز الحد الأقصى لحساب فوري',
-              en: 'This would exceed the Fawry account maximum',
-            }),
-            limit: FAWRY_MAX_BALANCE,
-            available: Math.max(0, FAWRY_MAX_BALANCE - Number(account.balance)),
-          });
-        }
         account.balance = Number(
           (Number(account.balance) + normalized).toFixed(2),
         );

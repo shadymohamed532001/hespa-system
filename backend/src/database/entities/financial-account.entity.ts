@@ -65,6 +65,21 @@ export class FinancialAccount {
   @Column({ name: 'open_limit', default: false })
   openLimit: boolean;
 
+  /** Fawry only: collections executed on the account during `withdrawCounterDay`. */
+  @Column({
+    name: 'daily_withdrawn',
+    type: 'numeric',
+    precision: 16,
+    scale: 2,
+    default: 0,
+    transformer: decimalTransformer,
+  })
+  dailyWithdrawn: number;
+
+  /** Cairo business day that `dailyWithdrawn` belongs to. */
+  @Column({ name: 'withdraw_counter_day', type: 'date', nullable: true })
+  withdrawCounterDay: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 

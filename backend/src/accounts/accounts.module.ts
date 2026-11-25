@@ -9,6 +9,7 @@ import { NotificationsModule } from '../notifications/notifications.module.js';
 import { AccountsController } from './accounts.controller.js';
 import { AccountsService } from './accounts.service.js';
 import { FawryDropReminderService } from './fawry-drop-reminder.service.js';
+import { FawryLimitNoticeService } from './fawry-limit-notice.service.js';
 
 @Module({
   imports: [
@@ -22,7 +23,11 @@ import { FawryDropReminderService } from './fawry-drop-reminder.service.js';
     NotificationsModule,
   ],
   controllers: [AccountsController],
-  providers: [AccountsService, FawryDropReminderService],
-  exports: [AccountsService],
+  providers: [
+    AccountsService,
+    FawryDropReminderService,
+    FawryLimitNoticeService,
+  ],
+  exports: [AccountsService, FawryLimitNoticeService],
 })
 export class AccountsModule {}

@@ -1016,11 +1016,6 @@ export class OperationCorrectionsService {
       item.openingBalance = Number(
         (Number(item.openingBalance) + delta).toFixed(2),
       );
-    if (entry.entityType === 'account') {
-      const limit = item.type === 'fawry' ? 5000000 : Infinity;
-      if (item.balance > limit)
-        throw new BadRequestException('الرصيد يتجاوز الحد الأقصى للحساب');
-    }
     await manager.getRepository(entity).save(item);
   }
 

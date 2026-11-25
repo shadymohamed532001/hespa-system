@@ -221,9 +221,11 @@ class _AccountsPageState extends State<AccountsPage> {
                         ),
                         MetricCard(
                           label: isFawry
-                              ? 'الحد الأقصى لفوري'
+                              ? 'حد السحب اليومي'
                               : 'الحد الأقصى للمكسب',
-                          value: isFawry ? '5,000,000 ج.م' : 'مفتوح',
+                          value: isFawry
+                              ? money(_fawryWithdrawLimit(rows))
+                              : 'مفتوح',
                           note: isFawry
                               ? 'لكل حساب فوري'
                               : 'بدون حد أقصى للرصيد',
@@ -237,7 +239,7 @@ class _AccountsPageState extends State<AccountsPage> {
                   rows: rows,
                   canManage: widget.session.can(AppPermissions.manageAssets),
                   showProfits: widget.session.isAdmin,
-                  limit: isFawry ? _fawryLimit : null,
+                  showWithdrawLimit: isFawry,
                   onManage: _manageAccount,
                 ),
               ],
@@ -914,14 +916,14 @@ class _AccountsTable extends StatelessWidget {
     required this.rows,
     required this.canManage,
     required this.showProfits,
-    required this.limit,
+    required this.showWithdrawLimit,
     required this.onManage,
   });
 
   final List<dynamic> rows;
   final bool canManage;
   final bool showProfits;
-  final num? limit;
+  final bool showWithdrawLimit;
   final Future<void> Function(Map<String, dynamic> account) onManage;
 
   @override
@@ -956,9 +958,15 @@ class _AccountsTable extends StatelessWidget {
                       style: _headerStyle,
                     ),
                   ),
-                  if (limit != null)
+                  if (showWithdrawLimit)
                     DataColumn(
-                      label: Text('المتاح حتى الحد', style: _headerStyle),
+                      label: Text(
+                        tr(
+                          ar: 'المتاح للسحب النهارده',
+                          en: 'Withdrawable today',
+                        ),
+                        style: _headerStyle,
+                      ),
                     ),
                   if (showProfits)
                     DataColumn(
@@ -993,15 +1001,8 @@ class _AccountsTable extends StatelessWidget {
                             style: HesbaText.tableEmphasis,
                           ),
                         ),
-                        if (limit != null)
-                          DataCell(
-                            Text(
-                              money(
-                                limit! - (num.tryParse('${e['balance']}') ?? 0),
-                              ),
-                              style: HesbaText.tableCell,
-                            ),
-                          ),
+                        if (showWithdrawLimit)
+                          DataCell(_WithdrawLimitCell(account: e as Map)),
                         if (showProfits)
                           DataCell(
                             Text(
@@ -1047,7 +1048,56 @@ class _AccountsTable extends StatelessWidget {
   }
 }
 
-const _fawryLimit = 5000000;
+/// Fawry caps what each account pays out per day; the server sends the limit.
+const _defaultFawryWithdrawLimit = 5000000;
+
+num _fawryWithdrawLimit(List<dynamic> rows) {
+  for (final row in rows) {
+    final limit = num.tryParse('${(row as Map)['withdrawLimit']}');
+    if (limit != null) return limit;
+  }
+  return _defaultFawryWithdrawLimit;
+}
+
+class _WithdrawLimitCell extends StatelessWidget {
+  const _WithdrawLimitCell({required this.account});
+
+  final Map account;
+
+  @override
+  Widget build(BuildContext context) {
+    final limit =
+        num.tryParse('${account['withdrawLimit']}') ??
+        _defaultFawryWithdrawLimit;
+    final withdrawn = num.tryParse('${account['withdrawnToday']}') ?? 0;
+    final available = limit - withdrawn < 0 ? 0 : limit - withdrawn;
+    final ratio = limit == 0 ? 1 : withdrawn / limit;
+    final color = ratio >= 1
+        ? HesbaColors.red
+        : ratio >= 0.8
+        ? HesbaColors.warning
+        : null;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          money(available),
+          style: color == null
+              ? HesbaText.tableCell
+              : HesbaText.tableEmphasis.copyWith(color: color),
+        ),
+        Text(
+          tr(
+            ar: 'اتسحب النهارده ${money(withdrawn)}',
+            en: 'Withdrawn today ${money(withdrawn)}',
+          ),
+          style: HesbaText.caption,
+        ),
+      ],
+    );
+  }
+}
 
 const _headerStyle = HesbaText.tableHeader;
 

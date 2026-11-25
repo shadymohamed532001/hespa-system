@@ -5,6 +5,7 @@ import { AgentCreditPayment } from '../database/entities/agent-credit-payment.en
 import { FinancialAccount } from '../database/entities/financial-account.entity.js';
 import { LedgerEntry } from '../database/entities/ledger-entry.entity.js';
 import { Treasury } from '../database/entities/treasury.entity.js';
+import { AccountsModule } from '../accounts/accounts.module.js';
 import { WalletsModule } from '../wallets/wallets.module.js';
 import { CollectionsController } from './collections.controller.js';
 import { CollectionsService } from './collections.service.js';
@@ -19,6 +20,7 @@ import { CollectionsService } from './collections.service.js';
       Treasury,
     ]),
     WalletsModule,
+    AccountsModule,
   ],
   controllers: [CollectionsController],
   exports: [CollectionsService],
