@@ -8,7 +8,8 @@ import { AccountType, LedgerCategory } from '../database/enums.js';
 function fixture(balance = 100000) {
   const account = {
     id: 'account',
-    type: AccountType.PROFIT,
+    // QR profit accounts took over the regular profit top-up rules.
+    type: AccountType.PROFIT_QR,
     name: 'test',
     openLimit: false,
     active: true,

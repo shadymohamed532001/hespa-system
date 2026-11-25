@@ -40,6 +40,7 @@ import { CollectionsModule } from './collections/collections.module.js';
 import { ShopDebtsModule } from './shop-debts/shop-debts.module.js';
 import { ShopDebtMovement } from './database/entities/shop-debt-movement.entity.js';
 import { ShopDebts1790087699439 } from './database/migrations/1790087699439-ShopDebts.js';
+import { RetireRegularProfit1790087699440 } from './database/migrations/1790087699440-RetireRegularProfit.js';
 import {
   AppNotification,
   AgentCreditPayment,
@@ -144,6 +145,7 @@ import { WalletsModule } from './wallets/wallets.module.js';
           ProfitBasicOpenLimit1790087699437,
           PurchaseVisaOptionalCard1790087699438,
           ShopDebts1790087699439,
+          RetireRegularProfit1790087699440,
         ],
         migrationsTableName: 'schema_migrations',
         migrationsRun: config.get('MIGRATIONS_RUN', 'false') === 'true',

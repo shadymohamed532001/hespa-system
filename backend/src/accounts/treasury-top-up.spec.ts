@@ -64,13 +64,15 @@ function setup(type: AccountType, balance = 2000) {
 }
 
 describe('Account top-ups funded by treasury', () => {
-  it.each([AccountType.FAWRY, AccountType.PROFIT])(
+  it.each([AccountType.FAWRY, AccountType.PROFIT_QR])(
     'deducts principal for %s and preserves commission',
     async (type) => {
       const { service, account, treasury, ledger } = setup(type);
       await service.topUp('account', { amount: 1000 }, 'tester');
       expect(treasury.balance).toBe(1000);
-      expect(account.balance).toBe(type === AccountType.PROFIT ? 1005 : 1000);
+      expect(account.balance).toBe(
+        type === AccountType.PROFIT_QR ? 1005 : 1000,
+      );
       expect(account.todayTopUp).toBe(1000);
       expect(ledger.save).toHaveBeenCalledWith(
         expect.objectContaining({

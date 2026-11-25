@@ -173,6 +173,7 @@ describe.sequential('full system lifecycle (e2e)', () => {
       'ProfitBasicOpenLimit1790087699437',
       'PurchaseVisaOptionalCard1790087699438',
       'ShopDebts1790087699439',
+      'RetireRegularProfit1790087699440',
     ]);
   });
 

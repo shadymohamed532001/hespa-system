@@ -64,11 +64,6 @@ class _AppShellState extends State<AppShell> {
       () => AccountsPage(session: widget.session, kind: 'fawry'),
     ),
     _NavItem(
-      t.profitAccounts,
-      Icons.trending_up,
-      () => AccountsPage(session: widget.session, kind: 'profit'),
-    ),
-    _NavItem(
       t.profitQrAccounts,
       Icons.qr_code_2,
       () => AccountsPage(session: widget.session, kind: 'profit_qr'),

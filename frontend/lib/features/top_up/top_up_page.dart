@@ -74,7 +74,8 @@ class _TopUpPageState extends State<TopUpPage> {
       final targets = <_TopUpTarget>[
         ...accounts
             .where(
-              (item) => item['active'] != false && item['type'] != 'profit_qr',
+              // Regular profit accounts were retired; QR now takes top-ups.
+              (item) => item['active'] != false && item['type'] != 'profit',
             )
             .map(
               (item) => _TopUpTarget(

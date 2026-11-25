@@ -521,7 +521,7 @@ describe.sequential('admin operation corrections (e2e)', () => {
     const profit = (
       await post('/accounts', {
         name: 'Correction profit',
-        type: 'profit',
+        type: 'profit_qr',
         openingBalance: 1000,
       })
     ).body;

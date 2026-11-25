@@ -100,6 +100,7 @@ export class AccountsService implements OnModuleInit {
   }
 
   async create(dto: CreateAccountDto, username: string) {
+    assertNotRegularProfit(dto.type);
     if (
       dto.type === AccountType.FAWRY &&
       dto.openingBalance > FAWRY_MAX_BALANCE
@@ -184,14 +185,6 @@ export class AccountsService implements OnModuleInit {
             en: 'Account not found or inactive',
           }),
         );
-      if (account.type === AccountType.PROFIT_QR) {
-        throw new BadRequestException(
-          msg({
-            ar: 'حساب مكسب QR لا يُشحن مباشرة؛ استخدم عملية سحب كاش لعميل',
-            en: 'QR profit accounts cannot be topped up directly; use a customer cash-out operation',
-          }),
-        );
-      }
       const nextBalance = Number(
         (Number(account.balance) + dto.amount).toFixed(2),
       );
@@ -208,14 +201,16 @@ export class AccountsService implements OnModuleInit {
           available: Math.max(0, FAWRY_MAX_BALANCE - Number(account.balance)),
         });
       }
-      const treasuryFunded =
+      // QR profit accounts took over the regular profit top-up: funded from
+      // the treasury with 5 EGP per 1,000 credited to the account balance.
+      const profitTopUp =
         account.type === AccountType.PROFIT ||
-        account.type === AccountType.FAWRY;
+        account.type === AccountType.PROFIT_QR;
+      const treasuryFunded = profitTopUp || account.type === AccountType.FAWRY;
       if (treasuryFunded) await this.debitTopUpTreasury(manager, dto.amount);
-      const depositCommission =
-        account.type === AccountType.PROFIT
-          ? regularProfitDepositCommission(dto.amount)
-          : 0;
+      const depositCommission = profitTopUp
+        ? regularProfitDepositCommission(dto.amount)
+        : 0;
       account.balance = Number((nextBalance + depositCommission).toFixed(2));
       account.todayTopUp = Number(
         (Number(account.todayTopUp) + dto.amount).toFixed(2),
@@ -757,6 +752,7 @@ export class AccountsService implements OnModuleInit {
       throw new NotFoundException(
         msg({ ar: 'الحساب غير موجود', en: 'Account not found' }),
       );
+    if (active) assertNotRegularProfit(account.type);
     account.active = active;
     return this.accounts.save(account);
   }
@@ -872,4 +868,16 @@ function fawryCashDescription(counts: FawryCashCounts): string {
     .filter(([, count]) => count > 0)
     .map(([value, count]) => `${value}×${count}`);
   return parts.join('، ');
+}
+
+/** Regular profit accounts were retired; QR profit accounts replace them. */
+function assertNotRegularProfit(type: AccountType) {
+  if (type === AccountType.PROFIT) {
+    throw new BadRequestException(
+      msg({
+        ar: 'حساب المكسب العادي اتلغى؛ استخدم حساب مكسب QR',
+        en: 'Regular profit accounts were retired; use a QR profit account',
+      }),
+    );
+  }
 }

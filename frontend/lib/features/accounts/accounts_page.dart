@@ -116,7 +116,7 @@ class _AccountsPageState extends State<AccountsPage> {
                 ? 'عمولة فوري مش بتتحسب مع العملية. النزلة اليومية بتزيد رصيد الحساب'
                 : 'متابعة الرصيد والترحيل لكل حساب'
           : isProfitQr
-          ? 'العميل يحوّل على QR ثم يستلم كاش: عمولة العميل ٥ جنيه لحد ٥٠٠، و١٠ جنيه لحد ألف، وفوق ألف ١٠ جنيه لكل ألف، وخصم مكسب ٢ جنيه لكل ألف. التوريد من الحساب عليه خصم ٤ جنيه لكل ألف.'
+          ? 'الشحن من الخزنة ويضيف ٥ جنيه لكل ألف على رصيد الحساب. العميل يحوّل على QR ثم يستلم كاش: عمولة العميل ٥ جنيه لحد ٥٠٠، و١٠ جنيه لحد ألف، وفوق ألف ١٠ جنيه لكل ألف، وخصم مكسب ٢ جنيه لكل ألف. التوريد من الحساب عليه خصم ٤ جنيه لكل ألف.'
           : 'حسابات المكسب العادي من غير حد أقصى للرصيد. الشحن يضيف ٥ جنيه لكل ألف إلى رصيد الحساب، والتحويل يخصم ٤ جنيه لكل ألف من العمولات.',
       actions: [
         if (isFawry)
@@ -142,8 +142,9 @@ class _AccountsPageState extends State<AccountsPage> {
             onPressed: loading ? null : _profitQrCashOut,
             icon: const Icon(Icons.payments_outlined, size: 18),
             label: const Text('سحب كاش لعميل'),
-          )
-        else if (widget.session.can(AppPermissions.topUpAssets))
+          ),
+        // QR profit accounts took over the regular profit top-up.
+        if (widget.session.can(AppPermissions.topUpAssets))
           FilledButton.icon(
             onPressed: () => _chooseTopUp(context),
             icon: const Icon(Icons.account_balance_wallet_outlined, size: 18),
@@ -209,7 +210,7 @@ class _AccountsPageState extends State<AccountsPage> {
                             note: isFawry
                                 ? 'نزلة فوري داخلة في رصيد الحساب'
                                 : isProfitQr
-                                ? 'عمولة العميل للخزنة؛ خصم استقبال ٢ وتوريد ٤ لكل ألف'
+                                ? 'زيادة الشحن ٥ لكل ألف تدخل الرصيد؛ عمولة العميل للخزنة؛ خصم استقبال ٢ وتوريد ٤ لكل ألف'
                                 : 'زيادة الشحن تدخل الرصيد، و٤ جنيه تخصم من العمولات لكل ألف تحويل',
                             accent: true,
                           ),
@@ -218,16 +219,15 @@ class _AccountsPageState extends State<AccountsPage> {
                           value: '${rows.length}',
                           note: 'يشمل الحسابات الموقوفة',
                         ),
-                        if (!isProfitQr)
-                          MetricCard(
-                            label: isFawry
-                                ? 'الحد الأقصى لفوري'
-                                : 'الحد الأقصى للمكسب',
-                            value: isFawry ? '5,000,000 ج.م' : 'مفتوح',
-                            note: isFawry
-                                ? 'لكل حساب فوري'
-                                : 'بدون حد أقصى للرصيد',
-                          ),
+                        MetricCard(
+                          label: isFawry
+                              ? 'الحد الأقصى لفوري'
+                              : 'الحد الأقصى للمكسب',
+                          value: isFawry ? '5,000,000 ج.م' : 'مفتوح',
+                          note: isFawry
+                              ? 'لكل حساب فوري'
+                              : 'بدون حد أقصى للرصيد',
+                        ),
                       ],
                     );
                   },

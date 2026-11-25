@@ -1202,39 +1202,22 @@ describe('financial operations (e2e)', () => {
       .expect(201);
   });
 
-  it('creates a profit account', async () => {
-    const name = `مكسب ${randomUUID()}`;
-    const created = await request(app.getHttpServer())
+  it('no longer creates regular profit accounts', async () => {
+    await request(app.getHttpServer())
       .post('/api/accounts')
       .set(mutation(`create-profit-${randomUUID()}`))
-      .send({
-        name,
-        type: 'profit',
-        openingBalance: 250,
-      })
-      .expect(201);
-    expect(created.body.type).toBe('profit');
-    expect(created.body.balance).toBe(250);
-
-    const accounts = await request(app.getHttpServer())
-      .get('/api/accounts')
-      .set('Authorization', `Bearer ${token}`)
-      .expect(200);
-    expect(
-      (accounts.body as Array<{ name: string; type: string }>).some(
-        (item) => item.name === name && item.type === 'profit',
-      ),
-    ).toBe(true);
+      .send({ name: `مكسب ${randomUUID()}`, type: 'profit', openingBalance: 0 })
+      .expect(400);
   });
 
-  it('credits 5 per thousand on a regular profit top-up and takes 4 per thousand on transfer out', async () => {
+  it('tops up a QR profit account like the retired regular profit: 5 per thousand, no ceiling', async () => {
     const suffix = randomUUID();
     const profit = await request(app.getHttpServer())
       .post('/api/accounts')
       .set(mutation(`profit-rules-${suffix}`))
       .send({
-        name: `مكسب عادي ${suffix}`,
-        type: 'profit',
+        name: `مكسب QR ${suffix}`,
+        type: 'profit_qr',
         openingBalance: 0,
       })
       .expect(201);
@@ -1256,7 +1239,7 @@ describe('financial operations (e2e)', () => {
     expect(topped.body.balance).toBe(1005);
     expect(topped.body.commissionBalance).toBe(0);
 
-    // Regular profit accounts have no balance ceiling.
+    // No balance ceiling, as regular profit accounts had.
     await fundTreasury(1_000_000);
     const large = await request(app.getHttpServer())
       .post(`/api/accounts/${profit.body.id}/top-up`)
@@ -1288,7 +1271,8 @@ describe('financial operations (e2e)', () => {
         commissionBalance: number;
       }>
     ).find((item) => item.id === profit.body.id);
-    expect(updated?.balance).toBe(1_005_005);
+    // QR transfers out still cost 4 per thousand on top of the amount.
+    expect(updated?.balance).toBe(1_005_001);
     expect(updated?.commissionBalance).toBe(-4);
   });
 
@@ -1304,7 +1288,7 @@ describe('financial operations (e2e)', () => {
       const account = await request(app.getHttpServer())
         .post('/api/accounts')
         .set(mutation(`profit-account-${suffix}`))
-        .send({ name: `مكسب ${suffix}`, type: 'profit', openingBalance: 0 })
+        .send({ name: `مكسب ${suffix}`, type: 'profit_qr', openingBalance: 0 })
         .expect(201);
       await fundTreasury(1_000_000);
       await request(app.getHttpServer())
@@ -1374,12 +1358,6 @@ describe('financial operations (e2e)', () => {
         })
         .expect(201);
       expect(account.body.type).toBe('profit_qr');
-
-      await request(app.getHttpServer())
-        .post(`/api/accounts/${account.body.id}/top-up`)
-        .set(mutation(`profit-qr-topup-${suffix}`))
-        .send({ amount: 1000 })
-        .expect(400);
 
       const wallet = await request(app.getHttpServer())
         .post('/api/wallets')
